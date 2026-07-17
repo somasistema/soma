@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F7F7F5;
+  --foreground: #1C2321;
+  --muted: #F0EEE7;
+  --muted-foreground: #6B6A62;
+  --border: #E3E0D6;
+  --brand: #10182B;
+  --brand-foreground: #B8863C;
+  --accent: #B8863C;
+  --accent-foreground: #1C2321;
+  --status-pendente: #B8863C;
+  --status-aceito: #3E7C59;
+  --status-pago: #2F6690;
+  --status-liberado: #1F8A70;
+  --status-reprovado: #B23A3A;
+  --card: #FFFFFF;
+  --radius: 0.65rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-status-pendente: var(--status-pendente);
+  --color-status-aceito: var(--status-aceito);
+  --color-status-pago: var(--status-pago);
+  --color-status-liberado: var(--status-liberado);
+  --color-status-reprovado: var(--status-reprovado);
+  --color-card: var(--card);
+  --radius-radius: var(--radius);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif-doc: var(--font-source-serif);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.font-serif-doc {
+  font-family: var(--font-serif-doc);
+}
