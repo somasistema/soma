@@ -40,7 +40,16 @@ export default async function OrcamentoDetalhePage({
       .returns<OrcamentoServico[]>(),
   ]);
 
-  const linkAceite = `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/aceite/${orcamento.cd_token_aceite}`;
+  // NEXT_PUBLIC_VERCEL_URL é injetada automaticamente pela Vercel em todo
+  // deploy (preview e produção) com o domínio real, sem precisar configurar
+  // manualmente. Só não existe rodando local (`npm run dev`), daí o fallback
+  // final pro localhost:3000.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : "http://localhost:3000");
+  const linkAceite = `${siteUrl}/aceite/${orcamento.cd_token_aceite}`;
 
   return (
     <div className="flex flex-col gap-6">
