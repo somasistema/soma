@@ -29,7 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="flex w-60 flex-col justify-between border-r border-border bg-card p-4">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col justify-between overflow-y-auto border-r border-border bg-card p-4">
         <div>
           <Logo size="sm" className="px-2" />
           <SidebarNav items={itensVisiveis} />
@@ -51,7 +51,7 @@ export default async function DashboardLayout({
           </form>
         </div>
       </aside>
-      <main className="flex-1 p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-8">{children}</main>
     </div>
   );
 }
