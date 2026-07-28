@@ -219,7 +219,9 @@ export const STATUS_DOCUMENTO_LABEL: Record<StatusDocumento, string> = {
 export interface Andamento {
   cd_andamento: string;
   cd_processo: string;
-  cd_despachante: string;
+  // Gerado automaticamente por trigger a cada movimento do processo —
+  // fica NULL quando o processo ainda não tem despachante atribuído.
+  cd_despachante: string | null;
   nm_etapa: string;
   ds_andamento: string;
   ts_criacao: string;

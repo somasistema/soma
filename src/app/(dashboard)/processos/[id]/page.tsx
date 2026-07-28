@@ -14,11 +14,9 @@ import {
   type Pendencia,
   type Processo,
 } from "@/types/database";
-import { AndamentoForm } from "./andamento-form";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 
-const PODE_REGISTRAR_ANDAMENTO = new Set(["master", "despachante"]);
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
 const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
 
@@ -46,10 +44,10 @@ export default async function ProcessoDetalhePage({
     supabase
       .schema("soma")
       .from("andamentos")
-      .select("*")
+      .select("*, usuarios(nm_usuario)")
       .eq("cd_processo", id)
       .order("ts_criacao", { ascending: false })
-      .returns<Andamento[]>(),
+      .returns<(Andamento & { usuarios: { nm_usuario: string } | null })[]>(),
     supabase
       .schema("soma")
       .from("pendencias")
@@ -163,7 +161,9 @@ export default async function ProcessoDetalhePage({
           <CardTitle>Log de andamentos</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {PODE_REGISTRAR_ANDAMENTO.has(usuario.tp_role) && <AndamentoForm cdProcesso={id} />}
+          <p className="text-xs text-muted-foreground">
+            Registrado automaticamente a cada movimento do processo — não precisa preencher.
+          </p>
 
           {andamentos && andamentos.length > 0 ? (
             <div className="flex flex-col gap-2">
@@ -172,10 +172,13 @@ export default async function ProcessoDetalhePage({
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-foreground">{andamento.nm_etapa}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatarData(andamento.ts_criacao)}
+                      {new Date(andamento.ts_criacao).toLocaleString("pt-BR")}
                     </p>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{andamento.ds_andamento}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {andamento.usuarios?.nm_usuario ?? "Sistema"}
+                  </p>
                 </div>
               ))}
             </div>
