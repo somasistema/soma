@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Imobiliaria, Servico } from "@/types/database";
+import type { Imobiliaria, ServicoComPrecos } from "@/types/database";
 import { OrcamentoForm } from "./orcamento-form";
 
 export default async function NovoOrcamentoPage() {
@@ -16,10 +16,11 @@ export default async function NovoOrcamentoPage() {
     supabase
       .schema("soma")
       .from("servicos")
-      .select("*")
+      .select("*, servico_precos(*)")
       .eq("sn_ativo", true)
+      .order("nm_categoria")
       .order("nm_servico")
-      .returns<Servico[]>(),
+      .returns<ServicoComPrecos[]>(),
   ]);
 
   return (

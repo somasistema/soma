@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Processo, Servico } from "@/types/database";
+import type { Processo, ServicoComPrecos } from "@/types/database";
 import { OrcamentoComplementarForm } from "./orcamento-complementar-form";
 
 export default async function OrcamentoComplementarPage({
@@ -16,10 +16,11 @@ export default async function OrcamentoComplementarPage({
     supabase
       .schema("soma")
       .from("servicos")
-      .select("*")
+      .select("*, servico_precos(*)")
       .eq("sn_ativo", true)
+      .order("nm_categoria")
       .order("nm_servico")
-      .returns<Servico[]>(),
+      .returns<ServicoComPrecos[]>(),
   ]);
 
   if (!processo) {

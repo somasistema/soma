@@ -8,7 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { formatarMoeda } from "@/lib/utils";
-import { TIPO_PROCESSO_LABEL, type Imobiliaria, type Servico, type TipoProcesso } from "@/types/database";
+import {
+  CIDADES_SERVICO,
+  LOCAIS_SERVICO,
+  LOCAL_SERVICO_LABEL,
+  TIPO_PROCESSO_LABEL,
+  type Imobiliaria,
+  type ServicoComPrecos,
+  type TipoProcesso,
+} from "@/types/database";
 import { criarOrcamento, type ItemOrcamentoInput } from "./actions";
 
 interface ItemLinha extends ItemOrcamentoInput {
@@ -22,7 +30,7 @@ export function OrcamentoForm({
   servicos,
 }: {
   imobiliarias: Imobiliaria[];
-  servicos: Servico[];
+  servicos: ServicoComPrecos[];
 }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -31,11 +39,20 @@ export function OrcamentoForm({
   const [cdImobiliaria, setCdImobiliaria] = useState(imobiliarias[0]?.cd_imobiliaria ?? "");
   const [nmCompradorConvidado, setNmCompradorConvidado] = useState("");
   const [dsTelefoneComprador, setDsTelefoneComprador] = useState("");
-  const [nmCidade, setNmCidade] = useState("");
+  const [nmCidade, setNmCidade] = useState<string>(CIDADES_SERVICO[0]);
   const [dtValidade, setDtValidade] = useState("");
 
   const [cdServicoSelecionado, setCdServicoSelecionado] = useState(servicos[0]?.cd_servico ?? "");
   const [itens, setItens] = useState<ItemLinha[]>([]);
+
+  const servicosPorLocal = useMemo(() => {
+    const grupos = new Map<string, ServicoComPrecos[]>();
+    for (const local of LOCAIS_SERVICO) {
+      const doLocal = servicos.filter((s) => s.tp_local === local);
+      if (doLocal.length > 0) grupos.set(local, doLocal);
+    }
+    return grupos;
+  }, [servicos]);
 
   const totais = useMemo(() => {
     const honorarios = itens
@@ -51,6 +68,8 @@ export function OrcamentoForm({
     const servico = servicos.find((s) => s.cd_servico === cdServicoSelecionado);
     if (!servico) return;
 
+    const precoCidade = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
+
     setItens((atual) => [
       ...atual,
       {
@@ -58,7 +77,7 @@ export function OrcamentoForm({
         cd_servico: servico.cd_servico,
         ds_descricao: servico.nm_servico,
         tp_servico: servico.tp_servico,
-        vl_unitario: servico.vl_servico,
+        vl_unitario: precoCidade ?? 0,
         nr_quantidade: 1,
       },
     ]);
@@ -67,6 +86,12 @@ export function OrcamentoForm({
   function atualizarQuantidade(cd_item: string, nr_quantidade: number) {
     setItens((atual) =>
       atual.map((item) => (item.cd_item === cd_item ? { ...item, nr_quantidade } : item))
+    );
+  }
+
+  function atualizarValorUnitario(cd_item: string, vl_unitario: number) {
+    setItens((atual) =>
+      atual.map((item) => (item.cd_item === cd_item ? { ...item, vl_unitario } : item))
     );
   }
 
@@ -154,7 +179,20 @@ export function OrcamentoForm({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="nm_cidade">Cidade</Label>
-              <Input id="nm_cidade" value={nmCidade} onChange={(e) => setNmCidade(e.target.value)} />
+              <Select
+                id="nm_cidade"
+                value={nmCidade}
+                onChange={(e) => setNmCidade(e.target.value)}
+              >
+                {CIDADES_SERVICO.map((cidade) => (
+                  <option key={cidade} value={cidade}>
+                    {cidade}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Define o valor de cada serviço adicionado abaixo.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="dt_validade">Validade</Label>
@@ -182,10 +220,22 @@ export function OrcamentoForm({
                   value={cdServicoSelecionado}
                   onChange={(e) => setCdServicoSelecionado(e.target.value)}
                 >
-                  {servicos.map((servico) => (
-                    <option key={servico.cd_servico} value={servico.cd_servico}>
-                      {servico.nm_servico} — {formatarMoeda(servico.vl_servico)}
-                    </option>
+                  {Array.from(servicosPorLocal.entries()).map(([local, doLocal]) => (
+                    <optgroup key={local} label={`${local} — ${LOCAL_SERVICO_LABEL[local as keyof typeof LOCAL_SERVICO_LABEL]}`}>
+                      {doLocal.map((servico) => {
+                        const preco = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
+                        const rotuloPreco = servico.sn_valor_variavel
+                          ? "valor variável"
+                          : preco != null
+                            ? formatarMoeda(preco)
+                            : "sem preço nesta cidade";
+                        return (
+                          <option key={servico.cd_servico} value={servico.cd_servico}>
+                            [{servico.nm_categoria}] {servico.nm_servico} — {rotuloPreco}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
                   ))}
                 </Select>
               </div>
@@ -224,7 +274,18 @@ export function OrcamentoForm({
                           className="h-8 w-20"
                         />
                       </td>
-                      <td className="px-3 py-2">{formatarMoeda(item.vl_unitario)}</td>
+                      <td className="px-3 py-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.vl_unitario}
+                          onChange={(e) =>
+                            atualizarValorUnitario(item.cd_item, Number(e.target.value) || 0)
+                          }
+                          className="h-8 w-28"
+                        />
+                      </td>
                       <td className="px-3 py-2 text-right">
                         {formatarMoeda(item.vl_unitario * item.nr_quantidade)}
                       </td>

@@ -47,16 +47,73 @@ export interface Imobiliaria {
   ts_criacao: string;
 }
 
+export type LocalServico =
+  | "CRI"
+  | "NOTAS"
+  | "RCPN"
+  | "SEFAZ"
+  | "SEDUR"
+  | "RF"
+  | "TJ"
+  | "TRT"
+  | "TRF"
+  | "SOMA";
+
 export interface Servico {
   cd_servico: string;
+  cd_codigo: string | null;
+  tp_local: LocalServico | null;
+  nm_categoria: string | null;
   nm_servico: string;
   ds_descricao: string | null;
+  ds_checklist: string | null;
   tp_servico: TipoServico;
-  vl_servico: number;
+  sn_valor_variavel: boolean;
   sn_ativo: boolean;
   ts_criacao: string;
   ts_atualizacao: string;
 }
+
+export interface ServicoPreco {
+  cd_servico_preco: string;
+  cd_servico: string;
+  nm_cidade: string;
+  vl_valor: number;
+}
+
+export type ServicoComPrecos = Servico & { servico_precos: ServicoPreco[] };
+
+// As 3 cidades onde a SOMA opera hoje — dirigem a busca de preço no
+// catálogo (soma.servico_precos). Adicionar uma cidade nova aqui não
+// exige migration, só cadastrar os preços dela nos serviços.
+export const CIDADES_SERVICO = ["Salvador", "Lauro de Freitas", "Camaçari"] as const;
+
+export const LOCAL_SERVICO_LABEL: Record<LocalServico, string> = {
+  CRI: "Cartório de Registro de Imóveis",
+  NOTAS: "Tabelionato de Notas",
+  RCPN: "Registro Civil de Pessoas Naturais",
+  SEFAZ: "SEFAZ / Prefeitura (IPTU, ITIV)",
+  SEDUR: "SEDUR",
+  RF: "Receita Federal",
+  TJ: "Tribunal de Justiça",
+  TRT: "Tribunal Regional do Trabalho",
+  TRF: "Tribunal Regional Federal",
+  SOMA: "Serviços SOMA",
+};
+
+// Ordem de exibição das abas — do mais usado ao mais raro.
+export const LOCAIS_SERVICO: LocalServico[] = [
+  "CRI",
+  "NOTAS",
+  "RCPN",
+  "SEFAZ",
+  "SEDUR",
+  "SOMA",
+  "RF",
+  "TJ",
+  "TRT",
+  "TRF",
+];
 
 export interface Processo {
   cd_processo: string;
