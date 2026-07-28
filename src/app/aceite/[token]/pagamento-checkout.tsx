@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { initMercadoPago, Payment } from "@mercadopago/sdk-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FadeIn } from "@/components/motion/fade-in";
 import { formatarMoeda } from "@/lib/utils";
 import { criarPagamento, type PagamentoFormData } from "./pagamento-actions";
 
@@ -35,12 +36,16 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
   }
 
   if (aprovado) {
-    return <p className="text-sm text-status-aceito">Pagamento aprovado! Obrigado.</p>;
+    return (
+      <FadeIn>
+        <p className="text-sm text-status-aceito">Pagamento aprovado! Obrigado.</p>
+      </FadeIn>
+    );
   }
 
   if (resultadoPix) {
     return (
-      <div className="flex flex-col items-center gap-3 text-center">
+      <FadeIn className="flex flex-col items-center gap-3 text-center">
         <p className="text-sm text-foreground">
           Escaneie o QR Code no app do seu banco para pagar via Pix:
         </p>
@@ -56,57 +61,59 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
         <p className="text-xs text-muted-foreground">
           A confirmação é automática assim que o pagamento for identificado.
         </p>
-      </div>
+      </FadeIn>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pagamento — {formatarMoeda(valor)}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {!pronto && <p className="mb-2 text-sm text-muted-foreground">Carregando formulário de pagamento...</p>}
-        <Payment
-          initialization={{ amount: valor }}
-          customization={{
-            paymentMethods: {
-              creditCard: "all",
-              bankTransfer: "all", // Pix
-              maxInstallments: 12,
-            },
-          }}
-          onReady={() => setPronto(true)}
-          onError={() => setErro("Não foi possível carregar o formulário de pagamento.")}
-          onSubmit={async ({ formData }) => {
-            setErro(null);
+    <FadeIn>
+      <Card>
+        <CardHeader>
+          <CardTitle>Pagamento — {formatarMoeda(valor)}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!pronto && <p className="mb-2 text-sm text-muted-foreground">Carregando formulário de pagamento...</p>}
+          <Payment
+            initialization={{ amount: valor }}
+            customization={{
+              paymentMethods: {
+                creditCard: "all",
+                bankTransfer: "all", // Pix
+                maxInstallments: 12,
+              },
+            }}
+            onReady={() => setPronto(true)}
+            onError={() => setErro("Não foi possível carregar o formulário de pagamento.")}
+            onSubmit={async ({ formData }) => {
+              setErro(null);
 
-            const resultado = await criarPagamento(token, formData as PagamentoFormData);
+              const resultado = await criarPagamento(token, formData as PagamentoFormData);
 
-            if (!resultado.sucesso) {
-              setErro(resultado.erro);
-              throw new Error(resultado.erro);
-            }
+              if (!resultado.sucesso) {
+                setErro(resultado.erro);
+                throw new Error(resultado.erro);
+              }
 
-            if (resultado.status === "approved") {
-              setAprovado(true);
-              router.refresh();
-              return;
-            }
+              if (resultado.status === "approved") {
+                setAprovado(true);
+                router.refresh();
+                return;
+              }
 
-            if (resultado.pixQrCode && resultado.pixQrCodeBase64) {
-              setResultadoPix({ qrCode: resultado.pixQrCode, qrCodeBase64: resultado.pixQrCodeBase64 });
-              return;
-            }
+              if (resultado.pixQrCode && resultado.pixQrCodeBase64) {
+                setResultadoPix({ qrCode: resultado.pixQrCode, qrCodeBase64: resultado.pixQrCodeBase64 });
+                return;
+              }
 
-            // Cartão pendente/em análise, boleto, etc.
-            setErro(
-              `Pagamento em análise (status: ${resultado.status}). Você será notificado quando for confirmado.`
-            );
-          }}
-        />
-        {erro && <p className="mt-2 text-sm text-status-reprovado">{erro}</p>}
-      </CardContent>
-    </Card>
+              // Cartão pendente/em análise, boleto, etc.
+              setErro(
+                `Pagamento em análise (status: ${resultado.status}). Você será notificado quando for confirmado.`
+              );
+            }}
+          />
+          {erro && <p className="mt-2 text-sm text-status-reprovado">{erro}</p>}
+        </CardContent>
+      </Card>
+    </FadeIn>
   );
 }

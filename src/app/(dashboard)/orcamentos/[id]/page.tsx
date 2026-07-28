@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FadeIn } from "@/components/motion/fade-in";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import type { Orcamento, OrcamentoServico, Processo } from "@/types/database";
@@ -55,7 +56,7 @@ export default async function OrcamentoDetalhePage({
   const linkAceite = `${siteUrl}/aceite/${orcamento.cd_token_aceite}`;
 
   return (
-    <div className="flex flex-col gap-6">
+    <FadeIn className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
           Processo {processo?.ds_numero_processo}
@@ -151,6 +152,6 @@ export default async function OrcamentoDetalhePage({
       </Card>
 
       <DocumentosSection cdProcesso={orcamento.cd_processo} />
-    </div>
+    </FadeIn>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -91,7 +92,12 @@ export function OrcamentoAceiteFluxo({
           </thead>
           <tbody>
             {itens.map((item) => (
-              <tr key={item.cd_orcamento_servico} className="border-t border-border">
+              <motion.tr
+                key={item.cd_orcamento_servico}
+                animate={{ opacity: selecionados[item.cd_orcamento_servico] ? 1 : 0.4 }}
+                transition={{ duration: 0.2 }}
+                className="border-t border-border"
+              >
                 <td className="py-2">
                   <Checkbox
                     checked={!!selecionados[item.cd_orcamento_servico]}
@@ -105,7 +111,7 @@ export function OrcamentoAceiteFluxo({
                 <td className="py-2">{item.nr_quantidade}</td>
                 <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
                 <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>
@@ -113,9 +119,15 @@ export function OrcamentoAceiteFluxo({
         <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
           <p className="text-muted-foreground">Honorários selecionados: {formatarMoeda(totais.honorarios)}</p>
           <p className="text-muted-foreground">Custas selecionadas: {formatarMoeda(totais.custas)}</p>
-          <p className="font-serif-doc text-lg font-semibold text-foreground">
+          <motion.p
+            key={totais.total}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="font-serif-doc text-lg font-semibold text-foreground"
+          >
             Total a aceitar: {formatarMoeda(totais.total)}
-          </p>
+          </motion.p>
         </div>
       </div>
 

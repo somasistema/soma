@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatarData } from "@/lib/utils";
@@ -54,9 +55,9 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
         {documentosComUrl.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum documento enviado ainda.</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <StaggerList className="flex flex-col gap-2">
             {documentosComUrl.map((documento) => (
-              <div
+              <StaggerItem
                 key={documento.cd_documento}
                 className="flex flex-col gap-2 rounded-radius border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
               >
@@ -94,9 +95,9 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
                     <DocumentoValidarBotoes cdDocumento={documento.cd_documento} />
                   )}
                 </div>
-              </div>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerList>
         )}
       </CardContent>
     </Card>

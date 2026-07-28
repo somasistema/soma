@@ -7,11 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { ServicoCombobox } from "@/components/servico-combobox";
 import { formatarMoeda } from "@/lib/utils";
 import {
   CIDADES_SERVICO,
-  LOCAIS_SERVICO,
-  LOCAL_SERVICO_LABEL,
   TIPO_PROCESSO_LABEL,
   type Imobiliaria,
   type ServicoComPrecos,
@@ -44,15 +43,6 @@ export function OrcamentoForm({
 
   const [cdServicoSelecionado, setCdServicoSelecionado] = useState(servicos[0]?.cd_servico ?? "");
   const [itens, setItens] = useState<ItemLinha[]>([]);
-
-  const servicosPorLocal = useMemo(() => {
-    const grupos = new Map<string, ServicoComPrecos[]>();
-    for (const local of LOCAIS_SERVICO) {
-      const doLocal = servicos.filter((s) => s.tp_local === local);
-      if (doLocal.length > 0) grupos.set(local, doLocal);
-    }
-    return grupos;
-  }, [servicos]);
 
   const totais = useMemo(() => {
     const honorarios = itens
@@ -215,29 +205,12 @@ export function OrcamentoForm({
             <div className="flex items-end gap-3">
               <div className="flex flex-1 flex-col gap-1.5">
                 <Label htmlFor="cd_servico">Serviço</Label>
-                <Select
-                  id="cd_servico"
+                <ServicoCombobox
+                  servicos={servicos}
+                  nmCidade={nmCidade}
                   value={cdServicoSelecionado}
-                  onChange={(e) => setCdServicoSelecionado(e.target.value)}
-                >
-                  {Array.from(servicosPorLocal.entries()).map(([local, doLocal]) => (
-                    <optgroup key={local} label={`${local} — ${LOCAL_SERVICO_LABEL[local as keyof typeof LOCAL_SERVICO_LABEL]}`}>
-                      {doLocal.map((servico) => {
-                        const preco = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
-                        const rotuloPreco = servico.sn_valor_variavel
-                          ? "valor variável"
-                          : preco != null
-                            ? formatarMoeda(preco)
-                            : "sem preço nesta cidade";
-                        return (
-                          <option key={servico.cd_servico} value={servico.cd_servico}>
-                            [{servico.nm_categoria}] {servico.nm_servico} — {rotuloPreco}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  ))}
-                </Select>
+                  onChange={setCdServicoSelecionado}
+                />
               </div>
               <Button type="button" variant="outline" onClick={adicionarItem}>
                 Adicionar

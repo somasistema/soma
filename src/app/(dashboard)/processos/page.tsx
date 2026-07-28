@@ -1,5 +1,7 @@
 import { Folder } from "lucide-react";
 import Link from "next/link";
+import { FadeIn } from "@/components/motion/fade-in";
+import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
 import { createClient } from "@/lib/supabase/server";
 import { formatarData } from "@/lib/utils";
 import { TIPO_PROCESSO_LABEL, type Processo } from "@/types/database";
@@ -18,10 +20,12 @@ export default async function ProcessosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Processos</h1>
+      <FadeIn>
+        <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Processos</h1>
+      </FadeIn>
 
       {processos && processos.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <FadeIn delay={0.06} className="overflow-hidden rounded-2xl border border-border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted text-left text-muted-foreground">
               <tr>
@@ -32,9 +36,12 @@ export default async function ProcessosPage() {
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody>
+            <StaggerTableBody>
               {processos.map((processo) => (
-                <tr key={processo.cd_processo} className="border-t border-border hover:bg-muted/50">
+                <StaggerRow
+                  key={processo.cd_processo}
+                  className="border-t border-border transition-colors hover:bg-muted/50"
+                >
                   <td className="px-4 py-3">{processo.ds_numero_processo}</td>
                   <td className="px-4 py-3">{TIPO_PROCESSO_LABEL[processo.tp_processo]}</td>
                   <td className="px-4 py-3">{processo.nm_comprador_convidado ?? "—"}</td>
@@ -47,16 +54,16 @@ export default async function ProcessosPage() {
                       Ver detalhes
                     </Link>
                   </td>
-                </tr>
+                </StaggerRow>
               ))}
-            </tbody>
+            </StaggerTableBody>
           </table>
-        </div>
+        </FadeIn>
       ) : (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+        <FadeIn className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-16 text-center">
           <Folder className="h-12 w-12 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Nenhum processo encontrado.</p>
-        </div>
+        </FadeIn>
       )}
     </div>
   );

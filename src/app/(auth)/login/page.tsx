@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
+import { FadeIn } from "@/components/motion/fade-in";
 import { ROLE_LABEL, type RoleUsuario } from "@/types/database";
 import { login, loginDemo } from "./actions";
 
@@ -30,7 +31,7 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-10">
-      <div className="flex w-full max-w-sm flex-col items-center gap-8">
+      <FadeIn className="flex w-full max-w-sm flex-col items-center gap-8">
         <Logo size="lg" stacked />
 
         <p className="-mt-4 text-center text-sm text-muted-foreground">
@@ -128,7 +129,7 @@ export default async function LoginPage({
             </CardContent>
           </Card>
         )}
-      </div>
+      </FadeIn>
     </div>
   );
 }

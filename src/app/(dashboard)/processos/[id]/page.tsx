@@ -6,6 +6,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatarData, formatarMoeda } from "@/lib/utils";
+import { FadeIn } from "@/components/motion/fade-in";
+import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import {
   STATUS_PENDENCIA_LABEL,
   TIPO_PROCESSO_LABEL,
@@ -65,7 +67,7 @@ export default async function ProcessoDetalhePage({
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <FadeIn className="flex flex-col gap-6">
       <div>
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
           Processo {processo.ds_numero_processo}
@@ -116,9 +118,9 @@ export default async function ProcessoDetalhePage({
           {PODE_CRIAR_PENDENCIA.has(usuario.tp_role) && <PendenciaForm cdProcesso={id} />}
 
           {pendencias && pendencias.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <StaggerList className="flex flex-col gap-2">
               {pendencias.map((pendencia) => (
-                <div
+                <StaggerItem
                   key={pendencia.cd_pendencia}
                   className="flex items-center justify-between gap-3 rounded-radius border border-border p-3"
                 >
@@ -147,9 +149,9 @@ export default async function ProcessoDetalhePage({
                   <span className="text-xs text-muted-foreground">
                     {STATUS_PENDENCIA_LABEL[pendencia.tp_status]}
                   </span>
-                </div>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerList>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma pendência registrada.</p>
           )}
@@ -166,9 +168,12 @@ export default async function ProcessoDetalhePage({
           </p>
 
           {andamentos && andamentos.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <StaggerList className="flex flex-col gap-2">
               {andamentos.map((andamento) => (
-                <div key={andamento.cd_andamento} className="rounded-radius border border-border p-3">
+                <StaggerItem
+                  key={andamento.cd_andamento}
+                  className="rounded-radius border border-border p-3"
+                >
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-foreground">{andamento.nm_etapa}</p>
                     <p className="text-xs text-muted-foreground">
@@ -179,14 +184,14 @@ export default async function ProcessoDetalhePage({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {andamento.usuarios?.nm_usuario ?? "Sistema"}
                   </p>
-                </div>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerList>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhum andamento registrado ainda.</p>
           )}
         </CardContent>
       </Card>
-    </div>
+    </FadeIn>
   );
 }

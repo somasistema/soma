@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FadeIn } from "@/components/motion/fade-in";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatarData, formatarMoeda } from "@/lib/utils";
 import { TIPO_PROCESSO_LABEL, type OrcamentoAceite, type StatusOrcamento } from "@/types/database";
@@ -38,7 +39,7 @@ export default async function AceitePage({
 
   return (
     <div className="flex min-h-screen justify-center bg-muted px-4 py-12">
-      <div className="flex w-full max-w-2xl flex-col gap-6">
+      <FadeIn className="flex w-full max-w-2xl flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-serif-doc text-lg font-semibold text-brand">SOMA</p>
@@ -143,7 +144,7 @@ export default async function AceitePage({
             </CardContent>
           </Card>
         )}
-      </div>
+      </FadeIn>
     </div>
   );
 }
