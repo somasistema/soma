@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FadeIn } from "@/components/motion/fade-in";
+import { createClient } from "@/lib/supabase/client";
 import { formatarMoeda } from "@/lib/utils";
 import { criarPagamento, type PagamentoFormData } from "./pagamento-actions";
 
@@ -31,6 +32,33 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
       initMercadoPago(publicKey, { locale: "pt-BR" });
     }
   }, []);
+
+  // Pix confirma de forma assíncrona (webhook do Mercado Pago, sem o
+  // comprador voltar pra essa aba) — sem isso aqui a tela ficava parada
+  // no QR Code pra sempre, mesmo com o pagamento já confirmado no banco.
+  // Verifica a cada poucos segundos e recarrega assim que o status mudar.
+  useEffect(() => {
+    if (!resultadoPix) return;
+
+    const supabase = createClient();
+    let cancelado = false;
+
+    async function verificar() {
+      const { data } = await supabase
+        .schema("soma")
+        .rpc("fn_obter_orcamento_por_token", { p_token: token });
+
+      if (!cancelado && data && data.tp_status !== "aceito") {
+        router.refresh();
+      }
+    }
+
+    const intervalo = setInterval(verificar, 4000);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, [resultadoPix, token, router]);
 
   if (!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
     return (
@@ -63,9 +91,13 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
         <p className="max-w-full break-all rounded-radius bg-muted px-3 py-2 text-xs text-muted-foreground">
           {resultadoPix.qrCode}
         </p>
-        <p className="text-xs text-muted-foreground">
-          A confirmação é automática assim que o pagamento for identificado.
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-pendente" />
+          Verificando automaticamente assim que o pagamento for identificado...
         </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => router.refresh()}>
+          Já paguei, verificar agora
+        </Button>
       </FadeIn>
     );
   }
