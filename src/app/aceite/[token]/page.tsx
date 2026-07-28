@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FadeIn } from "@/components/motion/fade-in";
+import { VALOR_FIXO_DEMONSTRACAO } from "@/lib/pagamento-config";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatarData, formatarMoeda } from "@/lib/utils";
 import { TIPO_PROCESSO_LABEL, type OrcamentoAceite, type StatusOrcamento } from "@/types/database";
@@ -131,7 +132,7 @@ export default async function AceitePage({
         )}
 
         {orcamento.tp_status === "aceito" && (
-          <PagamentoCheckout token={token} valor={orcamento.vl_total_aceito ?? orcamento.vl_total_geral} />
+          <PagamentoCheckout token={token} valor={VALOR_FIXO_DEMONSTRACAO} />
         )}
 
         {orcamento.tp_status !== "pendente" && orcamento.tp_status !== "aceito" && (

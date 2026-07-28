@@ -2,6 +2,7 @@
 
 import { Payment } from "mercadopago";
 import { getMercadoPagoClient, getSiteUrl } from "@/lib/mercadopago";
+import { VALOR_FIXO_DEMONSTRACAO } from "@/lib/pagamento-config";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { OrcamentoAceite } from "@/types/database";
 
@@ -58,7 +59,7 @@ export async function criarPagamento(
     return { sucesso: false, erro: "Este orçamento não está disponível para pagamento." };
   }
 
-  const valor = orcamento.vl_total_aceito ?? orcamento.vl_total_geral;
+  const valor = VALOR_FIXO_DEMONSTRACAO;
   const siteUrl = getSiteUrl();
 
   try {
