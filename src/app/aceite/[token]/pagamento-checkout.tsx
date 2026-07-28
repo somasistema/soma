@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { initMercadoPago, Payment } from "@mercadopago/sdk-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FadeIn } from "@/components/motion/fade-in";
 import { formatarMoeda } from "@/lib/utils";
 import { criarPagamento, type PagamentoFormData } from "./pagamento-actions";
@@ -19,6 +22,8 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
   const [erro, setErro] = useState<string | null>(null);
   const [resultadoPix, setResultadoPix] = useState<ResultadoPix | null>(null);
   const [aprovado, setAprovado] = useState(false);
+  const [temConta, setTemConta] = useState(false);
+  const [emailConta, setEmailConta] = useState("");
 
   useEffect(() => {
     const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
@@ -72,6 +77,44 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
           <CardTitle>Pagamento — {formatarMoeda(valor)}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex flex-col gap-2 rounded-radius border border-border p-3">
+            <p className="text-sm font-medium text-foreground">Você já tem uma conta na SOMA?</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={!temConta ? "default" : "outline"}
+                onClick={() => setTemConta(false)}
+              >
+                Não, é minha primeira vez
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={temConta ? "default" : "outline"}
+                onClick={() => setTemConta(true)}
+              >
+                Sim, já tenho conta
+              </Button>
+            </div>
+            {temConta && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email_conta">E-mail da sua conta</Label>
+                <Input
+                  id="email_conta"
+                  type="email"
+                  value={emailConta}
+                  onChange={(e) => setEmailConta(e.target.value)}
+                  placeholder="voce@exemplo.com"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vamos vincular este orçamento pago à sua conta existente, em vez de criar uma nova.
+                </p>
+              </div>
+            )}
+          </div>
+
           {!pronto && <p className="mb-2 text-sm text-muted-foreground">Carregando formulário de pagamento...</p>}
           <Payment
             initialization={{ amount: valor }}
@@ -87,7 +130,16 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
             onSubmit={async ({ formData }) => {
               setErro(null);
 
-              const resultado = await criarPagamento(token, formData as PagamentoFormData);
+              if (temConta && !emailConta.trim()) {
+                setErro("Informe o e-mail da sua conta existente, ou marque \"é minha primeira vez\".");
+                throw new Error("email_conta_ausente");
+              }
+
+              const resultado = await criarPagamento(
+                token,
+                formData as PagamentoFormData,
+                temConta ? emailConta.trim() : undefined
+              );
 
               if (!resultado.sucesso) {
                 setErro(resultado.erro);

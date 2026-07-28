@@ -14,6 +14,7 @@ const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
   // veem tudo).
   { href: "/processos", label: "Processos" },
   { href: "/servicos", label: "Serviços", roles: ["master"] },
+  { href: "/usuarios", label: "Usuários", roles: ["master"] },
 ];
 
 export default async function DashboardLayout({

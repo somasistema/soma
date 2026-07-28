@@ -41,7 +41,13 @@ export type CriarPagamentoState =
 // bloqueia INSERT direto do client de propósito (ver migration 002).
 export async function criarPagamento(
   token: string,
-  formData: PagamentoFormData
+  formData: PagamentoFormData,
+  // E-mail que o comprador disse ser o da conta já existente dele (tela
+  // "você já tem conta?"). Vai no metadata do pagamento — o webhook lê
+  // isso pra vincular o processo à conta certa, em vez de confiar só no
+  // e-mail que ele digitou no formulário de pagamento (podem ser
+  // diferentes: o do cartão/Pix vs. o de login).
+  emailContaExistente?: string
 ): Promise<CriarPagamentoState> {
   const supabasePublic = createPublicClient();
 
@@ -75,6 +81,7 @@ export async function criarPagamento(
         description: `Orçamento ${orcamento.processo.ds_numero_processo} — SOMA Assessoria Imobiliária`,
         external_reference: orcamento.cd_orcamento,
         notification_url: siteUrl ? `${siteUrl}/api/webhooks/mercadopago` : undefined,
+        metadata: emailContaExistente ? { email_conta_existente: emailContaExistente } : undefined,
       },
       requestOptions: { idempotencyKey: `${orcamento.cd_orcamento}-${Date.now()}` },
     });

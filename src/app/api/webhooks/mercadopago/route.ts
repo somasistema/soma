@@ -56,6 +56,10 @@ interface MercadoPagoPayment {
     first_name?: string | null;
     last_name?: string | null;
   };
+  // Preenchido em pagamento-actions.ts quando o comprador diz, na tela
+  // "você já tem conta?", que já é cadastrado — prevalece sobre
+  // payer.email (que é só o e-mail do pagamento, pode ser outro).
+  metadata?: { email_conta_existente?: string | null } | null;
 }
 
 async function buscarPagamentoNoMercadoPago(paymentId: string): Promise<MercadoPagoPayment> {
@@ -232,11 +236,12 @@ export async function POST(request: NextRequest) {
     if (orcamentoAtualizado) {
       const nomeSugerido =
         [pagamentoMp.payer?.first_name, pagamentoMp.payer?.last_name].filter(Boolean).join(" ") || null;
+      const emailParaVincular = pagamentoMp.metadata?.email_conta_existente || pagamentoMp.payer?.email;
 
       await garantirContaComprador(
         supabase,
         orcamentoAtualizado.cd_processo,
-        pagamentoMp.payer?.email,
+        emailParaVincular,
         nomeSugerido
       );
     }
