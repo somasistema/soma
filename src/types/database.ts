@@ -20,6 +20,12 @@ export type StatusOrcamento = "pendente" | "aceito" | "pago" | "liberado" | "rep
 
 export type TipoServico = "honorario" | "custa";
 
+export type PerfilDocumento = "comprador" | "vendedor" | "imovel" | "outro";
+
+export type StatusDocumento = "pendente" | "validado" | "rejeitado";
+
+export type StatusPendencia = "aberta" | "concluida" | "atrasada";
+
 export interface Usuario {
   cd_usuario: string;
   nm_usuario: string;
@@ -94,14 +100,17 @@ export interface OrcamentoServico {
   vl_unitario: number;
   nr_quantidade: number;
   vl_subtotal: number;
+  sn_selecionado: boolean;
 }
 
 export interface OrcamentoAceiteItem {
+  cd_orcamento_servico: string;
   ds_descricao: string;
   tp_servico: TipoServico;
   vl_unitario: number;
   nr_quantidade: number;
   vl_subtotal: number;
+  sn_selecionado: boolean;
 }
 
 export interface OrcamentoAceite {
@@ -112,6 +121,7 @@ export interface OrcamentoAceite {
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
+  vl_total_aceito: number | null;
   ds_pdf_url: string | null;
   processo: {
     ds_numero_processo: string;
@@ -120,6 +130,59 @@ export interface OrcamentoAceite {
   };
   itens: OrcamentoAceiteItem[];
 }
+
+export interface Documento {
+  cd_documento: string;
+  cd_processo: string;
+  cd_enviado_por: string | null;
+  tp_perfil_alvo: PerfilDocumento;
+  nm_tipo_documento: string;
+  nm_arquivo: string;
+  ds_storage_url: string;
+  tp_status: StatusDocumento;
+  cd_validador: string | null;
+  ts_validacao: string | null;
+  ds_observacoes: string | null;
+  ts_criacao: string;
+}
+
+export const PERFIL_DOCUMENTO_LABEL: Record<PerfilDocumento, string> = {
+  comprador: "Comprador",
+  vendedor: "Vendedor",
+  imovel: "Imóvel",
+  outro: "Outro",
+};
+
+export const STATUS_DOCUMENTO_LABEL: Record<StatusDocumento, string> = {
+  pendente: "Pendente",
+  validado: "Validado",
+  rejeitado: "Rejeitado",
+};
+
+export interface Andamento {
+  cd_andamento: string;
+  cd_processo: string;
+  cd_despachante: string;
+  nm_etapa: string;
+  ds_andamento: string;
+  ts_criacao: string;
+}
+
+export interface Pendencia {
+  cd_pendencia: string;
+  cd_processo: string;
+  cd_responsavel: string | null;
+  ds_pendencia: string;
+  dt_prazo: string | null;
+  tp_status: StatusPendencia;
+  ts_criacao: string;
+}
+
+export const STATUS_PENDENCIA_LABEL: Record<StatusPendencia, string> = {
+  aberta: "Aberta",
+  concluida: "Concluída",
+  atrasada: "Atrasada",
+};
 
 export const ROLE_LABEL: Record<RoleUsuario, string> = {
   master: "Master",

@@ -282,29 +282,9 @@ export function OrcamentoForm({
           >
             {pending ? "Salvando..." : "Criar orçamento"}
           </Button>
-
-          <div className="flex flex-col gap-2 border-t border-brand-foreground/20 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled
-              title="Em breve"
-              className="w-full border-brand-foreground/20 text-brand-foreground"
-            >
-              Gerar PDF (em breve)
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled
-              title="Em breve"
-              className="w-full border-brand-foreground/20 text-brand-foreground"
-            >
-              Enviar por WhatsApp (em breve)
-            </Button>
-          </div>
+          <p className="text-xs text-brand-foreground/70">
+            PDF e envio por WhatsApp ficam disponíveis na página do orçamento após criá-lo.
+          </p>
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, LayoutDashboard, Settings } from "lucide-react";
+import { FileText, Folder, LayoutDashboard, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   "/dashboard": LayoutDashboard,
   "/orcamentos": FileText,
+  "/processos": Folder,
   "/servicos": Settings,
 } as const;
 

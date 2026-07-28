@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import type { Orcamento, OrcamentoServico, Processo } from "@/types/database";
 import { CopyLinkButton } from "./copy-link-button";
+import { WhatsappShareButton } from "./whatsapp-share-button";
+import { GerarPdfButton } from "./gerar-pdf-button";
+import { DocumentosSection } from "./documentos-section";
 
 export default async function OrcamentoDetalhePage({
   params,
@@ -113,8 +116,41 @@ export default async function OrcamentoDetalhePage({
             {linkAceite}
           </code>
           <CopyLinkButton link={linkAceite} />
+          {processo?.ds_telefone_comprador_convidado && (
+            <WhatsappShareButton
+              telefone={processo.ds_telefone_comprador_convidado}
+              nomeComprador={processo.nm_comprador_convidado}
+              numeroProcesso={processo.ds_numero_processo}
+              link={linkAceite}
+            />
+          )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>PDF do orçamento</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-3">
+          {orcamento.ds_pdf_url ? (
+            <a
+              href={orcamento.ds_pdf_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 truncate text-sm text-brand underline"
+            >
+              {orcamento.ds_pdf_url}
+            </a>
+          ) : (
+            <p className="flex-1 text-sm text-muted-foreground">
+              Nenhum PDF gerado ainda para este orçamento.
+            </p>
+          )}
+          <GerarPdfButton cdOrcamento={orcamento.cd_orcamento} />
+        </CardContent>
+      </Card>
+
+      <DocumentosSection cdProcesso={orcamento.cd_processo} />
     </div>
   );
 }

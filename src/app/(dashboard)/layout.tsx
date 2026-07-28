@@ -8,6 +8,11 @@ import { SidebarNav } from "./sidebar-nav";
 const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
   { href: "/dashboard", label: "Início" },
   { href: "/orcamentos", label: "Orçamentos", roles: ["master", "juridico"] },
+  // Sem filtro de roles — RLS já restringe cada perfil às linhas que
+  // pode ver (Comprador/Vendedor/Corretor/Imobiliária/Despachante só
+  // enxergam os processos em que estão envolvidos; Master/Jurídico
+  // veem tudo).
+  { href: "/processos", label: "Processos" },
   { href: "/servicos", label: "Serviços", roles: ["master"] },
 ];
 
