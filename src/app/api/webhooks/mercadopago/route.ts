@@ -1,21 +1,17 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getSiteUrl } from "@/lib/mercadopago";
 
 // ================================================================
 // Webhook do Mercado Pago — confirmação automática de pagamento.
 //
-// STATUS: integração ainda não testada de ponta a ponta — depende
-// de MERCADOPAGO_ACCESS_TOKEN e MERCADOPAGO_WEBHOOK_SECRET reais
-// (contas da SOMA), que ainda não foram configuradas no ambiente.
-// A lógica abaixo segue a documentação oficial do Mercado Pago para
-// validação de assinatura e consulta de pagamento; precisa ser
-// validada com um pagamento real assim que as credenciais existirem.
-//
 // Fluxo: MP notifica -> validamos assinatura -> buscamos o pagamento
 // na API do MP (fonte da verdade, nunca confiamos só no payload) ->
 // gravamos/atualizamos soma.pagamentos (idempotente via
-// ds_webhook_id) -> se aprovado, marcamos o orçamento como 'pago'.
+// ds_webhook_id) -> se aprovado, marcamos o orçamento como 'pago' e
+// garantimos que o comprador tenha uma conta pra acompanhar o
+// processo (convite por e-mail, via Supabase Auth).
 // ================================================================
 
 function validarAssinatura(request: NextRequest, dataId: string): boolean {
@@ -55,6 +51,11 @@ interface MercadoPagoPayment {
   transaction_amount: number;
   external_reference: string | null; // esperado: cd_orcamento
   point_of_interaction?: { transaction_data?: { qr_code?: string } };
+  payer?: {
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  };
 }
 
 async function buscarPagamentoNoMercadoPago(paymentId: string): Promise<MercadoPagoPayment> {
@@ -80,6 +81,75 @@ const STATUS_MP_PARA_SOMA: Record<MercadoPagoPayment["status"], "pendente" | "co
   rejected: "falhou",
   cancelled: "falhou",
 };
+
+// Garante que o comprador tenha login no sistema pra acompanhar o
+// processo (documentos, andamentos, pendências, orçamento) depois de
+// pagar. Se já existir um soma.usuarios com esse e-mail (cliente
+// recorrente), só vincula o processo a ele — não cria conta duplicada.
+// Se não existir, convida por e-mail via Supabase Auth (o link do
+// convite leva a /auth/definir-senha, onde a pessoa cria a senha e
+// já entra logada).
+async function garantirContaComprador(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  cdProcesso: string,
+  email: string | null | undefined,
+  nomeSugerido: string | null
+) {
+  if (!email) return;
+
+  const { data: usuarioExistente } = await supabase
+    .schema("soma")
+    .from("usuarios")
+    .select("cd_usuario")
+    .eq("ds_email", email)
+    .maybeSingle();
+
+  let cdUsuario = usuarioExistente?.cd_usuario as string | undefined;
+
+  if (!cdUsuario) {
+    const siteUrl = getSiteUrl();
+    const { data: convite, error: erroConvite } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined,
+    });
+
+    if (erroConvite || !convite?.user) {
+      console.error("Erro ao convidar comprador:", erroConvite);
+      return;
+    }
+
+    const { error: erroUsuario } = await supabase.schema("soma").from("usuarios").insert({
+      cd_usuario: convite.user.id,
+      nm_usuario: nomeSugerido || email,
+      ds_email: email,
+      tp_role: "comprador",
+      sn_ativo: true,
+    });
+
+    if (erroUsuario) {
+      console.error("Erro ao criar soma.usuarios do comprador:", erroUsuario);
+      return;
+    }
+
+    cdUsuario = convite.user.id;
+  }
+
+  // Só vincula se o processo ainda não tiver comprador — não sobrescreve
+  // um vínculo já existente.
+  await supabase
+    .schema("soma")
+    .from("processos")
+    .update({ cd_comprador: cdUsuario })
+    .eq("cd_processo", cdProcesso)
+    .is("cd_comprador", null);
+
+  await supabase.schema("soma").from("andamentos").insert({
+    cd_processo: cdProcesso,
+    nm_etapa: "Acesso do comprador liberado",
+    ds_andamento: usuarioExistente
+      ? `Processo vinculado à conta já existente (${email}).`
+      : `Convite de acesso enviado para ${email} — o comprador poderá acompanhar o processo pelo sistema assim que definir a senha.`,
+  });
+}
 
 export async function POST(request: NextRequest) {
   const url = new URL(request.url);
@@ -146,15 +216,29 @@ export async function POST(request: NextRequest) {
   }
 
   if (tpStatus === "confirmado") {
-    const { error: erroOrcamento } = await supabase
+    const { data: orcamentoAtualizado, error: erroOrcamento } = await supabase
       .schema("soma")
       .from("orcamentos")
       .update({ tp_status: "pago" })
       .eq("cd_orcamento", cdOrcamento)
-      .eq("tp_status", "aceito"); // só avança se ainda estava 'aceito'
+      .eq("tp_status", "aceito") // só avança se ainda estava 'aceito'
+      .select("cd_processo")
+      .maybeSingle();
 
     if (erroOrcamento) {
       return NextResponse.json({ erro: erroOrcamento.message }, { status: 500 });
+    }
+
+    if (orcamentoAtualizado) {
+      const nomeSugerido =
+        [pagamentoMp.payer?.first_name, pagamentoMp.payer?.last_name].filter(Boolean).join(" ") || null;
+
+      await garantirContaComprador(
+        supabase,
+        orcamentoAtualizado.cd_processo,
+        pagamentoMp.payer?.email,
+        nomeSugerido
+      );
     }
   }
 

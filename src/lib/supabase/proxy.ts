@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const ROTAS_PUBLICAS = ["/login", "/aceite"]; // /aceite/[token] é a página pública do comprador
+// /aceite/[token] é a página pública do comprador. /auth cobre o link de
+// convite (definir-senha) — a sessão do convite chega via hash da URL,
+// que só o JS do client processa, então o server ainda não vê `user`
+// no primeiro request; sem isso aqui, o proxy chutaria pro /login antes
+// do client ter chance de estabelecer a sessão.
+const ROTAS_PUBLICAS = ["/login", "/aceite", "/auth"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
