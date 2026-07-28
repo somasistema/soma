@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";

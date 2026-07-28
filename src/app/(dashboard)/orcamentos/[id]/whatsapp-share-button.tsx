@@ -1,6 +1,6 @@
 "use client";
 
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 
 function apenasDigitos(valor: string) {
   return valor.replace(/\D/g, "");
