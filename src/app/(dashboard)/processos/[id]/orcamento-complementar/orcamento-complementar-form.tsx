@@ -9,13 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ServicoCombobox } from "@/components/servico-combobox";
 import { formatarMoeda } from "@/lib/utils";
-import { CIDADES_SERVICO, type ServicoComPrecos } from "@/types/database";
+import {
+  CIDADES_SERVICO,
+  TIPO_ORCAMENTO_LABEL,
+  type ServicoComPrecos,
+  type TipoOrcamento,
+} from "@/types/database";
 import type { ItemOrcamentoInput } from "@/app/(dashboard)/orcamentos/novo/actions";
 import { criarOrcamentoComplementar } from "./actions";
 
 interface ItemLinha extends ItemOrcamentoInput {
   cd_item: string;
 }
+
+const TIPOS_ORCAMENTO = Object.keys(TIPO_ORCAMENTO_LABEL) as TipoOrcamento[];
 
 export function OrcamentoComplementarForm({
   cdProcesso,
@@ -27,10 +34,29 @@ export function OrcamentoComplementarForm({
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
+  const [tpOrcamento, setTpOrcamento] = useState<TipoOrcamento>("despachante");
   const [nmCidade, setNmCidade] = useState<string>(CIDADES_SERVICO[0]);
   const [dtValidade, setDtValidade] = useState("");
-  const [cdServicoSelecionado, setCdServicoSelecionado] = useState(servicos[0]?.cd_servico ?? "");
   const [itens, setItens] = useState<ItemLinha[]>([]);
+
+  const servicosDoTipo = useMemo(
+    () =>
+      servicos.filter((s) =>
+        tpOrcamento === "contrato" ? s.tp_local === "CONTRATO" : s.tp_local !== "CONTRATO"
+      ),
+    [servicos, tpOrcamento]
+  );
+
+  const [cdServicoSelecionado, setCdServicoSelecionado] = useState(servicosDoTipo[0]?.cd_servico ?? "");
+
+  function trocarTipoOrcamento(novoTipo: TipoOrcamento) {
+    setTpOrcamento(novoTipo);
+    setItens([]);
+    const primeiroServico = servicos.find((s) =>
+      novoTipo === "contrato" ? s.tp_local === "CONTRATO" : s.tp_local !== "CONTRATO"
+    );
+    setCdServicoSelecionado(primeiroServico?.cd_servico ?? "");
+  }
 
   const totais = useMemo(() => {
     const honorarios = itens
@@ -87,7 +113,8 @@ export function OrcamentoComplementarForm({
         itens.map(({ cd_item, ...item }) => {
           void cd_item;
           return item;
-        })
+        }),
+        tpOrcamento
       );
 
       if (resultado?.erro) {
@@ -98,6 +125,30 @@ export function OrcamentoComplementarForm({
 
   return (
     <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tipo de orçamento</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            {TIPOS_ORCAMENTO.map((tipo) => (
+              <Button
+                key={tipo}
+                type="button"
+                variant={tpOrcamento === tipo ? "default" : "outline"}
+                onClick={() => trocarTipoOrcamento(tipo)}
+              >
+                {TIPO_ORCAMENTO_LABEL[tipo]}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Escolha única e fixa — o orçamento nunca mistura os dois tipos. Trocar aqui limpa os
+            itens já selecionados abaixo.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Dados do orçamento complementar</CardTitle>
@@ -134,7 +185,7 @@ export function OrcamentoComplementarForm({
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="cd_servico">Serviço</Label>
               <ServicoCombobox
-                servicos={servicos}
+                servicos={servicosDoTipo}
                 nmCidade={nmCidade}
                 value={cdServicoSelecionado}
                 onChange={setCdServicoSelecionado}

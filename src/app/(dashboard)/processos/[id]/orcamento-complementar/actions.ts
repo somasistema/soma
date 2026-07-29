@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ItemOrcamentoInput } from "@/app/(dashboard)/orcamentos/novo/actions";
+import type { TipoOrcamento } from "@/types/database";
 
 export type CriarOrcamentoComplementarState = { erro: string } | undefined;
 
@@ -10,7 +11,8 @@ export async function criarOrcamentoComplementar(
   cdProcesso: string,
   nmCidade: string,
   dtValidade: string,
-  itens: ItemOrcamentoInput[]
+  itens: ItemOrcamentoInput[],
+  tpOrcamento: TipoOrcamento
 ): Promise<CriarOrcamentoComplementarState> {
   const supabase = await createClient();
 
@@ -21,6 +23,7 @@ export async function criarOrcamentoComplementar(
       p_nm_cidade: nmCidade,
       p_dt_validade: dtValidade,
       p_itens: itens,
+      p_tp_orcamento: tpOrcamento,
     });
 
   if (error || !cdOrcamento) {

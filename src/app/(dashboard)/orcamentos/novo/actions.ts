@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { TipoProcesso, TipoServico } from "@/types/database";
+import type { TipoOrcamento, TipoProcesso, TipoServico } from "@/types/database";
 import { redirect } from "next/navigation";
 
 export interface ItemOrcamentoInput {
@@ -14,6 +14,7 @@ export interface ItemOrcamentoInput {
 
 export interface CriarOrcamentoInput {
   tp_processo: TipoProcesso;
+  tp_orcamento: TipoOrcamento;
   cd_imobiliaria: string;
   nm_comprador_convidado: string;
   ds_telefone_comprador_convidado: string;
@@ -40,6 +41,7 @@ export async function criarOrcamento(
     p_nm_cidade: input.nm_cidade,
     p_dt_validade: input.dt_validade,
     p_itens: input.itens,
+    p_tp_orcamento: input.tp_orcamento,
   });
 
   if (error || !cd_orcamento) {

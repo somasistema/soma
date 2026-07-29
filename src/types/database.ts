@@ -57,7 +57,17 @@ export type LocalServico =
   | "TJ"
   | "TRT"
   | "TRF"
-  | "SOMA";
+  | "SOMA"
+  | "CONTRATO";
+
+// Escolha fixa e única no início da criação do orçamento — nunca mistura
+// itens dos dois tipos no mesmo orçamento (ver migration 014).
+export type TipoOrcamento = "despachante" | "contrato";
+
+export const TIPO_ORCAMENTO_LABEL: Record<TipoOrcamento, string> = {
+  despachante: "Despachante Imobiliário",
+  contrato: "Contrato Imobiliário",
+};
 
 export interface Servico {
   cd_servico: string;
@@ -99,6 +109,7 @@ export const LOCAL_SERVICO_LABEL: Record<LocalServico, string> = {
   TRT: "Tribunal Regional do Trabalho",
   TRF: "Tribunal Regional Federal",
   SOMA: "Serviços SOMA",
+  CONTRATO: "Contrato Imobiliário",
 };
 
 // Ordem de exibição das abas — do mais usado ao mais raro.
@@ -109,11 +120,19 @@ export const LOCAIS_SERVICO: LocalServico[] = [
   "SEFAZ",
   "SEDUR",
   "SOMA",
+  "CONTRATO",
   "RF",
   "TJ",
   "TRT",
   "TRF",
 ];
+
+// Só os órgãos do catálogo de Despachante — usado pra filtrar o
+// combobox de serviços quando o orçamento é do tipo "despachante"
+// (exclui CONTRATO, que é um tipo de orçamento à parte).
+export const LOCAIS_DESPACHANTE: LocalServico[] = LOCAIS_SERVICO.filter(
+  (local) => local !== "CONTRATO"
+);
 
 export interface Processo {
   cd_processo: string;
@@ -138,6 +157,7 @@ export interface Orcamento {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
+  tp_orcamento: TipoOrcamento;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
@@ -175,6 +195,7 @@ export interface OrcamentoAceite {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
+  tp_orcamento: TipoOrcamento;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
