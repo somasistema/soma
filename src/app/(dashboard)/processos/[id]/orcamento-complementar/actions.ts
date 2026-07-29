@@ -3,16 +3,18 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ItemOrcamentoInput } from "@/app/(dashboard)/orcamentos/novo/actions";
-import type { TipoOrcamento } from "@/types/database";
 
 export type CriarOrcamentoComplementarState = { erro: string } | undefined;
 
+// tp_processo não é passado aqui — o orçamento complementar herda o
+// tipo do processo já existente (fixado quando o orçamento original
+// foi criado); soma.fn_criar_orcamento_complementar valida os itens
+// contra ele no banco.
 export async function criarOrcamentoComplementar(
   cdProcesso: string,
   nmCidade: string,
   dtValidade: string,
-  itens: ItemOrcamentoInput[],
-  tpOrcamento: TipoOrcamento
+  itens: ItemOrcamentoInput[]
 ): Promise<CriarOrcamentoComplementarState> {
   const supabase = await createClient();
 
@@ -23,7 +25,6 @@ export async function criarOrcamentoComplementar(
       p_nm_cidade: nmCidade,
       p_dt_validade: dtValidade,
       p_itens: itens,
-      p_tp_orcamento: tpOrcamento,
     });
 
   if (error || !cdOrcamento) {

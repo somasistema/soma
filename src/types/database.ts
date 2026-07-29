@@ -8,13 +8,9 @@ export type RoleUsuario =
   | "comprador"
   | "outro_cliente";
 
-export type TipoProcesso =
-  | "a_vista"
-  | "financiamento"
-  | "consorcio"
-  | "locacao"
-  | "averbacao"
-  | "inventario";
+// Única escolha fixa no início da criação do orçamento — nunca mistura
+// itens dos dois tipos no mesmo orçamento/processo (ver migration 014).
+export type TipoProcesso = "despachante" | "contrato";
 
 export type StatusOrcamento = "pendente" | "aceito" | "pago" | "liberado" | "reprovado";
 
@@ -59,15 +55,6 @@ export type LocalServico =
   | "TRF"
   | "SOMA"
   | "CONTRATO";
-
-// Escolha fixa e única no início da criação do orçamento — nunca mistura
-// itens dos dois tipos no mesmo orçamento (ver migration 014).
-export type TipoOrcamento = "despachante" | "contrato";
-
-export const TIPO_ORCAMENTO_LABEL: Record<TipoOrcamento, string> = {
-  despachante: "Despachante Imobiliário",
-  contrato: "Contrato Imobiliário",
-};
 
 export interface Servico {
   cd_servico: string;
@@ -157,7 +144,6 @@ export interface Orcamento {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
-  tp_orcamento: TipoOrcamento;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
@@ -195,7 +181,6 @@ export interface OrcamentoAceite {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
-  tp_orcamento: TipoOrcamento;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
@@ -276,12 +261,8 @@ export const ROLE_LABEL: Record<RoleUsuario, string> = {
 };
 
 export const TIPO_PROCESSO_LABEL: Record<TipoProcesso, string> = {
-  a_vista: "À vista",
-  financiamento: "Financiamento",
-  consorcio: "Consórcio",
-  locacao: "Locação",
-  averbacao: "Averbação",
-  inventario: "Inventário",
+  despachante: "Despachante Imobiliário",
+  contrato: "Contrato Imobiliário",
 };
 
 export const STATUS_LABEL: Record<StatusOrcamento, string> = {
@@ -291,3 +272,29 @@ export const STATUS_LABEL: Record<StatusOrcamento, string> = {
   liberado: "Liberado",
   reprovado: "Reprovado",
 };
+
+// Tabelas oficiais de custas do TJBA (Decreto Judiciário 1075/2025) —
+// catálogo de consulta pra tela de Boleto (ver migration 015).
+export type TabelaCusta = "TJBA" | "RI" | "NOTAS" | "CRPN";
+
+export const TABELA_CUSTA_LABEL: Record<TabelaCusta, string> = {
+  TJBA: "Cartórios Judiciais (Tribunal)",
+  RI: "Registro de Imóveis",
+  NOTAS: "Tabelionato de Notas",
+  CRPN: "Registro Civil das Pessoas Naturais",
+};
+
+export const TABELAS_CUSTA: TabelaCusta[] = ["TJBA", "RI", "NOTAS", "CRPN"];
+
+export interface TabelaCustaItem {
+  cd_custa: string;
+  tp_tabela: TabelaCusta;
+  nm_secao: string;
+  ds_ato: string;
+  cd_ato: string | null;
+  vl_faixa_min: number | null;
+  vl_faixa_max: number | null;
+  vl_pagar: number | null;
+  ds_valor_especial: string | null;
+  nr_ordem: number;
+}

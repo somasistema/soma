@@ -24,7 +24,7 @@ export default async function OrcamentosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <FadeIn className="flex items-center justify-between">
+      <FadeIn className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Orçamentos</h1>
         <Link href="/orcamentos/novo" className={buttonVariants({ variant: "default" })}>
           Novo orçamento
@@ -33,42 +33,44 @@ export default async function OrcamentosPage() {
 
       {orcamentos && orcamentos.length > 0 ? (
         <FadeIn delay={0.06} className="overflow-hidden rounded-2xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Processo</th>
-                <th className="px-4 py-3 font-medium">Comprador</th>
-                <th className="px-4 py-3 font-medium">Criado em</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <StaggerTableBody>
-              {orcamentos.map((orcamento) => (
-                <StaggerRow
-                  key={orcamento.cd_orcamento}
-                  className="border-t border-border transition-colors hover:bg-muted/50"
-                >
-                  <td className="px-4 py-3">{orcamento.processos?.ds_numero_processo}</td>
-                  <td className="px-4 py-3">{orcamento.processos?.nm_comprador_convidado}</td>
-                  <td className="px-4 py-3">{formatarData(orcamento.ts_criacao)}</td>
-                  <td className="px-4 py-3">{formatarMoeda(orcamento.vl_total_geral)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={orcamento.tp_status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/orcamentos/${orcamento.cd_orcamento}`}
-                      className="text-sm font-medium text-brand hover:underline"
-                    >
-                      Ver detalhes
-                    </Link>
-                  </td>
-                </StaggerRow>
-              ))}
-            </StaggerTableBody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-muted text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Processo</th>
+                  <th className="px-4 py-3 font-medium">Comprador</th>
+                  <th className="px-4 py-3 font-medium">Criado em</th>
+                  <th className="px-4 py-3 font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <StaggerTableBody>
+                {orcamentos.map((orcamento) => (
+                  <StaggerRow
+                    key={orcamento.cd_orcamento}
+                    className="border-t border-border transition-colors hover:bg-muted/50"
+                  >
+                    <td className="px-4 py-3">{orcamento.processos?.ds_numero_processo}</td>
+                    <td className="px-4 py-3">{orcamento.processos?.nm_comprador_convidado}</td>
+                    <td className="px-4 py-3">{formatarData(orcamento.ts_criacao)}</td>
+                    <td className="px-4 py-3">{formatarMoeda(orcamento.vl_total_geral)}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={orcamento.tp_status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/orcamentos/${orcamento.cd_orcamento}`}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver detalhes
+                      </Link>
+                    </td>
+                  </StaggerRow>
+                ))}
+              </StaggerTableBody>
+            </table>
+          </div>
         </FadeIn>
       ) : (
         <FadeIn className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-16 text-center">

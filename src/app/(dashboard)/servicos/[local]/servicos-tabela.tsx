@@ -44,7 +44,8 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
       )}
 
       <FadeIn className="overflow-hidden rounded-2xl border border-border bg-card">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[840px] text-sm">
           <thead className="bg-muted text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Código</th>
@@ -106,6 +107,7 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
             )}
           </tbody>
         </table>
+        </div>
       </FadeIn>
     </div>
   );

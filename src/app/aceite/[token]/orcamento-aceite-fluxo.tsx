@@ -79,42 +79,46 @@ export function OrcamentoAceiteFluxo({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="w-8 py-2" />
-              <th className="py-2 font-medium">Serviço</th>
-              <th className="py-2 font-medium">Tipo</th>
-              <th className="py-2 font-medium">Qtd.</th>
-              <th className="py-2 font-medium">Valor unit.</th>
-              <th className="py-2 text-right font-medium">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((item) => (
-              <motion.tr
-                key={item.cd_orcamento_servico}
-                animate={{ opacity: selecionados[item.cd_orcamento_servico] ? 1 : 0.4 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-border"
-              >
-                <td className="py-2">
-                  <Checkbox
-                    checked={!!selecionados[item.cd_orcamento_servico]}
-                    onChange={() => alternarItem(item.cd_orcamento_servico)}
-                    disabled={pending}
-                    aria-label={`Selecionar ${item.ds_descricao}`}
-                  />
-                </td>
-                <td className="py-2">{item.ds_descricao}</td>
-                <td className="py-2">{item.tp_servico === "honorario" ? "Honorário" : "Custa"}</td>
-                <td className="py-2">{item.nr_quantidade}</td>
-                <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
-                <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
-              </motion.tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className="w-8 py-2" />
+                <th className="py-2 font-medium">Serviço</th>
+                <th className="py-2 font-medium">Tipo</th>
+                <th className="py-2 font-medium">Qtd.</th>
+                <th className="py-2 font-medium">Valor unit.</th>
+                <th className="py-2 text-right font-medium">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map((item) => (
+                <motion.tr
+                  key={item.cd_orcamento_servico}
+                  animate={{ opacity: selecionados[item.cd_orcamento_servico] ? 1 : 0.4 }}
+                  transition={{ duration: 0.2 }}
+                  className="border-t border-border"
+                >
+                  <td className="py-2">
+                    <Checkbox
+                      checked={!!selecionados[item.cd_orcamento_servico]}
+                      onChange={() => alternarItem(item.cd_orcamento_servico)}
+                      disabled={pending}
+                      aria-label={`Selecionar ${item.ds_descricao}`}
+                    />
+                  </td>
+                  <td className="py-2">{item.ds_descricao}</td>
+                  <td className="py-2">
+                    {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
+                  </td>
+                  <td className="py-2">{item.nr_quantidade}</td>
+                  <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
+                  <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
           <p className="text-muted-foreground">Honorários selecionados: {formatarMoeda(totais.honorarios)}</p>

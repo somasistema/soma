@@ -26,38 +26,40 @@ export default async function ProcessosPage() {
 
       {processos && processos.length > 0 ? (
         <FadeIn delay={0.06} className="overflow-hidden rounded-2xl border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Número</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">Comprador</th>
-                <th className="px-4 py-3 font-medium">Criado em</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <StaggerTableBody>
-              {processos.map((processo) => (
-                <StaggerRow
-                  key={processo.cd_processo}
-                  className="border-t border-border transition-colors hover:bg-muted/50"
-                >
-                  <td className="px-4 py-3">{processo.ds_numero_processo}</td>
-                  <td className="px-4 py-3">{TIPO_PROCESSO_LABEL[processo.tp_processo]}</td>
-                  <td className="px-4 py-3">{processo.nm_comprador_convidado ?? "—"}</td>
-                  <td className="px-4 py-3">{formatarData(processo.ts_criacao)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/processos/${processo.cd_processo}`}
-                      className="text-sm font-medium text-brand hover:underline"
-                    >
-                      Ver detalhes
-                    </Link>
-                  </td>
-                </StaggerRow>
-              ))}
-            </StaggerTableBody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-muted text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Número</th>
+                  <th className="px-4 py-3 font-medium">Tipo</th>
+                  <th className="px-4 py-3 font-medium">Comprador</th>
+                  <th className="px-4 py-3 font-medium">Criado em</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <StaggerTableBody>
+                {processos.map((processo) => (
+                  <StaggerRow
+                    key={processo.cd_processo}
+                    className="border-t border-border transition-colors hover:bg-muted/50"
+                  >
+                    <td className="px-4 py-3">{processo.ds_numero_processo}</td>
+                    <td className="px-4 py-3">{TIPO_PROCESSO_LABEL[processo.tp_processo]}</td>
+                    <td className="px-4 py-3">{processo.nm_comprador_convidado ?? "—"}</td>
+                    <td className="px-4 py-3">{formatarData(processo.ts_criacao)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link
+                        href={`/processos/${processo.cd_processo}`}
+                        className="text-sm font-medium text-brand hover:underline"
+                      >
+                        Ver detalhes
+                      </Link>
+                    </td>
+                  </StaggerRow>
+                ))}
+              </StaggerTableBody>
+            </table>
+          </div>
         </FadeIn>
       ) : (
         <FadeIn className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-16 text-center">

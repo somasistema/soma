@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Processo, ServicoComPrecos } from "@/types/database";
+import type { Processo, ServicoComPrecos, TabelaCustaItem } from "@/types/database";
 import { OrcamentoComplementarForm } from "./orcamento-complementar-form";
 
 export default async function OrcamentoComplementarPage({
@@ -11,7 +11,7 @@ export default async function OrcamentoComplementarPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: processo }, { data: servicos }] = await Promise.all([
+  const [{ data: processo }, { data: servicos }, { data: custas }] = await Promise.all([
     supabase.schema("soma").from("processos").select("*").eq("cd_processo", id).single<Processo>(),
     supabase
       .schema("soma")
@@ -21,6 +21,13 @@ export default async function OrcamentoComplementarPage({
       .order("nm_categoria")
       .order("nm_servico")
       .returns<ServicoComPrecos[]>(),
+    supabase
+      .schema("soma")
+      .from("tabela_custas")
+      .select("*")
+      .order("tp_tabela")
+      .order("nr_ordem")
+      .returns<TabelaCustaItem[]>(),
   ]);
 
   if (!processo) {
@@ -32,7 +39,12 @@ export default async function OrcamentoComplementarPage({
       <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
         Orçamento complementar — Processo {processo.ds_numero_processo}
       </h1>
-      <OrcamentoComplementarForm cdProcesso={id} servicos={servicos ?? []} />
+      <OrcamentoComplementarForm
+        cdProcesso={id}
+        tpProcesso={processo.tp_processo}
+        servicos={servicos ?? []}
+        custas={custas ?? []}
+      />
     </div>
   );
 }

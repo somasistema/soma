@@ -12,3 +12,14 @@ export function formatarMoeda(valor: number) {
 export function formatarData(data: string | Date) {
   return new Date(data).toLocaleDateString("pt-BR");
 }
+
+// Máscara progressiva de telefone BR enquanto o usuário digita —
+// (XX) XXXXX-XXXX pra celular (11 dígitos), (XX) XXXX-XXXX pra fixo.
+export function formatarTelefone(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (digitos.length <= 2) return digitos.replace(/^(\d*)/, "($1");
+  if (digitos.length <= 6) return digitos.replace(/^(\d{2})(\d*)/, "($1) $2");
+  if (digitos.length <= 10) return digitos.replace(/^(\d{2})(\d{4})(\d*)/, "($1) $2-$3");
+  return digitos.replace(/^(\d{2})(\d{5})(\d*)/, "($1) $2-$3");
+}

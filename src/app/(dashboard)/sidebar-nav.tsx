@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Folder, LayoutDashboard, Settings, Users } from "lucide-react";
+import { FileText, Folder, LayoutDashboard, Receipt, Settings, Users } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,6 +11,7 @@ const ICONS = {
   "/orcamentos": FileText,
   "/processos": Folder,
   "/servicos": Settings,
+  "/boletos": Receipt,
   "/usuarios": Users,
 } as const;
 

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { ROLE_LABEL, type RoleUsuario } from "@/types/database";
 import { logout } from "./actions";
+import { DashboardSidebar } from "./dashboard-sidebar";
 import { SidebarNav } from "./sidebar-nav";
 
 const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
@@ -14,6 +15,7 @@ const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
   // veem tudo).
   { href: "/processos", label: "Processos" },
   { href: "/servicos", label: "Serviços", roles: ["master"] },
+  { href: "/boletos", label: "Boleto", roles: ["master"] },
   { href: "/usuarios", label: "Usuários", roles: ["master"] },
 ];
 
@@ -29,10 +31,10 @@ export default async function DashboardLayout({
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col justify-between overflow-y-auto border-r border-border bg-card p-4">
+    <div className="flex min-h-screen flex-col bg-background md:flex-row">
+      <DashboardSidebar>
         <div>
-          <Logo size="sm" className="px-2" />
+          <Logo size="sm" className="hidden px-2 md:flex" />
           <SidebarNav items={itensVisiveis} />
         </div>
         <div className="flex flex-col gap-3 border-t border-border pt-4">
@@ -51,8 +53,8 @@ export default async function DashboardLayout({
             </Button>
           </form>
         </div>
-      </aside>
-      <main className="min-w-0 flex-1 p-8">{children}</main>
+      </DashboardSidebar>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   );
 }

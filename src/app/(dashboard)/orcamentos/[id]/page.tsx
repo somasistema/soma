@@ -69,30 +69,32 @@ export default async function OrcamentoDetalhePage({
           <CardTitle>Itens do orçamento</CardTitle>
         </CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 font-medium">Serviço</th>
-                <th className="py-2 font-medium">Tipo</th>
-                <th className="py-2 font-medium">Qtd.</th>
-                <th className="py-2 font-medium">Valor unit.</th>
-                <th className="py-2 text-right font-medium">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(itens ?? []).map((item) => (
-                <tr key={item.cd_orcamento_servico} className="border-t border-border">
-                  <td className="py-2">{item.ds_descricao}</td>
-                  <td className="py-2">
-                    {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
-                  </td>
-                  <td className="py-2">{item.nr_quantidade}</td>
-                  <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
-                  <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead className="text-left text-muted-foreground">
+                <tr>
+                  <th className="py-2 font-medium">Serviço</th>
+                  <th className="py-2 font-medium">Tipo</th>
+                  <th className="py-2 font-medium">Qtd.</th>
+                  <th className="py-2 font-medium">Valor unit.</th>
+                  <th className="py-2 text-right font-medium">Subtotal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(itens ?? []).map((item) => (
+                  <tr key={item.cd_orcamento_servico} className="border-t border-border">
+                    <td className="py-2">{item.ds_descricao}</td>
+                    <td className="py-2">
+                      {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
+                    </td>
+                    <td className="py-2">{item.nr_quantidade}</td>
+                    <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
+                    <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
             <p className="text-muted-foreground">

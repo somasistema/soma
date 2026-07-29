@@ -41,7 +41,7 @@ export default async function AceitePage({
   return (
     <div className="flex min-h-screen justify-center bg-muted px-4 py-12">
       <FadeIn className="flex w-full max-w-2xl flex-col gap-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-serif-doc text-lg font-semibold text-brand">SOMA</p>
             <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
@@ -74,35 +74,37 @@ export default async function AceitePage({
               <CardTitle>Itens do orçamento</CardTitle>
             </CardHeader>
             <CardContent>
-              <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="py-2 font-medium">Serviço</th>
-                    <th className="py-2 font-medium">Tipo</th>
-                    <th className="py-2 font-medium">Qtd.</th>
-                    <th className="py-2 font-medium">Valor unit.</th>
-                    <th className="py-2 text-right font-medium">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orcamento.itens.map((item) => (
-                    <tr
-                      key={item.cd_orcamento_servico}
-                      className={`border-t border-border ${
-                        !item.sn_selecionado ? "text-muted-foreground line-through" : ""
-                      }`}
-                    >
-                      <td className="py-2">{item.ds_descricao}</td>
-                      <td className="py-2">
-                        {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
-                      </td>
-                      <td className="py-2">{item.nr_quantidade}</td>
-                      <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
-                      <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px] text-sm">
+                  <thead className="text-left text-muted-foreground">
+                    <tr>
+                      <th className="py-2 font-medium">Serviço</th>
+                      <th className="py-2 font-medium">Tipo</th>
+                      <th className="py-2 font-medium">Qtd.</th>
+                      <th className="py-2 font-medium">Valor unit.</th>
+                      <th className="py-2 text-right font-medium">Subtotal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orcamento.itens.map((item) => (
+                      <tr
+                        key={item.cd_orcamento_servico}
+                        className={`border-t border-border ${
+                          !item.sn_selecionado ? "text-muted-foreground line-through" : ""
+                        }`}
+                      >
+                        <td className="py-2">{item.ds_descricao}</td>
+                        <td className="py-2">
+                          {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
+                        </td>
+                        <td className="py-2">{item.nr_quantidade}</td>
+                        <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
+                        <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
                 <p className="font-serif-doc text-lg font-semibold text-foreground">

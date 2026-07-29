@@ -56,50 +56,57 @@ export default async function UsuariosPage() {
             <CardTitle>Todos os usuários</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Nome</th>
-                  <th className="px-4 py-3 font-medium">E-mail</th>
-                  <th className="px-4 py-3 font-medium">Perfil</th>
-                  <th className="px-4 py-3 font-medium">Imobiliária</th>
-                  <th className="px-4 py-3 font-medium">Criado em</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <StaggerTableBody>
-                {(usuarios ?? []).map((usuario) => (
-                  <StaggerRow key={usuario.cd_usuario} className="border-t border-border hover:bg-muted/50">
-                    <td className="px-4 py-3">{usuario.nm_usuario}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{usuario.ds_email}</td>
-                    <td className="px-4 py-3">{ROLE_LABEL[usuario.tp_role]}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {usuario.imobiliarias?.nm_imobiliaria ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatarData(usuario.ts_criacao)}</td>
-                    <td className="px-4 py-3">
-                      <AtivoBadge ativo={usuario.sn_ativo} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <ReenviarConviteButton email={usuario.ds_email} />
-                        {usuario.cd_usuario !== usuarioAtual.cd_usuario && (
-                          <ToggleAtivoUsuario cdUsuario={usuario.cd_usuario} ativo={usuario.sn_ativo} />
-                        )}
-                      </div>
-                    </td>
-                  </StaggerRow>
-                ))}
-                {(!usuarios || usuarios.length === 0) && (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px] text-sm">
+                <thead className="bg-muted text-left text-muted-foreground">
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
-                      Nenhum usuário cadastrado.
-                    </td>
+                    <th className="px-4 py-3 font-medium">Nome</th>
+                    <th className="px-4 py-3 font-medium">E-mail</th>
+                    <th className="px-4 py-3 font-medium">Perfil</th>
+                    <th className="px-4 py-3 font-medium">Imobiliária</th>
+                    <th className="px-4 py-3 font-medium">Criado em</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3" />
                   </tr>
-                )}
-              </StaggerTableBody>
-            </table>
+                </thead>
+                <StaggerTableBody>
+                  {(usuarios ?? []).map((usuario) => (
+                    <StaggerRow
+                      key={usuario.cd_usuario}
+                      className="border-t border-border hover:bg-muted/50"
+                    >
+                      <td className="px-4 py-3">{usuario.nm_usuario}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{usuario.ds_email}</td>
+                      <td className="px-4 py-3">{ROLE_LABEL[usuario.tp_role]}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {usuario.imobiliarias?.nm_imobiliaria ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatarData(usuario.ts_criacao)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <AtivoBadge ativo={usuario.sn_ativo} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <ReenviarConviteButton email={usuario.ds_email} />
+                          {usuario.cd_usuario !== usuarioAtual.cd_usuario && (
+                            <ToggleAtivoUsuario cdUsuario={usuario.cd_usuario} ativo={usuario.sn_ativo} />
+                          )}
+                        </div>
+                      </td>
+                    </StaggerRow>
+                  ))}
+                  {(!usuarios || usuarios.length === 0) && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
+                        Nenhum usuário cadastrado.
+                      </td>
+                    </tr>
+                  )}
+                </StaggerTableBody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       </FadeIn>
