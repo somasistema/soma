@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Folder, LayoutDashboard, Receipt, Settings, Users } from "lucide-react";
+import { FileText, Folder, LayoutDashboard, Receipt, Settings, Settings2, Users } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ const ICONS = {
   "/servicos": Settings,
   "/boletos": Receipt,
   "/usuarios": Users,
+  "/configuracoes": Settings2,
 } as const;
 
 export function SidebarNav({ items }: { items: { href: string; label: string }[] }) {

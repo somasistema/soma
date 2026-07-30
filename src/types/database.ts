@@ -298,3 +298,34 @@ export interface TabelaCustaItem {
   ds_valor_especial: string | null;
   nr_ordem: number;
 }
+
+// Blocos configuráveis da tela de novo orçamento — ver migration 017
+// e /configuracoes/fluxo. sn_ativo controla se o bloco aparece de
+// verdade em /orcamentos/novo; posicao_x/y é só o layout no canvas.
+export type BlocoFluxo =
+  | "tipo_processo"
+  | "informacoes_basicas"
+  | "orgao"
+  | "tipo_servico"
+  | "selecao_servicos"
+  | "boletos";
+
+export interface FluxoBloco {
+  cd_bloco: BlocoFluxo;
+  nm_bloco: string;
+  sn_ativo: boolean;
+  posicao_x: number;
+  posicao_y: number;
+}
+
+// Dependência lógica fixa entre os blocos — usada só pra desenhar as
+// setas no canvas (a ordem real dos campos no formulário continua
+// fixa no código, arrastar não muda isso, só a posição visual).
+export const FLUXO_CONEXOES: { origem: BlocoFluxo; destino: BlocoFluxo; rotulo?: string }[] = [
+  { origem: "tipo_processo", destino: "informacoes_basicas" },
+  { origem: "informacoes_basicas", destino: "orgao", rotulo: "Despachante" },
+  { origem: "orgao", destino: "tipo_servico" },
+  { origem: "tipo_servico", destino: "selecao_servicos" },
+  { origem: "informacoes_basicas", destino: "selecao_servicos", rotulo: "Contrato" },
+  { origem: "selecao_servicos", destino: "boletos" },
+];

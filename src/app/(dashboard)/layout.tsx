@@ -17,6 +17,7 @@ const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
   { href: "/servicos", label: "Serviços", roles: ["master"] },
   { href: "/boletos", label: "Boleto", roles: ["master"] },
   { href: "/usuarios", label: "Usuários", roles: ["master"] },
+  { href: "/configuracoes", label: "Configurações", roles: ["master"] },
 ];
 
 export default async function DashboardLayout({

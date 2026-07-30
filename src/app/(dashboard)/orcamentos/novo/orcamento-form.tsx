@@ -14,6 +14,7 @@ import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
   CIDADES_SERVICO,
   TIPO_PROCESSO_LABEL,
+  type BlocoFluxo,
   type Imobiliaria,
   type LocalServico,
   type ServicoComPrecos,
@@ -47,11 +48,18 @@ export function OrcamentoForm({
   imobiliarias,
   servicos,
   custas,
+  blocosAtivos,
 }: {
   imobiliarias: Imobiliaria[];
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
+  blocosAtivos: Partial<Record<BlocoFluxo, boolean>>;
 }) {
+  // Falta linha no banco (ex: migration 017 ainda não rodou) conta
+  // como ativo — configurável em Configurações > Fluxo, nunca esconde
+  // um bloco por omissão.
+  const blocoAtivo = (bloco: BlocoFluxo) => blocosAtivos[bloco] !== false;
+
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
@@ -261,6 +269,7 @@ export function OrcamentoForm({
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
+        {blocoAtivo("tipo_processo") && (
         <Card>
           <CardHeader>
             <CardTitle>Tipo de processo</CardTitle>
@@ -283,8 +292,9 @@ export function OrcamentoForm({
             </p>
           </CardContent>
         </Card>
+        )}
 
-        {tpProcesso && (
+        {tpProcesso && blocoAtivo("informacoes_basicas") && (
           <FadeIn>
             <Card>
               <CardHeader className="flex-row items-center gap-2 space-y-0">
@@ -355,7 +365,7 @@ export function OrcamentoForm({
           </FadeIn>
         )}
 
-        {dadosBasicosCompletos && tpProcesso === "despachante" && (
+        {dadosBasicosCompletos && tpProcesso === "despachante" && blocoAtivo("orgao") && (
           <FadeIn>
             <Card>
               <CardHeader>
@@ -383,7 +393,10 @@ export function OrcamentoForm({
           </FadeIn>
         )}
 
-        {dadosBasicosCompletos && tpProcesso === "despachante" && orgaosSelecionados.size > 0 && (
+        {dadosBasicosCompletos &&
+          tpProcesso === "despachante" &&
+          orgaosSelecionados.size > 0 &&
+          blocoAtivo("tipo_servico") && (
           <FadeIn>
             <Card>
               <CardHeader>
@@ -410,7 +423,7 @@ export function OrcamentoForm({
           </FadeIn>
         )}
 
-        {podeSelecionarServicos && (
+        {podeSelecionarServicos && blocoAtivo("selecao_servicos") && (
           <FadeIn>
             <Card>
               <CardHeader className="flex-row items-center gap-2 space-y-0">
@@ -435,7 +448,7 @@ export function OrcamentoForm({
           </FadeIn>
         )}
 
-        {podeSelecionarServicos && (
+        {podeSelecionarServicos && blocoAtivo("boletos") && (
           <FadeIn>
             <Card>
               <CardHeader className="flex-row items-center gap-2 space-y-0">
