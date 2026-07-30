@@ -19,6 +19,7 @@ import {
   type LocalServico,
   type ServicoComPrecos,
   type TabelaCustaItem,
+  type TipoAplicavelFluxo,
   type TipoProcesso,
 } from "@/types/database";
 import { criarOrcamento, type ItemOrcamentoInput } from "./actions";
@@ -49,12 +50,14 @@ export function OrcamentoForm({
   servicos,
   custas,
   blocosAtivos,
+  blocosAplicaveis,
   ordemBlocos,
 }: {
   imobiliarias: Imobiliaria[];
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
   blocosAtivos: Partial<Record<BlocoFluxo, boolean>>;
+  blocosAplicaveis: Partial<Record<BlocoFluxo, TipoAplicavelFluxo>>;
   ordemBlocos: BlocoFluxo[];
 }) {
   // Falta linha no banco (ex: migration 017 ainda não rodou) conta
@@ -186,11 +189,13 @@ export function OrcamentoForm({
   );
 
   // Um bloco só é relevante se fizer sentido pro tipo de processo
-  // escolhido — Contrato não tem Órgão/Tipo de Serviço, é uma
-  // categoria única.
+  // escolhido — configurável em Configurações > Fluxo (ex: por
+  // padrão Órgão/Tipo de Serviço são só de Despachante, mas isso não
+  // é mais fixo no código).
   function blocoAplicavel(bloco: BlocoFluxo) {
-    if (bloco === "orgao" || bloco === "tipo_servico") return tpProcesso === "despachante";
-    return true;
+    const aplicavel = blocosAplicaveis[bloco] ?? "ambos";
+    if (aplicavel === "ambos") return true;
+    return aplicavel === tpProcesso;
   }
 
   // "Pronto" trava a revelação do próximo bloco na ordem — igual à
@@ -229,6 +234,7 @@ export function OrcamentoForm({
   }, [
     ordemBlocos,
     blocosAtivos,
+    blocosAplicaveis,
     tpProcesso,
     dadosBasicosPreenchidos,
     orgaosSelecionados,

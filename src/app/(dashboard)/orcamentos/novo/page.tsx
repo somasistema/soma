@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import type { BlocoFluxo, FluxoBloco, Imobiliaria, ServicoComPrecos, TabelaCustaItem } from "@/types/database";
+import type {
+  BlocoFluxo,
+  FluxoBloco,
+  Imobiliaria,
+  ServicoComPrecos,
+  TabelaCustaItem,
+  TipoAplicavelFluxo,
+} from "@/types/database";
 import { OrcamentoForm } from "./orcamento-form";
 
 // Ordem padrão caso a migration 017 ainda não tenha rodado (sem
@@ -46,16 +53,21 @@ export default async function NovoOrcamentoPage() {
       supabase
         .schema("soma")
         .from("fluxo_blocos")
-        .select("cd_bloco, sn_ativo")
+        .select("cd_bloco, sn_ativo, tp_aplicavel")
         .order("posicao_x")
-        .returns<Pick<FluxoBloco, "cd_bloco" | "sn_ativo">[]>(),
+        .returns<Pick<FluxoBloco, "cd_bloco" | "sn_ativo" | "tp_aplicavel">[]>(),
     ]);
 
-  // Bloco sem linha no banco (ainda não rodou a migration 017, por
-  // exemplo) conta como ativo — nunca esconde nada por omissão.
+  // Bloco sem linha no banco (ainda não rodou a migration 017/018, por
+  // exemplo) conta como ativo e aplicável aos dois tipos — nunca
+  // esconde nada por omissão.
   const blocosAtivos = Object.fromEntries(
     (blocos ?? []).map((b) => [b.cd_bloco, b.sn_ativo])
   ) as Record<BlocoFluxo, boolean>;
+
+  const blocosAplicaveis = Object.fromEntries(
+    (blocos ?? []).map((b) => [b.cd_bloco, b.tp_aplicavel])
+  ) as Record<BlocoFluxo, TipoAplicavelFluxo>;
 
   const ordemBlocos = blocos && blocos.length > 0 ? blocos.map((b) => b.cd_bloco) : ORDEM_PADRAO;
 
@@ -67,6 +79,7 @@ export default async function NovoOrcamentoPage() {
         servicos={servicos ?? []}
         custas={custas ?? []}
         blocosAtivos={blocosAtivos}
+        blocosAplicaveis={blocosAplicaveis}
         ordemBlocos={ordemBlocos}
       />
     </div>

@@ -310,34 +310,30 @@ export type BlocoFluxo =
   | "selecao_servicos"
   | "boletos";
 
+// A quais tipos de processo um bloco se aplica — "ambos" aparece
+// tanto pra Despachante quanto pra Contrato; os outros dois valores
+// restringem o bloco a um ramo só. Configurável em Configurações >
+// Fluxo (ver migration 018), não é mais fixo no código.
+export type TipoAplicavelFluxo = "ambos" | "despachante" | "contrato";
+
 export interface FluxoBloco {
   cd_bloco: BlocoFluxo;
   nm_bloco: string;
   sn_ativo: boolean;
+  tp_aplicavel: TipoAplicavelFluxo;
   posicao_x: number;
   posicao_y: number;
 }
 
-// Dependência lógica entre os blocos — desenha as setas no canvas de
-// Configurações > Fluxo. "ramo" marca qual caminho é exclusivo de
-// Despachante ou de Contrato (os dois se separam depois de
-// Informações Básicas e se reencontram em Seleção de Serviços), pra
-// colorir e deixar visualmente claro que são dois fluxos diferentes.
-export const FLUXO_CONEXOES: {
-  origem: BlocoFluxo;
-  destino: BlocoFluxo;
-  rotulo?: string;
-  ramo?: "despachante" | "contrato";
-}[] = [
+// Dependência lógica entre os blocos — só a estrutura das setas no
+// canvas de Configurações > Fluxo. Cor e rótulo de cada seta vêm do
+// tp_aplicavel de quem ela liga (dado real, configurável), não são
+// mais fixos aqui.
+export const FLUXO_CONEXOES: { origem: BlocoFluxo; destino: BlocoFluxo }[] = [
   { origem: "tipo_processo", destino: "informacoes_basicas" },
-  { origem: "informacoes_basicas", destino: "orgao", rotulo: "Despachante", ramo: "despachante" },
-  { origem: "orgao", destino: "tipo_servico", ramo: "despachante" },
-  { origem: "tipo_servico", destino: "selecao_servicos", ramo: "despachante" },
-  {
-    origem: "informacoes_basicas",
-    destino: "selecao_servicos",
-    rotulo: "Contrato",
-    ramo: "contrato",
-  },
+  { origem: "informacoes_basicas", destino: "orgao" },
+  { origem: "orgao", destino: "tipo_servico" },
+  { origem: "tipo_servico", destino: "selecao_servicos" },
+  { origem: "informacoes_basicas", destino: "selecao_servicos" },
   { origem: "selecao_servicos", destino: "boletos" },
 ];

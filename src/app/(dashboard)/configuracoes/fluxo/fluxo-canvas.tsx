@@ -15,8 +15,13 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { FLUXO_CONEXOES, type BlocoFluxo, type FluxoBloco } from "@/types/database";
-import { alternarAtivoBloco, atualizarPosicaoBloco } from "../actions";
+import {
+  FLUXO_CONEXOES,
+  type BlocoFluxo,
+  type FluxoBloco,
+  type TipoAplicavelFluxo,
+} from "@/types/database";
+import { alternarAtivoBloco, atualizarAplicavelBloco, atualizarPosicaoBloco } from "../actions";
 
 // Desativar esses dois trava o formulário inteiro (nada depende deles
 // pra existir, tudo depende deles pra funcionar) — o aviso no card é
@@ -24,29 +29,37 @@ import { alternarAtivoBloco, atualizarPosicaoBloco } from "../actions";
 const BLOCOS_ESSENCIAIS: BlocoFluxo[] = ["tipo_processo", "informacoes_basicas"];
 
 // Cor por ramo — deixa visualmente claro que Despachante e Contrato
-// são dois fluxos diferentes a partir de Informações Básicas, mesmo
-// reaproveitando os blocos comuns (Tipo de Processo, Seleção de
-// Serviços, Boletos).
-const COR_RAMO: Record<"despachante" | "contrato" | "comum", string> = {
+// são dois fluxos diferentes, mesmo reaproveitando blocos comuns.
+const COR_RAMO: Record<TipoAplicavelFluxo | "comum", string> = {
   despachante: "#2563eb",
   contrato: "#d97706",
+  ambos: "#94a3b8",
   comum: "#94a3b8",
 };
+
+const OPCOES_APLICAVEL: { valor: TipoAplicavelFluxo; rotulo: string }[] = [
+  { valor: "ambos", rotulo: "Ambos" },
+  { valor: "despachante", rotulo: "Despachante" },
+  { valor: "contrato", rotulo: "Contrato" },
+];
 
 interface BlocoNodeData extends Record<string, unknown> {
   label: string;
   ativo: boolean;
   essencial: boolean;
+  aplicavel: TipoAplicavelFluxo;
   onToggle: (ativo: boolean) => void;
+  onMudarAplicavel: (aplicavel: TipoAplicavelFluxo) => void;
 }
 
 function BlocoNode({ data }: { data: BlocoNodeData }) {
   return (
     <div
       className={cn(
-        "min-w-[210px] rounded-xl border-2 bg-card px-3 py-2.5 shadow-sm transition-colors",
+        "min-w-[230px] rounded-xl border-2 bg-card px-3 py-2.5 shadow-sm transition-colors",
         data.ativo ? "border-brand" : "border-border opacity-50"
       )}
+      style={data.aplicavel !== "ambos" ? { borderColor: COR_RAMO[data.aplicavel] } : undefined}
     >
       <Handle type="target" position={Position.Left} />
       <div className="flex items-center justify-between gap-3">
@@ -57,8 +70,30 @@ function BlocoNode({ data }: { data: BlocoNodeData }) {
           aria-label={`Ativar ou desativar ${data.label}`}
         />
       </div>
+      <div className="mt-2 flex gap-1">
+        {OPCOES_APLICAVEL.map((opcao) => (
+          <button
+            key={opcao.valor}
+            type="button"
+            onClick={() => data.onMudarAplicavel(opcao.valor)}
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+              data.aplicavel === opcao.valor
+                ? "text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/70"
+            )}
+            style={
+              data.aplicavel === opcao.valor
+                ? { backgroundColor: COR_RAMO[opcao.valor] }
+                : undefined
+            }
+          >
+            {opcao.rotulo}
+          </button>
+        ))}
+      </div>
       {data.essencial && (
-        <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+        <p className="mt-1.5 text-[10px] leading-tight text-muted-foreground">
           Bloco essencial — desativar impede criar orçamento
         </p>
       )}
@@ -68,20 +103,6 @@ function BlocoNode({ data }: { data: BlocoNodeData }) {
 }
 
 const nodeTypes = { bloco: BlocoNode };
-
-const edges: Edge[] = FLUXO_CONEXOES.map((conexao) => {
-  const cor = COR_RAMO[conexao.ramo ?? "comum"];
-  return {
-    id: `${conexao.origem}-${conexao.destino}`,
-    source: conexao.origem,
-    target: conexao.destino,
-    label: conexao.rotulo,
-    animated: true,
-    style: { stroke: cor, strokeWidth: 2 },
-    labelStyle: { fill: cor, fontWeight: 600 },
-    markerEnd: { type: "arrowclosed" as const, color: cor },
-  };
-});
 
 export function FluxoCanvas({ blocosIniciais }: { blocosIniciais: FluxoBloco[] }) {
   const [, startTransition] = useTransition();
@@ -99,9 +120,18 @@ export function FluxoCanvas({ blocosIniciais }: { blocosIniciais: FluxoBloco[] }
     Object.fromEntries(blocosIniciais.map((b) => [b.cd_bloco, b.sn_ativo]))
   );
 
+  const [aplicavelPorBloco, setAplicavelPorBloco] = useState<Record<string, TipoAplicavelFluxo>>(
+    () => Object.fromEntries(blocosIniciais.map((b) => [b.cd_bloco, b.tp_aplicavel]))
+  );
+
   function toggle(cdBloco: BlocoFluxo, ativo: boolean) {
     setAtivoPorBloco((atual) => ({ ...atual, [cdBloco]: ativo }));
     startTransition(() => alternarAtivoBloco(cdBloco, ativo));
+  }
+
+  function mudarAplicavel(cdBloco: BlocoFluxo, aplicavel: TipoAplicavelFluxo) {
+    setAplicavelPorBloco((atual) => ({ ...atual, [cdBloco]: aplicavel }));
+    startTransition(() => atualizarAplicavelBloco(cdBloco, aplicavel));
   }
 
   const onNodesChange = useCallback(
@@ -120,15 +150,43 @@ export function FluxoCanvas({ blocosIniciais }: { blocosIniciais: FluxoBloco[] }
       nodes.map((node) => ({
         ...node,
         data: {
-          label:
-            blocosIniciais.find((b) => b.cd_bloco === node.id)?.nm_bloco ?? node.id,
+          label: blocosIniciais.find((b) => b.cd_bloco === node.id)?.nm_bloco ?? node.id,
           ativo: ativoPorBloco[node.id] ?? true,
+          aplicavel: aplicavelPorBloco[node.id] ?? "ambos",
           essencial: BLOCOS_ESSENCIAIS.includes(node.id as BlocoFluxo),
           onToggle: (ativo: boolean) => toggle(node.id as BlocoFluxo, ativo),
+          onMudarAplicavel: (aplicavel: TipoAplicavelFluxo) =>
+            mudarAplicavel(node.id as BlocoFluxo, aplicavel),
         },
       })),
-    [nodes, ativoPorBloco, blocosIniciais]
+    [nodes, ativoPorBloco, aplicavelPorBloco, blocosIniciais]
   );
+
+  // Cor/rótulo da seta vêm de quem ela liga: se o destino é exclusivo
+  // de um ramo, a seta é desse ramo; senão olha a origem; senão é
+  // cinza (comum aos dois). Tudo recalculado a partir do estado atual
+  // dos blocos — muda na hora que você troca Ambos/Despachante/Contrato.
+  const edges = useMemo<Edge[]>(() => {
+    return FLUXO_CONEXOES.map((conexao) => {
+      const aplicavelDestino = aplicavelPorBloco[conexao.destino] ?? "ambos";
+      const aplicavelOrigem = aplicavelPorBloco[conexao.origem] ?? "ambos";
+      const ramo = aplicavelDestino !== "ambos" ? aplicavelDestino : aplicavelOrigem;
+      const cor = COR_RAMO[ramo];
+      const rotulo =
+        ramo !== "ambos" ? (ramo === "despachante" ? "Despachante" : "Contrato") : undefined;
+
+      return {
+        id: `${conexao.origem}-${conexao.destino}`,
+        source: conexao.origem,
+        target: conexao.destino,
+        label: rotulo,
+        animated: true,
+        style: { stroke: cor, strokeWidth: 2 },
+        labelStyle: { fill: cor, fontWeight: 600 },
+        markerEnd: { type: "arrowclosed" as const, color: cor },
+      };
+    });
+  }, [aplicavelPorBloco]);
 
   return (
     <div className="flex flex-col gap-2">
