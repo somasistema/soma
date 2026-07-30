@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { AtivoBadge } from "@/components/ui/ativo-badge";
+import { AnimatePresence } from "motion/react";
 import { Select } from "@/components/ui/select";
 import { FadeIn } from "@/components/motion/fade-in";
 import { CIDADES_SERVICO, type ServicoComPrecos } from "@/types/database";
-import { formatarMoeda } from "@/lib/utils";
-import { ToggleAtivo } from "../toggle-ativo";
+import { ServicoRow } from "./servico-row";
 
 export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
   const categorias = useMemo(
@@ -19,10 +17,6 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
   const servicosFiltrados = categoriaFiltro
     ? servicos.filter((s) => s.nm_categoria === categoriaFiltro)
     : servicos;
-
-  function precoPorCidade(servico: ServicoComPrecos, cidade: string) {
-    return servico.servico_precos.find((p) => p.nm_cidade === cidade)?.vl_valor;
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,39 +57,7 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
           <tbody>
             <AnimatePresence initial={false}>
               {servicosFiltrados.map((servico) => (
-                <motion.tr
-                  key={servico.cd_servico}
-                  layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="border-t border-border hover:bg-muted/50"
-                >
-                  <td className="px-4 py-3 text-muted-foreground">{servico.cd_codigo}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{servico.nm_categoria}</td>
-                  <td className="px-4 py-3">{servico.nm_servico}</td>
-                  {servico.sn_valor_variavel ? (
-                    <td colSpan={CIDADES_SERVICO.length} className="px-4 py-3 italic text-muted-foreground">
-                      Valor variável
-                    </td>
-                  ) : (
-                    CIDADES_SERVICO.map((cidade) => {
-                      const valor = precoPorCidade(servico, cidade);
-                      return (
-                        <td key={cidade} className="px-4 py-3">
-                          {valor != null ? formatarMoeda(valor) : "—"}
-                        </td>
-                      );
-                    })
-                  )}
-                  <td className="px-4 py-3">
-                    <AtivoBadge ativo={servico.sn_ativo} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <ToggleAtivo cd_servico={servico.cd_servico} sn_ativo={servico.sn_ativo} />
-                  </td>
-                </motion.tr>
+                <ServicoRow key={servico.cd_servico} servico={servico} />
               ))}
             </AnimatePresence>
             {servicosFiltrados.length === 0 && (

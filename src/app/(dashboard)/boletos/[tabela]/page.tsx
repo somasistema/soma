@@ -6,6 +6,7 @@ import {
   type TabelaCusta,
   type TabelaCustaItem,
 } from "@/types/database";
+import { CustaForm } from "./custa-form";
 import { TabelaCustasLista } from "./tabela-custas-lista";
 
 export default async function BoletoTabelaPage({
@@ -32,6 +33,7 @@ export default async function BoletoTabelaPage({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-muted-foreground">{TABELA_CUSTA_LABEL[tabela]}</p>
+      <CustaForm tabela={tabela} />
       <TabelaCustasLista itens={custas ?? []} />
     </div>
   );
