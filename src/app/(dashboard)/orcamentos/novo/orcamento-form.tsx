@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, ListChecks, Receipt, Trash2 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,11 +49,13 @@ export function OrcamentoForm({
   servicos,
   custas,
   blocosAtivos,
+  ordemBlocos,
 }: {
   imobiliarias: Imobiliaria[];
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
   blocosAtivos: Partial<Record<BlocoFluxo, boolean>>;
+  ordemBlocos: BlocoFluxo[];
 }) {
   // Falta linha no banco (ex: migration 017 ainda não rodou) conta
   // como ativo — configurável em Configurações > Fluxo, nunca esconde
@@ -168,15 +170,70 @@ export function OrcamentoForm({
     setCdServicoSelecionado("");
   }
 
-  const dadosBasicosCompletos = Boolean(
-    tpProcesso && cdImobiliaria && nmCompradorConvidado && nmCidade && dtValidade
+  // Não depende de tpProcesso de propósito — como a ordem dos blocos
+  // agora é configurável (Configurações > Fluxo), "Informações
+  // Básicas" pode acabar posicionado antes de "Tipo de processo", e
+  // essa checagem não pode travar esperando um bloco que vem depois.
+  const dadosBasicosPreenchidos = Boolean(
+    cdImobiliaria && nmCompradorConvidado && nmCidade && dtValidade
   );
 
   const podeSelecionarServicos = Boolean(
-    dadosBasicosCompletos &&
+    tpProcesso &&
+      dadosBasicosPreenchidos &&
       (tpProcesso === "contrato" ||
         (orgaosSelecionados.size > 0 && categoriasSelecionadas.size > 0))
   );
+
+  // Um bloco só é relevante se fizer sentido pro tipo de processo
+  // escolhido — Contrato não tem Órgão/Tipo de Serviço, é uma
+  // categoria única.
+  function blocoAplicavel(bloco: BlocoFluxo) {
+    if (bloco === "orgao" || bloco === "tipo_servico") return tpProcesso === "despachante";
+    return true;
+  }
+
+  // "Pronto" trava a revelação do próximo bloco na ordem — igual à
+  // revelação progressiva de antes, só que agora dirigida pela ordem
+  // vinda do editor de Fluxo em vez de uma sequência fixa no código.
+  function blocoPronto(bloco: BlocoFluxo) {
+    switch (bloco) {
+      case "tipo_processo":
+        return tpProcesso !== null;
+      case "informacoes_basicas":
+        return dadosBasicosPreenchidos;
+      case "orgao":
+        return orgaosSelecionados.size > 0;
+      case "tipo_servico":
+        return categoriasSelecionadas.size > 0;
+      case "selecao_servicos":
+      case "boletos":
+        return true;
+    }
+  }
+
+  // A ordem real de exibição — arrastar um bloco no editor de Fluxo
+  // muda ordemBlocos, que muda isso aqui. Bloco desativado ou não
+  // aplicável ao tipo escolhido é pulado (não trava a revelação dos
+  // seguintes); o primeiro bloco aplicável que ainda não está pronto
+  // é o último a aparecer por enquanto.
+  const blocosVisiveis = useMemo(() => {
+    const visiveis: BlocoFluxo[] = [];
+    for (const bloco of ordemBlocos) {
+      if (!blocoAtivo(bloco) || !blocoAplicavel(bloco)) continue;
+      visiveis.push(bloco);
+      if (!blocoPronto(bloco)) break;
+    }
+    return visiveis;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    ordemBlocos,
+    blocosAtivos,
+    tpProcesso,
+    dadosBasicosPreenchidos,
+    orgaosSelecionados,
+    categoriasSelecionadas,
+  ]);
 
   const totais = useMemo(() => {
     const honorarios = itens
@@ -266,217 +323,214 @@ export function OrcamentoForm({
     });
   }
 
+  function renderBlocoConteudo(bloco: BlocoFluxo): ReactNode {
+    switch (bloco) {
+      case "tipo_processo":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tipo de processo</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {TIPOS_PROCESSO.map((tipo) => (
+                  <Button
+                    key={tipo}
+                    type="button"
+                    variant={tpProcesso === tipo ? "default" : "outline"}
+                    onClick={() => escolherTipoProcesso(tipo)}
+                  >
+                    {TIPO_PROCESSO_LABEL[tipo]}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Escolha única e fixa — o processo nunca mistura os dois tipos.
+              </p>
+            </CardContent>
+          </Card>
+        );
+
+      case "informacoes_basicas":
+        return (
+          <Card>
+            <CardHeader className="flex-row items-center gap-2 space-y-0">
+              <FileText className="h-5 w-5 text-accent" />
+              <CardTitle>Informações Básicas</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cd_imobiliaria">Imobiliária</Label>
+                <Select
+                  id="cd_imobiliaria"
+                  value={cdImobiliaria}
+                  onChange={(e) => setCdImobiliaria(e.target.value)}
+                >
+                  {imobiliarias.map((imobiliaria) => (
+                    <option key={imobiliaria.cd_imobiliaria} value={imobiliaria.cd_imobiliaria}>
+                      {imobiliaria.nm_imobiliaria}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="nm_comprador_convidado">Nome do comprador</Label>
+                <Input
+                  id="nm_comprador_convidado"
+                  value={nmCompradorConvidado}
+                  onChange={(e) => setNmCompradorConvidado(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ds_telefone_comprador_convidado">Telefone do comprador</Label>
+                <Input
+                  id="ds_telefone_comprador_convidado"
+                  type="tel"
+                  placeholder="(71) 99999-9999"
+                  value={dsTelefoneComprador}
+                  onChange={(e) => setDsTelefoneComprador(formatarTelefone(e.target.value))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="nm_cidade">Cidade</Label>
+                <Select id="nm_cidade" value={nmCidade} onChange={(e) => setNmCidade(e.target.value)}>
+                  {CIDADES_SERVICO.map((cidade) => (
+                    <option key={cidade} value={cidade}>
+                      {cidade}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Define o valor de cada serviço adicionado abaixo.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dt_validade">Validade</Label>
+                <Input
+                  id="dt_validade"
+                  type="date"
+                  value={dtValidade}
+                  onChange={(e) => setDtValidade(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "orgao":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Órgão / Local do Serviço</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {ORGAOS_ORCAMENTO.map((orgao) => (
+                  <Button
+                    key={orgao.chave}
+                    type="button"
+                    variant={orgaosSelecionados.has(orgao.chave) ? "default" : "outline"}
+                    onClick={() => alternarOrgao(orgao.chave)}
+                  >
+                    {orgao.nome}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pode marcar mais de um órgão — os serviços de todos os marcados aparecem juntos
+                abaixo pra adicionar ao orçamento.
+              </p>
+            </CardContent>
+          </Card>
+        );
+
+      case "tipo_servico":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tipo de Serviço</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {categoriasDisponiveis.map((categoria) => (
+                  <Button
+                    key={categoria}
+                    type="button"
+                    variant={categoriasSelecionadas.has(categoria) ? "default" : "outline"}
+                    onClick={() => alternarCategoria(categoria)}
+                  >
+                    {categoria}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Opções de acordo com os órgãos marcados acima. Pode marcar mais de um tipo.
+              </p>
+            </CardContent>
+          </Card>
+        );
+
+      case "selecao_servicos":
+        return (
+          <Card>
+            <CardHeader className="flex-row items-center gap-2 space-y-0">
+              <ListChecks className="h-5 w-5 text-accent" />
+              <CardTitle>Seleção de Serviços</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Label htmlFor="cd_servico">Serviço</Label>
+                <ServicoCombobox
+                  servicos={servicosParaAdicionar}
+                  nmCidade={nmCidade}
+                  value={cdServicoSelecionado}
+                  onChange={setCdServicoSelecionado}
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={adicionarItem}>
+                Adicionar
+              </Button>
+            </CardContent>
+          </Card>
+        );
+
+      case "boletos":
+        return (
+          <Card>
+            <CardHeader className="flex-row items-center gap-2 space-y-0">
+              <Receipt className="h-5 w-5 text-accent" />
+              <CardTitle>Boletos (Custas)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <Label htmlFor="cd_custa">Boleto</Label>
+                  <BoletoCombobox
+                    custas={custas}
+                    value={cdCustaSelecionada}
+                    onChange={setCdCustaSelecionada}
+                  />
+                </div>
+                <Button type="button" variant="outline" onClick={adicionarBoleto}>
+                  Adicionar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato. Quando o
+                valor depende de faixa, ajuste manualmente na tabela abaixo.
+              </p>
+            </CardContent>
+          </Card>
+        );
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
-        {blocoAtivo("tipo_processo") && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tipo de processo</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-2">
-              {TIPOS_PROCESSO.map((tipo) => (
-                <Button
-                  key={tipo}
-                  type="button"
-                  variant={tpProcesso === tipo ? "default" : "outline"}
-                  onClick={() => escolherTipoProcesso(tipo)}
-                >
-                  {TIPO_PROCESSO_LABEL[tipo]}
-                </Button>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Escolha única e fixa — o processo nunca mistura os dois tipos.
-            </p>
-          </CardContent>
-        </Card>
-        )}
-
-        {tpProcesso && blocoAtivo("informacoes_basicas") && (
-          <FadeIn>
-            <Card>
-              <CardHeader className="flex-row items-center gap-2 space-y-0">
-                <FileText className="h-5 w-5 text-accent" />
-                <CardTitle>Informações Básicas</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="cd_imobiliaria">Imobiliária</Label>
-                  <Select
-                    id="cd_imobiliaria"
-                    value={cdImobiliaria}
-                    onChange={(e) => setCdImobiliaria(e.target.value)}
-                  >
-                    {imobiliarias.map((imobiliaria) => (
-                      <option key={imobiliaria.cd_imobiliaria} value={imobiliaria.cd_imobiliaria}>
-                        {imobiliaria.nm_imobiliaria}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="nm_comprador_convidado">Nome do comprador</Label>
-                  <Input
-                    id="nm_comprador_convidado"
-                    value={nmCompradorConvidado}
-                    onChange={(e) => setNmCompradorConvidado(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ds_telefone_comprador_convidado">Telefone do comprador</Label>
-                  <Input
-                    id="ds_telefone_comprador_convidado"
-                    type="tel"
-                    placeholder="(71) 99999-9999"
-                    value={dsTelefoneComprador}
-                    onChange={(e) => setDsTelefoneComprador(formatarTelefone(e.target.value))}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="nm_cidade">Cidade</Label>
-                  <Select
-                    id="nm_cidade"
-                    value={nmCidade}
-                    onChange={(e) => setNmCidade(e.target.value)}
-                  >
-                    {CIDADES_SERVICO.map((cidade) => (
-                      <option key={cidade} value={cidade}>
-                        {cidade}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Define o valor de cada serviço adicionado abaixo.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="dt_validade">Validade</Label>
-                  <Input
-                    id="dt_validade"
-                    type="date"
-                    value={dtValidade}
-                    onChange={(e) => setDtValidade(e.target.value)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </FadeIn>
-        )}
-
-        {dadosBasicosCompletos && tpProcesso === "despachante" && blocoAtivo("orgao") && (
-          <FadeIn>
-            <Card>
-              <CardHeader>
-                <CardTitle>Órgão / Local do Serviço</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {ORGAOS_ORCAMENTO.map((orgao) => (
-                    <Button
-                      key={orgao.chave}
-                      type="button"
-                      variant={orgaosSelecionados.has(orgao.chave) ? "default" : "outline"}
-                      onClick={() => alternarOrgao(orgao.chave)}
-                    >
-                      {orgao.nome}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Pode marcar mais de um órgão — os serviços de todos os marcados aparecem juntos
-                  abaixo pra adicionar ao orçamento.
-                </p>
-              </CardContent>
-            </Card>
-          </FadeIn>
-        )}
-
-        {dadosBasicosCompletos &&
-          tpProcesso === "despachante" &&
-          orgaosSelecionados.size > 0 &&
-          blocoAtivo("tipo_servico") && (
-          <FadeIn>
-            <Card>
-              <CardHeader>
-                <CardTitle>Tipo de Serviço</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {categoriasDisponiveis.map((categoria) => (
-                    <Button
-                      key={categoria}
-                      type="button"
-                      variant={categoriasSelecionadas.has(categoria) ? "default" : "outline"}
-                      onClick={() => alternarCategoria(categoria)}
-                    >
-                      {categoria}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Opções de acordo com os órgãos marcados acima. Pode marcar mais de um tipo.
-                </p>
-              </CardContent>
-            </Card>
-          </FadeIn>
-        )}
-
-        {podeSelecionarServicos && blocoAtivo("selecao_servicos") && (
-          <FadeIn>
-            <Card>
-              <CardHeader className="flex-row items-center gap-2 space-y-0">
-                <ListChecks className="h-5 w-5 text-accent" />
-                <CardTitle>Seleção de Serviços</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex flex-1 flex-col gap-1.5">
-                  <Label htmlFor="cd_servico">Serviço</Label>
-                  <ServicoCombobox
-                    servicos={servicosParaAdicionar}
-                    nmCidade={nmCidade}
-                    value={cdServicoSelecionado}
-                    onChange={setCdServicoSelecionado}
-                  />
-                </div>
-                <Button type="button" variant="outline" onClick={adicionarItem}>
-                  Adicionar
-                </Button>
-              </CardContent>
-            </Card>
-          </FadeIn>
-        )}
-
-        {podeSelecionarServicos && blocoAtivo("boletos") && (
-          <FadeIn>
-            <Card>
-              <CardHeader className="flex-row items-center gap-2 space-y-0">
-                <Receipt className="h-5 w-5 text-accent" />
-                <CardTitle>Boletos (Custas)</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="flex flex-1 flex-col gap-1.5">
-                    <Label htmlFor="cd_custa">Boleto</Label>
-                    <BoletoCombobox
-                      custas={custas}
-                      value={cdCustaSelecionada}
-                      onChange={setCdCustaSelecionada}
-                    />
-                  </div>
-                  <Button type="button" variant="outline" onClick={adicionarBoleto}>
-                    Adicionar
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato. Quando
-                  o valor depende de faixa, ajuste manualmente na tabela abaixo.
-                </p>
-              </CardContent>
-            </Card>
-          </FadeIn>
-        )}
+        {blocosVisiveis.map((bloco) => (
+          <FadeIn key={bloco}>{renderBlocoConteudo(bloco)}</FadeIn>
+        ))}
 
         {podeSelecionarServicos && itens.length > 0 && (
           <FadeIn>

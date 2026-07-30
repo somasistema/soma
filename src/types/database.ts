@@ -318,14 +318,26 @@ export interface FluxoBloco {
   posicao_y: number;
 }
 
-// Dependência lógica fixa entre os blocos — usada só pra desenhar as
-// setas no canvas (a ordem real dos campos no formulário continua
-// fixa no código, arrastar não muda isso, só a posição visual).
-export const FLUXO_CONEXOES: { origem: BlocoFluxo; destino: BlocoFluxo; rotulo?: string }[] = [
+// Dependência lógica entre os blocos — desenha as setas no canvas de
+// Configurações > Fluxo. "ramo" marca qual caminho é exclusivo de
+// Despachante ou de Contrato (os dois se separam depois de
+// Informações Básicas e se reencontram em Seleção de Serviços), pra
+// colorir e deixar visualmente claro que são dois fluxos diferentes.
+export const FLUXO_CONEXOES: {
+  origem: BlocoFluxo;
+  destino: BlocoFluxo;
+  rotulo?: string;
+  ramo?: "despachante" | "contrato";
+}[] = [
   { origem: "tipo_processo", destino: "informacoes_basicas" },
-  { origem: "informacoes_basicas", destino: "orgao", rotulo: "Despachante" },
-  { origem: "orgao", destino: "tipo_servico" },
-  { origem: "tipo_servico", destino: "selecao_servicos" },
-  { origem: "informacoes_basicas", destino: "selecao_servicos", rotulo: "Contrato" },
+  { origem: "informacoes_basicas", destino: "orgao", rotulo: "Despachante", ramo: "despachante" },
+  { origem: "orgao", destino: "tipo_servico", ramo: "despachante" },
+  { origem: "tipo_servico", destino: "selecao_servicos", ramo: "despachante" },
+  {
+    origem: "informacoes_basicas",
+    destino: "selecao_servicos",
+    rotulo: "Contrato",
+    ramo: "contrato",
+  },
   { origem: "selecao_servicos", destino: "boletos" },
 ];

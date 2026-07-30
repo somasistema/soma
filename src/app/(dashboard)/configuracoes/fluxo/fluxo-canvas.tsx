@@ -3,6 +3,8 @@
 import {
   Background,
   Controls,
+  Handle,
+  Position,
   ReactFlow,
   applyNodeChanges,
   type Edge,
@@ -21,6 +23,16 @@ import { alternarAtivoBloco, atualizarPosicaoBloco } from "../actions";
 // só um alerta visual, não impede desativar de verdade.
 const BLOCOS_ESSENCIAIS: BlocoFluxo[] = ["tipo_processo", "informacoes_basicas"];
 
+// Cor por ramo — deixa visualmente claro que Despachante e Contrato
+// são dois fluxos diferentes a partir de Informações Básicas, mesmo
+// reaproveitando os blocos comuns (Tipo de Processo, Seleção de
+// Serviços, Boletos).
+const COR_RAMO: Record<"despachante" | "contrato" | "comum", string> = {
+  despachante: "#2563eb",
+  contrato: "#d97706",
+  comum: "#94a3b8",
+};
+
 interface BlocoNodeData extends Record<string, unknown> {
   label: string;
   ativo: boolean;
@@ -36,6 +48,7 @@ function BlocoNode({ data }: { data: BlocoNodeData }) {
         data.ativo ? "border-brand" : "border-border opacity-50"
       )}
     >
+      <Handle type="target" position={Position.Left} />
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-foreground">{data.label}</span>
         <Checkbox
@@ -49,19 +62,26 @@ function BlocoNode({ data }: { data: BlocoNodeData }) {
           Bloco essencial — desativar impede criar orçamento
         </p>
       )}
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 }
 
 const nodeTypes = { bloco: BlocoNode };
 
-const edges: Edge[] = FLUXO_CONEXOES.map((conexao) => ({
-  id: `${conexao.origem}-${conexao.destino}`,
-  source: conexao.origem,
-  target: conexao.destino,
-  label: conexao.rotulo,
-  animated: true,
-}));
+const edges: Edge[] = FLUXO_CONEXOES.map((conexao) => {
+  const cor = COR_RAMO[conexao.ramo ?? "comum"];
+  return {
+    id: `${conexao.origem}-${conexao.destino}`,
+    source: conexao.origem,
+    target: conexao.destino,
+    label: conexao.rotulo,
+    animated: true,
+    style: { stroke: cor, strokeWidth: 2 },
+    labelStyle: { fill: cor, fontWeight: 600 },
+    markerEnd: { type: "arrowclosed" as const, color: cor },
+  };
+});
 
 export function FluxoCanvas({ blocosIniciais }: { blocosIniciais: FluxoBloco[] }) {
   const [, startTransition] = useTransition();
@@ -111,18 +131,37 @@ export function FluxoCanvas({ blocosIniciais }: { blocosIniciais: FluxoBloco[] }
   );
 
   return (
-    <div className="h-[560px] w-full overflow-hidden rounded-2xl border border-border bg-card">
-      <ReactFlow
-        nodes={nodesComEstado}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onNodeDragStop={onNodeDragStop}
-        fitView
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-0.5 w-5 rounded-full"
+            style={{ backgroundColor: COR_RAMO.despachante }}
+          />
+          Só Despachante
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-5 rounded-full" style={{ backgroundColor: COR_RAMO.contrato }} />
+          Só Contrato
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-5 rounded-full" style={{ backgroundColor: COR_RAMO.comum }} />
+          Comum aos dois
+        </span>
+      </div>
+      <div className="h-[560px] w-full overflow-hidden rounded-2xl border border-border bg-card">
+        <ReactFlow
+          nodes={nodesComEstado}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onNodeDragStop={onNodeDragStop}
+          fitView
+        >
+          <Background />
+          <Controls />
+        </ReactFlow>
+      </div>
     </div>
   );
 }

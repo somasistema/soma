@@ -2,6 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import type { BlocoFluxo, FluxoBloco, Imobiliaria, ServicoComPrecos, TabelaCustaItem } from "@/types/database";
 import { OrcamentoForm } from "./orcamento-form";
 
+// Ordem padrão caso a migration 017 ainda não tenha rodado (sem
+// nenhuma linha em soma.fluxo_blocos) — mesma sequência de sempre.
+const ORDEM_PADRAO: BlocoFluxo[] = [
+  "tipo_processo",
+  "informacoes_basicas",
+  "orgao",
+  "tipo_servico",
+  "selecao_servicos",
+  "boletos",
+];
+
 export default async function NovoOrcamentoPage() {
   const supabase = await createClient();
 
@@ -29,9 +40,15 @@ export default async function NovoOrcamentoPage() {
         .order("tp_tabela")
         .order("nr_ordem")
         .returns<TabelaCustaItem[]>(),
-      supabase.schema("soma").from("fluxo_blocos").select("cd_bloco, sn_ativo").returns<
-        Pick<FluxoBloco, "cd_bloco" | "sn_ativo">[]
-      >(),
+      // Ordenado pela posição X no canvas de Configurações > Fluxo —
+      // arrastar um bloco pra esquerda/direita muda a ordem real aqui,
+      // não é só cosmético no editor.
+      supabase
+        .schema("soma")
+        .from("fluxo_blocos")
+        .select("cd_bloco, sn_ativo")
+        .order("posicao_x")
+        .returns<Pick<FluxoBloco, "cd_bloco" | "sn_ativo">[]>(),
     ]);
 
   // Bloco sem linha no banco (ainda não rodou a migration 017, por
@@ -39,6 +56,8 @@ export default async function NovoOrcamentoPage() {
   const blocosAtivos = Object.fromEntries(
     (blocos ?? []).map((b) => [b.cd_bloco, b.sn_ativo])
   ) as Record<BlocoFluxo, boolean>;
+
+  const ordemBlocos = blocos && blocos.length > 0 ? blocos.map((b) => b.cd_bloco) : ORDEM_PADRAO;
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,6 +67,7 @@ export default async function NovoOrcamentoPage() {
         servicos={servicos ?? []}
         custas={custas ?? []}
         blocosAtivos={blocosAtivos}
+        ordemBlocos={ordemBlocos}
       />
     </div>
   );
