@@ -319,11 +319,27 @@ export interface TabelaCustaItem {
 }
 
 // Liga um serviço a boletos que devem entrar junto automaticamente no
-// orçamento (ver migration 021 e /configuracoes/pacotes).
+// orçamento (ver migration 021/023 e /configuracoes/pacotes).
+//
+// tp_origem "custa": cd_custa aponta pra uma linha fixa da tabela de
+// custas. "faixa": sem cd_custa, resolve a linha certa em tempo de
+// adição usando tp_tabela_faixa/nm_secao_faixa + a base de cálculo
+// (maior entre transação/venal). "itiv": calcula 3% da base direto,
+// sem nenhuma linha de tabela_custas envolvida.
+export type TipoOrigemPacoteItem = "custa" | "faixa" | "itiv";
+
+// "ambas" duplica o item — uma cobrança nos Custos Iniciais, outra
+// nos Finais (caso da Prenotação, mas serve pra qualquer boleto).
+export type TipoSecaoPadraoPacoteItem = "inicial" | "final" | "ambas";
+
 export interface PacoteItem {
   cd_pacote_item: string;
   cd_servico: string;
-  cd_custa: string;
+  cd_custa: string | null;
+  tp_origem: TipoOrigemPacoteItem;
+  tp_tabela_faixa: TabelaCusta | null;
+  nm_secao_faixa: string | null;
+  tp_secao_padrao: TipoSecaoPadraoPacoteItem;
   sn_opcional: boolean;
 }
 

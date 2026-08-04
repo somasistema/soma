@@ -1,6 +1,11 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { TIPO_PROCESSO_LABEL, type OrcamentoServico, type TipoProcesso } from "@/types/database";
 import { TERMO_DESPACHANTE_INTRO, TERMO_DESPACHANTE_TITULO } from "@/lib/termo-despachante";
+import {
+  OBSERVACAO_PRAZO_SECOES,
+  OBSERVACAO_REAJUSTE,
+  OBSERVACAO_VALOR_VENAL,
+} from "@/lib/orcamento-observacoes";
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -149,24 +154,9 @@ export function OrcamentoPdf({
         </View>
 
         <Text style={{ ...styles.secao, marginTop: 24 }}>Observações</Text>
-        <Text style={styles.observacaoTexto}>
-          As tabelas de custas de cartórios/TJBA e as alíquotas de tributos municipais (ex.: ITIV)
-          estão sujeitas a reajuste periódico pelos respectivos órgãos, sem aviso prévio a esta
-          assessoria. Caso o reajuste ocorra entre a emissão deste orçamento e o efetivo pagamento
-          dos custos, os valores serão atualizados conforme a tabela vigente na data do pagamento.
-        </Text>
-        <Text style={styles.observacaoTexto}>
-          O Valor Venal utilizado neste orçamento foi informado pelo cliente/imobiliária. Eventual
-          divergência apurada pelo fisco municipal na base de cálculo do ITIV é de responsabilidade
-          do cliente, podendo gerar cobrança complementar diretamente pela Prefeitura.
-        </Text>
-        {temSecoes && (
-          <Text style={styles.observacaoTexto}>
-            Os Custos Iniciais são devidos para dar entrada no processo (lavratura, prenotação e
-            demais atos que antecedem o registro). Os Custos Finais são devidos na etapa de
-            registro do título, com vencimento em momento distinto dos Custos Iniciais.
-          </Text>
-        )}
+        <Text style={styles.observacaoTexto}>{OBSERVACAO_REAJUSTE}</Text>
+        <Text style={styles.observacaoTexto}>{OBSERVACAO_VALOR_VENAL}</Text>
+        {temSecoes && <Text style={styles.observacaoTexto}>{OBSERVACAO_PRAZO_SECOES}</Text>}
 
         <Text style={{ ...styles.secao, marginTop: 12 }}>{TERMO_DESPACHANTE_TITULO}</Text>
         <Text style={styles.termoTexto}>

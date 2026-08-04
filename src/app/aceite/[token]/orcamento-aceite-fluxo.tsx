@@ -6,9 +6,67 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatarMoeda } from "@/lib/utils";
+import {
+  OBSERVACAO_PRAZO_SECOES,
+  OBSERVACAO_REAJUSTE,
+  OBSERVACAO_VALOR_VENAL,
+} from "@/lib/orcamento-observacoes";
 import type { OrcamentoAceiteItem } from "@/types/database";
 import { TermoDespachanteBox } from "./termo-despachante-box";
 import { aceitarOrcamento } from "./actions";
+
+function TabelaAceite({
+  itens,
+  selecionados,
+  alternarItem,
+  pending,
+}: {
+  itens: OrcamentoAceiteItem[];
+  selecionados: Record<string, boolean>;
+  alternarItem: (cdOrcamentoServico: string) => void;
+  pending: boolean;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] text-sm">
+        <thead className="text-left text-muted-foreground">
+          <tr>
+            <th className="w-8 py-2" />
+            <th className="py-2 font-medium">Serviço</th>
+            <th className="py-2 font-medium">Tipo</th>
+            <th className="py-2 font-medium">Qtd.</th>
+            <th className="py-2 font-medium">Valor unit.</th>
+            <th className="py-2 text-right font-medium">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {itens.map((item) => (
+            <motion.tr
+              key={item.cd_orcamento_servico}
+              animate={{ opacity: selecionados[item.cd_orcamento_servico] ? 1 : 0.4 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-border"
+            >
+              <td className="py-2">
+                <Checkbox
+                  checked={!!selecionados[item.cd_orcamento_servico]}
+                  onChange={() => alternarItem(item.cd_orcamento_servico)}
+                  disabled={pending}
+                  aria-label={`Selecionar ${item.ds_descricao}`}
+                />
+              </td>
+              <td className="py-2">{item.ds_descricao}</td>
+              <td className="py-2">{item.tp_servico === "honorario" ? "Honorário" : "Custa"}</td>
+              <td className="py-2">{item.nr_quantidade}</td>
+              <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
+              <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
+            </motion.tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function OrcamentoAceiteFluxo({
   token,
@@ -39,6 +97,9 @@ export function OrcamentoAceiteFluxo({
   }, [itens, selecionados]);
 
   const nenhumItemSelecionado = Object.values(selecionados).every((v) => !v);
+
+  const itensIniciais = itens.filter((item) => item.tp_secao !== "final");
+  const itensFinais = itens.filter((item) => item.tp_secao === "final");
 
   function alternarItem(cdOrcamentoServico: string) {
     setSelecionados((atual) => ({
@@ -79,46 +140,35 @@ export function OrcamentoAceiteFluxo({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="w-8 py-2" />
-                <th className="py-2 font-medium">Serviço</th>
-                <th className="py-2 font-medium">Tipo</th>
-                <th className="py-2 font-medium">Qtd.</th>
-                <th className="py-2 font-medium">Valor unit.</th>
-                <th className="py-2 text-right font-medium">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itens.map((item) => (
-                <motion.tr
-                  key={item.cd_orcamento_servico}
-                  animate={{ opacity: selecionados[item.cd_orcamento_servico] ? 1 : 0.4 }}
-                  transition={{ duration: 0.2 }}
-                  className="border-t border-border"
-                >
-                  <td className="py-2">
-                    <Checkbox
-                      checked={!!selecionados[item.cd_orcamento_servico]}
-                      onChange={() => alternarItem(item.cd_orcamento_servico)}
-                      disabled={pending}
-                      aria-label={`Selecionar ${item.ds_descricao}`}
-                    />
-                  </td>
-                  <td className="py-2">{item.ds_descricao}</td>
-                  <td className="py-2">
-                    {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
-                  </td>
-                  <td className="py-2">{item.nr_quantidade}</td>
-                  <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
-                  <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {itensFinais.length > 0 ? (
+          <div className="flex flex-col gap-6">
+            <div>
+              <p className="mb-2 text-sm font-semibold text-foreground">Custos Iniciais</p>
+              <TabelaAceite
+                itens={itensIniciais}
+                selecionados={selecionados}
+                alternarItem={alternarItem}
+                pending={pending}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold text-foreground">Custos Finais</p>
+              <TabelaAceite
+                itens={itensFinais}
+                selecionados={selecionados}
+                alternarItem={alternarItem}
+                pending={pending}
+              />
+            </div>
+          </div>
+        ) : (
+          <TabelaAceite
+            itens={itens}
+            selecionados={selecionados}
+            alternarItem={alternarItem}
+            pending={pending}
+          />
+        )}
 
         <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
           <p className="text-muted-foreground">Honorários selecionados: {formatarMoeda(totais.honorarios)}</p>
@@ -132,6 +182,13 @@ export function OrcamentoAceiteFluxo({
           >
             Total a aceitar: {formatarMoeda(totais.total)}
           </motion.p>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Observações</p>
+          <p>{OBSERVACAO_REAJUSTE}</p>
+          <p>{OBSERVACAO_VALOR_VENAL}</p>
+          {itensFinais.length > 0 && <p>{OBSERVACAO_PRAZO_SECOES}</p>}
         </div>
       </div>
 

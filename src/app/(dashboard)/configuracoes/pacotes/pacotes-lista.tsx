@@ -7,6 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PacoteItem, ServicoComPrecos, TabelaCustaItem } from "@/types/database";
 import { excluirPacoteItem } from "./actions";
 
+const SECAO_LABEL: Record<PacoteItem["tp_secao_padrao"], string> = {
+  inicial: "Custos Iniciais",
+  final: "Custos Finais",
+  ambas: "Iniciais + Finais (duplicado)",
+};
+
+function rotuloItem(item: PacoteItem, custa: TabelaCustaItem | undefined) {
+  if (item.tp_origem === "itiv") return "ITIV — 3% automático";
+  if (item.tp_origem === "faixa") {
+    return `${item.tp_tabela_faixa} — ${item.nm_secao_faixa} (por faixa)`;
+  }
+  if (!custa) return "Boleto não encontrado";
+  return `[${custa.tp_tabela} — ${custa.cd_ato ?? "s/ código"}] ${custa.ds_ato}`;
+}
+
 function LinhaPacoteItem({ item, custa }: { item: PacoteItem; custa: TabelaCustaItem | undefined }) {
   const [excluindo, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
@@ -22,10 +37,10 @@ function LinhaPacoteItem({ item, custa }: { item: PacoteItem; custa: TabelaCusta
   return (
     <div className="flex items-center justify-between gap-3 border-t border-border py-2 first:border-t-0">
       <div className="text-sm">
-        <span className="text-muted-foreground">
-          [{custa?.tp_tabela ?? "?"} — {custa?.cd_ato ?? "s/ código"}]
-        </span>{" "}
-        {custa?.ds_ato ?? "Boleto não encontrado"}
+        {rotuloItem(item, custa)}
+        <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {SECAO_LABEL[item.tp_secao_padrao]}
+        </span>
         {item.sn_opcional && (
           <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             opcional
@@ -96,7 +111,7 @@ export function PacotesLista({
                 <LinhaPacoteItem
                   key={item.cd_pacote_item}
                   item={item}
-                  custa={custaPorId.get(item.cd_custa)}
+                  custa={item.cd_custa ? custaPorId.get(item.cd_custa) : undefined}
                 />
               ))}
             </CardContent>

@@ -12,6 +12,7 @@ import { BoletoCombobox } from "@/components/boleto-combobox";
 import { BoletoCalculadora } from "@/components/boleto-calculadora";
 import { FadeIn } from "@/components/motion/fade-in";
 import { formatarMoeda, formatarTelefone } from "@/lib/utils";
+import { resolverItensDoPacote } from "@/lib/pacote-itens";
 import {
   TIPO_PROCESSO_LABEL,
   type BlocoFluxo,
@@ -296,14 +297,10 @@ export function OrcamentoForm({
 
     const precoCidade = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
 
-    // Pacote (Configurações > Pacotes) — boletos vinculados a esse
-    // serviço entram junto automaticamente, sem precisar buscar o
-    // código manualmente. Opcional entra igual, só marcado na
-    // descrição pra remover se não servir nesse orçamento.
-    const boletosDoPacote = pacoteItens
-      .filter((p) => p.cd_servico === servico.cd_servico)
-      .map((p) => custas.find((c) => c.cd_custa === p.cd_custa))
-      .filter((c): c is TabelaCustaItem => Boolean(c));
+    // Pacote (Configurações > Pacotes) — boletos (fixos, por faixa ou
+    // ITIV) vinculados a esse serviço entram junto automaticamente,
+    // sem precisar buscar o código manualmente.
+    const itensDoPacote = resolverItensDoPacote(pacoteItens, servico, custas, baseCalculo);
 
     setItens((atual) => [
       ...atual,
@@ -316,21 +313,7 @@ export function OrcamentoForm({
         vl_unitario: precoCidade ?? 0,
         nr_quantidade: 1,
       },
-      ...boletosDoPacote.map((custa) => {
-        const opcional = pacoteItens.find(
-          (p) => p.cd_servico === servico.cd_servico && p.cd_custa === custa.cd_custa
-        )?.sn_opcional;
-        const rotulo = custa.cd_ato ? `[${custa.cd_ato}] ${custa.ds_ato}` : custa.ds_ato;
-        return {
-          cd_item: crypto.randomUUID(),
-          cd_servico: "",
-          ds_descricao: opcional ? `${rotulo} (opcional)` : rotulo,
-          tp_servico: "custa" as const,
-          tp_secao: "inicial" as const,
-          vl_unitario: custa.vl_pagar ?? 0,
-          nr_quantidade: 1,
-        };
-      }),
+      ...itensDoPacote.map((item) => ({ ...item, cd_item: crypto.randomUUID() })),
     ]);
   }
 
@@ -506,6 +489,13 @@ export function OrcamentoForm({
 
     if (!tpProcesso || !podeSelecionarServicos || itens.length === 0) {
       setErro("Preencha os dados do processo e adicione ao menos um serviço.");
+      return;
+    }
+
+    if (baseCalculo > 0 && !itens.some((item) => item.ds_descricao.startsWith("ITIV"))) {
+      setErro(
+        "Valor da transação/venal preenchido, mas o ITIV (3%) ainda não foi adicionado ao orçamento — adicione o ITIV ou apague esses dois valores antes de salvar."
+      );
       return;
     }
 

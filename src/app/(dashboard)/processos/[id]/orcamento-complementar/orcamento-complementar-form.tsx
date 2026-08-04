@@ -11,6 +11,7 @@ import { ServicoCombobox } from "@/components/servico-combobox";
 import { BoletoCombobox } from "@/components/boleto-combobox";
 import { BoletoCalculadora } from "@/components/boleto-calculadora";
 import { formatarMoeda } from "@/lib/utils";
+import { resolverItensDoPacote } from "@/lib/pacote-itens";
 import type { PacoteItem, ServicoComPrecos, TabelaCustaItem, TipoProcesso } from "@/types/database";
 import type { ItemOrcamentoInput } from "@/app/(dashboard)/orcamentos/novo/actions";
 import { criarOrcamentoComplementar } from "./actions";
@@ -74,10 +75,7 @@ export function OrcamentoComplementarForm({
 
     const precoCidade = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
 
-    const boletosDoPacote = pacoteItens
-      .filter((p) => p.cd_servico === servico.cd_servico)
-      .map((p) => custas.find((c) => c.cd_custa === p.cd_custa))
-      .filter((c): c is TabelaCustaItem => Boolean(c));
+    const itensDoPacote = resolverItensDoPacote(pacoteItens, servico, custas, baseCalculo);
 
     setItens((atual) => [
       ...atual,
@@ -90,21 +88,7 @@ export function OrcamentoComplementarForm({
         vl_unitario: precoCidade ?? 0,
         nr_quantidade: 1,
       },
-      ...boletosDoPacote.map((custa) => {
-        const opcional = pacoteItens.find(
-          (p) => p.cd_servico === servico.cd_servico && p.cd_custa === custa.cd_custa
-        )?.sn_opcional;
-        const rotulo = custa.cd_ato ? `[${custa.cd_ato}] ${custa.ds_ato}` : custa.ds_ato;
-        return {
-          cd_item: crypto.randomUUID(),
-          cd_servico: "",
-          ds_descricao: opcional ? `${rotulo} (opcional)` : rotulo,
-          tp_servico: "custa" as const,
-          tp_secao: "inicial" as const,
-          vl_unitario: custa.vl_pagar ?? 0,
-          nr_quantidade: 1,
-        };
-      }),
+      ...itensDoPacote.map((item) => ({ ...item, cd_item: crypto.randomUUID() })),
     ]);
   }
 
@@ -269,6 +253,13 @@ export function OrcamentoComplementarForm({
 
     if (!nmCidade || !dtValidade || itens.length === 0) {
       setErro("Preencha cidade, validade e adicione ao menos um serviço.");
+      return;
+    }
+
+    if (baseCalculo > 0 && !itens.some((item) => item.ds_descricao.startsWith("ITIV"))) {
+      setErro(
+        "Valor da transação/venal preenchido, mas o ITIV (3%) ainda não foi adicionado ao orçamento — adicione o ITIV ou apague esses dois valores antes de salvar."
+      );
       return;
     }
 
