@@ -251,6 +251,7 @@ export function OrcamentoForm({
         return orgaosSelecionados.size > 0;
       case "tipo_servico":
         return categoriasSelecionadas.size > 0;
+      case "dados_imovel":
       case "selecao_servicos":
       case "boletos":
         return true;
@@ -519,7 +520,19 @@ export function OrcamentoForm({
                   onChange={(e) => setDtValidade(e.target.value)}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
+            </CardContent>
+          </Card>
+        );
+
+      case "dados_imovel":
+        return (
+          <Card>
+            <CardHeader className="flex-row items-center gap-2 space-y-0">
+              <Receipt className="h-5 w-5 text-accent" />
+              <CardTitle>Dados do Imóvel (ITIV)</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <Label htmlFor="ds_inscricao_municipal">Inscrição Municipal do imóvel (opcional)</Label>
                 <Input
                   id="ds_inscricao_municipal"
@@ -548,11 +561,11 @@ export function OrcamentoForm({
                   value={valorVenal}
                   onChange={(e) => setValorVenal(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Usados na calculadora de boleto por faixa (ITV) lá embaixo — o sistema usa
-                  sempre o maior dos dois.
-                </p>
               </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Usados pro cálculo do ITIV (3%) e das custas de Lavratura/Registro por faixa lá
+                embaixo — o sistema usa sempre o maior dos dois.
+              </p>
             </CardContent>
           </Card>
         );

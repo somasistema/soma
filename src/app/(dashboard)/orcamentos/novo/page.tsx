@@ -17,6 +17,7 @@ import { OrcamentoForm } from "./orcamento-form";
 const ORDEM_PADRAO: BlocoFluxo[] = [
   "tipo_processo",
   "informacoes_basicas",
+  "dados_imovel",
   "orgao",
   "tipo_servico",
   "selecao_servicos",

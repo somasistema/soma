@@ -349,6 +349,7 @@ export interface PacoteItem {
 export type BlocoFluxo =
   | "tipo_processo"
   | "informacoes_basicas"
+  | "dados_imovel"
   | "orgao"
   | "tipo_servico"
   | "selecao_servicos"
@@ -375,9 +376,11 @@ export interface FluxoBloco {
 // mais fixos aqui.
 export const FLUXO_CONEXOES: { origem: BlocoFluxo; destino: BlocoFluxo }[] = [
   { origem: "tipo_processo", destino: "informacoes_basicas" },
+  { origem: "informacoes_basicas", destino: "dados_imovel" },
   { origem: "informacoes_basicas", destino: "orgao" },
   { origem: "orgao", destino: "tipo_servico" },
   { origem: "tipo_servico", destino: "selecao_servicos" },
   { origem: "informacoes_basicas", destino: "selecao_servicos" },
   { origem: "selecao_servicos", destino: "boletos" },
+  { origem: "dados_imovel", destino: "boletos" },
 ];
