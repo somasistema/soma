@@ -372,96 +372,6 @@ export function OrcamentoForm({
     ]);
   }
 
-  function encontrarFaixaCusta(tpTabela: TabelaCustaItem["tp_tabela"], nmSecao: string) {
-    return custas.find(
-      (c) =>
-        c.tp_tabela === tpTabela &&
-        c.nm_secao === nmSecao &&
-        (c.vl_faixa_min == null || baseCalculo >= c.vl_faixa_min) &&
-        (c.vl_faixa_max == null || baseCalculo <= c.vl_faixa_max)
-    );
-  }
-
-  function adicionarPacoteCompraVenda() {
-    if (baseCalculo <= 0) return;
-    const novosItens: ItemLinha[] = [
-      {
-        cd_item: crypto.randomUUID(),
-        cd_servico: "",
-        ds_descricao: `ITIV — 3% sobre ${formatarMoeda(baseCalculo)}`,
-        tp_servico: "custa",
-        tp_secao: "inicial",
-        vl_unitario: Math.round(baseCalculo * 0.03 * 100) / 100,
-        nr_quantidade: 1,
-      },
-    ];
-
-    const lavratura = encontrarFaixaCusta("NOTAS", "I - Atos com Valor Econômico");
-    if (lavratura?.vl_pagar != null) {
-      novosItens.push({
-        cd_item: crypto.randomUUID(),
-        cd_servico: "",
-        ds_descricao: `Lavratura de Escritura — ${lavratura.ds_ato}`,
-        tp_servico: "custa",
-        tp_secao: "inicial",
-        vl_unitario: lavratura.vl_pagar,
-        nr_quantidade: 1,
-      });
-    }
-
-    const registro = encontrarFaixaCusta("RI", "I - Atos com Valor Econômico");
-    if (registro?.vl_pagar != null) {
-      novosItens.push({
-        cd_item: crypto.randomUUID(),
-        cd_servico: "",
-        ds_descricao: `Registro do Título — ${registro.ds_ato}`,
-        tp_servico: "custa",
-        tp_secao: "final",
-        vl_unitario: registro.vl_pagar,
-        nr_quantidade: 1,
-      });
-    }
-
-    const prenotacao = custas.find((c) => c.tp_tabela === "RI" && c.cd_ato === "13043");
-    if (prenotacao?.vl_pagar != null) {
-      novosItens.push(
-        {
-          cd_item: crypto.randomUUID(),
-          cd_servico: "",
-          ds_descricao: `Prenotação (1ª) — ${prenotacao.ds_ato}`,
-          tp_servico: "custa",
-          tp_secao: "inicial",
-          vl_unitario: prenotacao.vl_pagar,
-          nr_quantidade: 1,
-        },
-        {
-          cd_item: crypto.randomUUID(),
-          cd_servico: "",
-          ds_descricao: `Prenotação (2ª) — ${prenotacao.ds_ato}`,
-          tp_servico: "custa",
-          tp_secao: "final",
-          vl_unitario: prenotacao.vl_pagar,
-          nr_quantidade: 1,
-        }
-      );
-    }
-
-    const certidaoOnus = custas.find((c) => c.tp_tabela === "RI" && c.cd_ato === "13042");
-    if (certidaoOnus?.vl_pagar != null) {
-      novosItens.push({
-        cd_item: crypto.randomUUID(),
-        cd_servico: "",
-        ds_descricao: `Certidão de Ônus (proxy) — ${certidaoOnus.ds_ato}`,
-        tp_servico: "custa",
-        tp_secao: "inicial",
-        vl_unitario: certidaoOnus.vl_pagar,
-        nr_quantidade: 1,
-      });
-    }
-
-    setItens((atual) => [...atual, ...novosItens]);
-  }
-
   function atualizarQuantidade(cd_item: string, nr_quantidade: number) {
     setItens((atual) =>
       atual.map((item) => (item.cd_item === cd_item ? { ...item, nr_quantidade } : item))
@@ -746,8 +656,9 @@ export function OrcamentoForm({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato, ou use as
-                ferramentas abaixo pra Compra e Venda (ITIV, Lavratura, Registro).
+                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato, ou use o
+                ITIV abaixo. Pra Lavratura, Registro, Prenotação (x2) e Certidão entrarem sozinhos
+                junto com o serviço, configure o pacote em Configurações &gt; Pacotes.
               </p>
 
               {baseCalculo > 0 && (
@@ -760,15 +671,6 @@ export function OrcamentoForm({
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={adicionarItiv}>
                       Adicionar ITIV (3%)
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={adicionarPacoteCompraVenda}
-                    >
-                      Adicionar pacote completo (ITIV + Lavratura + Registro + Prenotação x2 +
-                      Certidão)
                     </Button>
                   </div>
                 </div>
