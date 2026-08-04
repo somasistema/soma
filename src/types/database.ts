@@ -80,10 +80,17 @@ export interface ServicoPreco {
 
 export type ServicoComPrecos = Servico & { servico_precos: ServicoPreco[] };
 
-// As 3 cidades onde a SOMA opera hoje — dirigem a busca de preço no
-// catálogo (soma.servico_precos). Adicionar uma cidade nova aqui não
-// exige migration, só cadastrar os preços dela nos serviços.
-export const CIDADES_SERVICO = ["Salvador", "Lauro de Freitas", "Camaçari"] as const;
+// Fallback só pra quando a migration 019 (soma.cidades) ainda não
+// rodou — a lista de verdade agora é cadastrável em Configurações >
+// Cidades e cada tela busca do banco (ver CidadeRow/actions).
+export const CIDADES_SERVICO_PADRAO = ["Salvador", "Lauro de Freitas", "Camaçari"];
+
+export interface Cidade {
+  cd_cidade: string;
+  nm_cidade: string;
+  sn_ativo: boolean;
+  nr_ordem: number;
+}
 
 export const LOCAL_SERVICO_LABEL: Record<LocalServico, string> = {
   CRI: "Cartório de Registro de Imóveis",
@@ -137,6 +144,10 @@ export interface Processo {
   ts_atualizacao: string;
 }
 
+// Onde cada item entra no PDF/tela — Custos Iniciais x Custos Finais,
+// igual o processo manual sempre separou (ver migration 020).
+export type TipoSecaoItem = "inicial" | "final";
+
 export interface Orcamento {
   cd_orcamento: string;
   cd_processo: string;
@@ -144,6 +155,9 @@ export interface Orcamento {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
+  ds_inscricao_municipal: string | null;
+  vl_transacao: number | null;
+  vl_venal: number | null;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
@@ -160,6 +174,7 @@ export interface OrcamentoServico {
   cd_servico: string | null;
   ds_descricao: string;
   tp_servico: TipoServico;
+  tp_secao: TipoSecaoItem;
   vl_unitario: number;
   nr_quantidade: number;
   vl_subtotal: number;
@@ -170,6 +185,7 @@ export interface OrcamentoAceiteItem {
   cd_orcamento_servico: string;
   ds_descricao: string;
   tp_servico: TipoServico;
+  tp_secao: TipoSecaoItem;
   vl_unitario: number;
   nr_quantidade: number;
   vl_subtotal: number;
@@ -181,6 +197,9 @@ export interface OrcamentoAceite {
   nm_cidade: string;
   dt_validade: string;
   tp_status: StatusOrcamento;
+  ds_inscricao_municipal: string | null;
+  vl_transacao: number | null;
+  vl_venal: number | null;
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
@@ -297,6 +316,15 @@ export interface TabelaCustaItem {
   vl_pagar: number | null;
   ds_valor_especial: string | null;
   nr_ordem: number;
+}
+
+// Liga um serviço a boletos que devem entrar junto automaticamente no
+// orçamento (ver migration 021 e /configuracoes/pacotes).
+export interface PacoteItem {
+  cd_pacote_item: string;
+  cd_servico: string;
+  cd_custa: string;
+  sn_opcional: boolean;
 }
 
 // Blocos configuráveis da tela de novo orçamento — ver migration 017

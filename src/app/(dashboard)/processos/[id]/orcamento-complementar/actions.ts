@@ -14,7 +14,10 @@ export async function criarOrcamentoComplementar(
   cdProcesso: string,
   nmCidade: string,
   dtValidade: string,
-  itens: ItemOrcamentoInput[]
+  itens: ItemOrcamentoInput[],
+  dsInscricaoMunicipal: string,
+  vlTransacao: number | null,
+  vlVenal: number | null
 ): Promise<CriarOrcamentoComplementarState> {
   const supabase = await createClient();
 
@@ -25,6 +28,9 @@ export async function criarOrcamentoComplementar(
       p_nm_cidade: nmCidade,
       p_dt_validade: dtValidade,
       p_itens: itens,
+      p_ds_inscricao_municipal: dsInscricaoMunicipal || null,
+      p_vl_transacao: vlTransacao,
+      p_vl_venal: vlVenal,
     });
 
   if (error || !cdOrcamento) {

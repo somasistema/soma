@@ -64,6 +64,23 @@ export default async function OrcamentoDetalhePage({
         <StatusBadge status={orcamento.tp_status} />
       </div>
 
+      {(orcamento.ds_inscricao_municipal || orcamento.vl_transacao || orcamento.vl_venal) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados do imóvel</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
+            {orcamento.ds_inscricao_municipal && (
+              <p>Inscrição Municipal: {orcamento.ds_inscricao_municipal}</p>
+            )}
+            {orcamento.vl_transacao != null && (
+              <p>Valor da transação: {formatarMoeda(orcamento.vl_transacao)}</p>
+            )}
+            {orcamento.vl_venal != null && <p>Valor venal: {formatarMoeda(orcamento.vl_venal)}</p>}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Itens do orçamento</CardTitle>
@@ -75,6 +92,7 @@ export default async function OrcamentoDetalhePage({
                 <tr>
                   <th className="py-2 font-medium">Serviço</th>
                   <th className="py-2 font-medium">Tipo</th>
+                  <th className="py-2 font-medium">Seção</th>
                   <th className="py-2 font-medium">Qtd.</th>
                   <th className="py-2 font-medium">Valor unit.</th>
                   <th className="py-2 text-right font-medium">Subtotal</th>
@@ -87,6 +105,7 @@ export default async function OrcamentoDetalhePage({
                     <td className="py-2">
                       {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
                     </td>
+                    <td className="py-2">{item.tp_secao === "final" ? "Final" : "Inicial"}</td>
                     <td className="py-2">{item.nr_quantidade}</td>
                     <td className="py-2">{formatarMoeda(item.vl_unitario)}</td>
                     <td className="py-2 text-right">{formatarMoeda(item.vl_subtotal)}</td>

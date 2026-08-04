@@ -1,4 +1,4 @@
-import { Workflow } from "lucide-react";
+import { MapPin, PackageOpen, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,6 +15,34 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">
               Editor visual dos blocos da tela de novo orçamento — arraste pra reorganizar e
               desative o que não quiser que apareça.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/cidades">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <MapPin className="h-5 w-5 text-accent" />
+            <CardTitle>Cidades</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Cidades disponíveis pra orçamento e preço de serviço — adicione, desative ou
+              exclua.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/pacotes">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <PackageOpen className="h-5 w-5 text-accent" />
+            <CardTitle>Pacotes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Vincule boletos a um serviço — ao adicionar o serviço no orçamento, os boletos
+              entram junto automaticamente.
             </p>
           </CardContent>
         </Card>

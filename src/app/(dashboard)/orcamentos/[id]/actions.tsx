@@ -47,6 +47,9 @@ export async function gerarPdfOrcamento(cdOrcamento: string): Promise<GerarPdfSt
       nomeCidade={orcamento.nm_cidade}
       dataValidade={orcamento.dt_validade}
       nomeComprador={processo.nm_comprador_convidado}
+      dsInscricaoMunicipal={orcamento.ds_inscricao_municipal}
+      vlTransacao={orcamento.vl_transacao}
+      vlVenal={orcamento.vl_venal}
       itens={itens ?? []}
       vlTotalHonorarios={orcamento.vl_total_honorarios}
       vlTotalCustas={orcamento.vl_total_custas}

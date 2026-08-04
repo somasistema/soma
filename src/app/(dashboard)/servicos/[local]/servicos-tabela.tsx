@@ -4,10 +4,16 @@ import { useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Select } from "@/components/ui/select";
 import { FadeIn } from "@/components/motion/fade-in";
-import { CIDADES_SERVICO, type ServicoComPrecos } from "@/types/database";
+import type { ServicoComPrecos } from "@/types/database";
 import { ServicoRow } from "./servico-row";
 
-export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
+export function ServicosTabela({
+  servicos,
+  cidades,
+}: {
+  servicos: ServicoComPrecos[];
+  cidades: string[];
+}) {
   const categorias = useMemo(
     () => Array.from(new Set(servicos.map((s) => s.nm_categoria).filter(Boolean))) as string[],
     [servicos]
@@ -45,7 +51,7 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
               <th className="px-4 py-3 font-medium">Código</th>
               <th className="px-4 py-3 font-medium">Categoria</th>
               <th className="px-4 py-3 font-medium">Descrição</th>
-              {CIDADES_SERVICO.map((cidade) => (
+              {cidades.map((cidade) => (
                 <th key={cidade} className="px-4 py-3 font-medium">
                   {cidade}
                 </th>
@@ -57,12 +63,12 @@ export function ServicosTabela({ servicos }: { servicos: ServicoComPrecos[] }) {
           <tbody>
             <AnimatePresence initial={false}>
               {servicosFiltrados.map((servico) => (
-                <ServicoRow key={servico.cd_servico} servico={servico} />
+                <ServicoRow key={servico.cd_servico} servico={servico} cidades={cidades} />
               ))}
             </AnimatePresence>
             {servicosFiltrados.length === 0 && (
               <tr>
-                <td colSpan={CIDADES_SERVICO.length + 5} className="px-4 py-6 text-center text-muted-foreground">
+                <td colSpan={cidades.length + 5} className="px-4 py-6 text-center text-muted-foreground">
                   Nenhum serviço cadastrado.
                 </td>
               </tr>

@@ -7,7 +7,7 @@ import { AtivoBadge } from "@/components/ui/ativo-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { CIDADES_SERVICO, type ServicoComPrecos } from "@/types/database";
+import type { ServicoComPrecos } from "@/types/database";
 import { formatarMoeda } from "@/lib/utils";
 import { atualizarServico, excluirServico } from "../actions";
 import { ToggleAtivo } from "../toggle-ativo";
@@ -16,7 +16,13 @@ function precoPorCidade(servico: ServicoComPrecos, cidade: string) {
   return servico.servico_precos.find((p) => p.nm_cidade === cidade)?.vl_valor;
 }
 
-export function ServicoRow({ servico }: { servico: ServicoComPrecos }) {
+export function ServicoRow({
+  servico,
+  cidades,
+}: {
+  servico: ServicoComPrecos;
+  cidades: string[];
+}) {
   const [editando, setEditando] = useState(false);
   const [valorVariavel, setValorVariavel] = useState(servico.sn_valor_variavel);
   const [pending, startTransition] = useTransition();
@@ -48,9 +54,10 @@ export function ServicoRow({ servico }: { servico: ServicoComPrecos }) {
   if (editando) {
     return (
       <motion.tr layout className="border-t border-border bg-muted/30">
-        <td colSpan={CIDADES_SERVICO.length + 5} className="px-4 py-4">
+        <td colSpan={cidades.length + 5} className="px-4 py-4">
           <form action={salvar} className="flex flex-col gap-3">
             <input type="hidden" name="tp_local" value={servico.tp_local ?? ""} />
+            <input type="hidden" name="qtd_cidades" value={cidades.length} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <Input name="cd_codigo" placeholder="Código" defaultValue={servico.cd_codigo ?? ""} />
               <Input
@@ -77,30 +84,17 @@ export function ServicoRow({ servico }: { servico: ServicoComPrecos }) {
             </label>
             {!valorVariavel && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Input
-                  name="vl_salvador"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder={CIDADES_SERVICO[0]}
-                  defaultValue={precoPorCidade(servico, CIDADES_SERVICO[0]) ?? ""}
-                />
-                <Input
-                  name="vl_lauro"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder={CIDADES_SERVICO[1]}
-                  defaultValue={precoPorCidade(servico, CIDADES_SERVICO[1]) ?? ""}
-                />
-                <Input
-                  name="vl_camacari"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder={CIDADES_SERVICO[2]}
-                  defaultValue={precoPorCidade(servico, CIDADES_SERVICO[2]) ?? ""}
-                />
+                {cidades.map((cidade) => (
+                  <Input
+                    key={cidade}
+                    name={`preco__${cidade}`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder={cidade}
+                    defaultValue={precoPorCidade(servico, cidade) ?? ""}
+                  />
+                ))}
               </div>
             )}
             <div className="flex items-center gap-2">
@@ -131,11 +125,11 @@ export function ServicoRow({ servico }: { servico: ServicoComPrecos }) {
       <td className="px-4 py-3 text-muted-foreground">{servico.nm_categoria}</td>
       <td className="px-4 py-3">{servico.nm_servico}</td>
       {servico.sn_valor_variavel ? (
-        <td colSpan={CIDADES_SERVICO.length} className="px-4 py-3 italic text-muted-foreground">
+        <td colSpan={cidades.length} className="px-4 py-3 italic text-muted-foreground">
           Valor variável
         </td>
       ) : (
-        CIDADES_SERVICO.map((cidade) => {
+        cidades.map((cidade) => {
           const valor = precoPorCidade(servico, cidade);
           return (
             <td key={cidade} className="px-4 py-3">

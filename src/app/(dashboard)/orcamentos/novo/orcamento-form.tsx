@@ -9,14 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ServicoCombobox } from "@/components/servico-combobox";
 import { BoletoCombobox } from "@/components/boleto-combobox";
+import { BoletoCalculadora } from "@/components/boleto-calculadora";
 import { FadeIn } from "@/components/motion/fade-in";
 import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
-  CIDADES_SERVICO,
   TIPO_PROCESSO_LABEL,
   type BlocoFluxo,
   type Imobiliaria,
   type LocalServico,
+  type PacoteItem,
   type ServicoComPrecos,
   type TabelaCustaItem,
   type TipoAplicavelFluxo,
@@ -30,35 +31,44 @@ interface ItemLinha extends ItemOrcamentoInput {
   cd_item: string;
 }
 
-// Os 6 órgãos do fluxograma — "Tribunal" agrupa os 3 tribunais do
-// catálogo (TJ/TRT/TRF) numa escolha só, igual no PDF. Múltipla
-// escolha: dá pra marcar vários órgãos e ir somando itens de cada um
-// no mesmo orçamento.
-type OrgaoOrcamento = "CRI" | "NOTAS" | "RCPN" | "TRIBUNAL" | "SEDUR" | "SEFAZ";
+// 4 órgãos em destaque (os mais usados no dia a dia); o resto entra
+// agrupado em "Outros" pra não poluir a tela. Múltipla escolha: dá
+// pra marcar vários órgãos e ir somando itens de cada um no mesmo
+// orçamento.
+type OrgaoOrcamento = "CRI" | "RCPN" | "NOTAS" | "SEFAZ" | "OUTROS";
 
 const ORGAOS_ORCAMENTO: { chave: OrgaoOrcamento; nome: string; locais: LocalServico[] }[] = [
-  { chave: "CRI", nome: "Cartório de Registro de Imóveis", locais: ["CRI"] },
-  { chave: "NOTAS", nome: "Tabelionato de Notas", locais: ["NOTAS"] },
+  { chave: "CRI", nome: "Registro de Imóveis", locais: ["CRI"] },
   { chave: "RCPN", nome: "Registro Civil", locais: ["RCPN"] },
-  { chave: "TRIBUNAL", nome: "Tribunal", locais: ["TJ", "TRT", "TRF"] },
-  { chave: "SEDUR", nome: "SEDUR", locais: ["SEDUR"] },
+  { chave: "NOTAS", nome: "Tabelionato de Notas", locais: ["NOTAS"] },
   { chave: "SEFAZ", nome: "SEFAZ", locais: ["SEFAZ"] },
+  { chave: "OUTROS", nome: "Outros", locais: ["SEDUR", "TJ", "TRT", "TRF", "RF", "SOMA"] },
 ];
+
+// Categoria (nm_categoria) com poucos itens vira uma única opção
+// "Outros serviços" em vez de um botão só pra ela — limpa a tela sem
+// esconder nenhum serviço, só agrupa visualmente.
+const CATEGORIA_MIN_ITENS = 3;
+const OUTROS_SERVICOS = "__outros_servicos__";
 
 export function OrcamentoForm({
   imobiliarias,
   servicos,
   custas,
+  cidades,
   blocosAtivos,
   blocosAplicaveis,
   ordemBlocos,
+  pacoteItens,
 }: {
   imobiliarias: Imobiliaria[];
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
+  cidades: string[];
   blocosAtivos: Partial<Record<BlocoFluxo, boolean>>;
   blocosAplicaveis: Partial<Record<BlocoFluxo, TipoAplicavelFluxo>>;
   ordemBlocos: BlocoFluxo[];
+  pacoteItens: PacoteItem[];
 }) {
   // Falta linha no banco (ex: migration 017 ainda não rodou) conta
   // como ativo — configurável em Configurações > Fluxo, nunca esconde
@@ -75,8 +85,15 @@ export function OrcamentoForm({
   const [cdImobiliaria, setCdImobiliaria] = useState(imobiliarias[0]?.cd_imobiliaria ?? "");
   const [nmCompradorConvidado, setNmCompradorConvidado] = useState("");
   const [dsTelefoneComprador, setDsTelefoneComprador] = useState("");
-  const [nmCidade, setNmCidade] = useState<string>(CIDADES_SERVICO[0]);
+  const [nmCidade, setNmCidade] = useState<string>(cidades[0] ?? "");
   const [dtValidade, setDtValidade] = useState("");
+  const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState("");
+
+  // Opcionais — alimentam a calculadora/pacote de Compra e Venda lá
+  // embaixo (ITIV, Lavratura, Registro), não travam nada em branco.
+  const [valorTransacao, setValorTransacao] = useState("");
+  const [valorVenal, setValorVenal] = useState("");
+  const baseCalculo = Math.max(Number(valorTransacao) || 0, Number(valorVenal) || 0);
 
   // Órgão / Local do Serviço (conforme fluxograma) — só existe pro
   // ramo Despachante; Contrato já é uma categoria única, sem órgão.
@@ -112,22 +129,44 @@ export function OrcamentoForm({
   // marcados. Múltipla escolha, igual órgão.
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<Set<string>>(new Set());
 
-  const categoriasDisponiveis = useMemo(() => {
-    const categorias = servicosDosOrgaos
-      .map((s) => s.nm_categoria)
-      .filter((categoria): categoria is string => Boolean(categoria));
-    return Array.from(new Set(categorias)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  // Categorias com poucos itens (< CATEGORIA_MIN_ITENS) somem da lista
+  // de botões e ficam disponíveis juntas em "Outros serviços" — limpa
+  // a tela sem esconder nenhum serviço do catálogo.
+  const { categoriasPrincipais, categoriasSecundarias } = useMemo(() => {
+    const contagem = new Map<string, number>();
+    for (const s of servicosDosOrgaos) {
+      if (!s.nm_categoria) continue;
+      contagem.set(s.nm_categoria, (contagem.get(s.nm_categoria) ?? 0) + 1);
+    }
+    const principais: string[] = [];
+    const secundarias: string[] = [];
+    for (const [categoria, qtd] of contagem) {
+      (qtd >= CATEGORIA_MIN_ITENS ? principais : secundarias).push(categoria);
+    }
+    const ordenar = (a: string, b: string) => a.localeCompare(b, "pt-BR");
+    return {
+      categoriasPrincipais: principais.sort(ordenar),
+      categoriasSecundarias: secundarias.sort(ordenar),
+    };
   }, [servicosDosOrgaos]);
+
+  const categoriasDisponiveis = useMemo(
+    () => [...categoriasPrincipais, ...(categoriasSecundarias.length > 0 ? [OUTROS_SERVICOS] : [])],
+    [categoriasPrincipais, categoriasSecundarias]
+  );
 
   // Lista final que alimenta o combobox de "Adicionar" — Contrato usa
   // servicosDosOrgaos direto (categoria única, não precisa escolher).
   const servicosParaAdicionar = useMemo(() => {
     if (tpProcesso === "contrato") return servicosDosOrgaos;
     if (categoriasSelecionadas.size === 0) return [];
-    return servicosDosOrgaos.filter(
-      (s) => s.nm_categoria && categoriasSelecionadas.has(s.nm_categoria)
-    );
-  }, [servicosDosOrgaos, tpProcesso, categoriasSelecionadas]);
+    const outrosMarcado = categoriasSelecionadas.has(OUTROS_SERVICOS);
+    return servicosDosOrgaos.filter((s) => {
+      if (!s.nm_categoria) return false;
+      if (categoriasSelecionadas.has(s.nm_categoria)) return true;
+      return outrosMarcado && categoriasSecundarias.includes(s.nm_categoria);
+    });
+  }, [servicosDosOrgaos, tpProcesso, categoriasSelecionadas, categoriasSecundarias]);
 
   const [cdServicoSelecionado, setCdServicoSelecionado] = useState(
     servicosParaAdicionar[0]?.cd_servico ?? ""
@@ -257,6 +296,15 @@ export function OrcamentoForm({
 
     const precoCidade = servico.servico_precos.find((p) => p.nm_cidade === nmCidade)?.vl_valor;
 
+    // Pacote (Configurações > Pacotes) — boletos vinculados a esse
+    // serviço entram junto automaticamente, sem precisar buscar o
+    // código manualmente. Opcional entra igual, só marcado na
+    // descrição pra remover se não servir nesse orçamento.
+    const boletosDoPacote = pacoteItens
+      .filter((p) => p.cd_servico === servico.cd_servico)
+      .map((p) => custas.find((c) => c.cd_custa === p.cd_custa))
+      .filter((c): c is TabelaCustaItem => Boolean(c));
+
     setItens((atual) => [
       ...atual,
       {
@@ -264,9 +312,25 @@ export function OrcamentoForm({
         cd_servico: servico.cd_servico,
         ds_descricao: servico.nm_servico,
         tp_servico: servico.tp_servico,
+        tp_secao: "inicial",
         vl_unitario: precoCidade ?? 0,
         nr_quantidade: 1,
       },
+      ...boletosDoPacote.map((custa) => {
+        const opcional = pacoteItens.find(
+          (p) => p.cd_servico === servico.cd_servico && p.cd_custa === custa.cd_custa
+        )?.sn_opcional;
+        const rotulo = custa.cd_ato ? `[${custa.cd_ato}] ${custa.ds_ato}` : custa.ds_ato;
+        return {
+          cd_item: crypto.randomUUID(),
+          cd_servico: "",
+          ds_descricao: opcional ? `${rotulo} (opcional)` : rotulo,
+          tp_servico: "custa" as const,
+          tp_secao: "inicial" as const,
+          vl_unitario: custa.vl_pagar ?? 0,
+          nr_quantidade: 1,
+        };
+      }),
     ]);
   }
 
@@ -281,11 +345,138 @@ export function OrcamentoForm({
         cd_servico: "",
         ds_descricao: custa.cd_ato ? `[${custa.cd_ato}] ${custa.ds_ato}` : custa.ds_ato,
         tp_servico: "custa",
+        tp_secao: "inicial",
         vl_unitario: custa.vl_pagar ?? 0,
         nr_quantidade: 1,
       },
     ]);
     setCdCustaSelecionada("");
+  }
+
+  function adicionarBoletoCalculado(item: { descricao: string; valor: number }) {
+    setItens((atual) => [
+      ...atual,
+      {
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: item.descricao,
+        tp_servico: "custa",
+        tp_secao: "inicial",
+        vl_unitario: item.valor,
+        nr_quantidade: 1,
+      },
+    ]);
+  }
+
+  // ITIV — alíquota fixa de 3% sobre o maior entre valor da transação
+  // e valor venal (Lei Municipal), igual o processo manual já faz na
+  // mão. Pacote junta ITIV + Lavratura (NOTAS) + Registro (RI) +
+  // Prenotação em dobro (RI) + Certidão de Ônus (proxy — RI ainda não
+  // tem um código exato "Certidão de Ônus Reais" cadastrado) num clique.
+  function adicionarItiv() {
+    if (baseCalculo <= 0) return;
+    setItens((atual) => [
+      ...atual,
+      {
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: `ITIV — 3% sobre ${formatarMoeda(baseCalculo)} (maior valor entre transação e venal)`,
+        tp_servico: "custa",
+        tp_secao: "inicial",
+        vl_unitario: Math.round(baseCalculo * 0.03 * 100) / 100,
+        nr_quantidade: 1,
+      },
+    ]);
+  }
+
+  function encontrarFaixaCusta(tpTabela: TabelaCustaItem["tp_tabela"], nmSecao: string) {
+    return custas.find(
+      (c) =>
+        c.tp_tabela === tpTabela &&
+        c.nm_secao === nmSecao &&
+        (c.vl_faixa_min == null || baseCalculo >= c.vl_faixa_min) &&
+        (c.vl_faixa_max == null || baseCalculo <= c.vl_faixa_max)
+    );
+  }
+
+  function adicionarPacoteCompraVenda() {
+    if (baseCalculo <= 0) return;
+    const novosItens: ItemLinha[] = [
+      {
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: `ITIV — 3% sobre ${formatarMoeda(baseCalculo)}`,
+        tp_servico: "custa",
+        tp_secao: "inicial",
+        vl_unitario: Math.round(baseCalculo * 0.03 * 100) / 100,
+        nr_quantidade: 1,
+      },
+    ];
+
+    const lavratura = encontrarFaixaCusta("NOTAS", "I - Atos com Valor Econômico");
+    if (lavratura?.vl_pagar != null) {
+      novosItens.push({
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: `Lavratura de Escritura — ${lavratura.ds_ato}`,
+        tp_servico: "custa",
+        tp_secao: "inicial",
+        vl_unitario: lavratura.vl_pagar,
+        nr_quantidade: 1,
+      });
+    }
+
+    const registro = encontrarFaixaCusta("RI", "I - Atos com Valor Econômico");
+    if (registro?.vl_pagar != null) {
+      novosItens.push({
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: `Registro do Título — ${registro.ds_ato}`,
+        tp_servico: "custa",
+        tp_secao: "final",
+        vl_unitario: registro.vl_pagar,
+        nr_quantidade: 1,
+      });
+    }
+
+    const prenotacao = custas.find((c) => c.tp_tabela === "RI" && c.cd_ato === "13043");
+    if (prenotacao?.vl_pagar != null) {
+      novosItens.push(
+        {
+          cd_item: crypto.randomUUID(),
+          cd_servico: "",
+          ds_descricao: `Prenotação (1ª) — ${prenotacao.ds_ato}`,
+          tp_servico: "custa",
+          tp_secao: "inicial",
+          vl_unitario: prenotacao.vl_pagar,
+          nr_quantidade: 1,
+        },
+        {
+          cd_item: crypto.randomUUID(),
+          cd_servico: "",
+          ds_descricao: `Prenotação (2ª) — ${prenotacao.ds_ato}`,
+          tp_servico: "custa",
+          tp_secao: "final",
+          vl_unitario: prenotacao.vl_pagar,
+          nr_quantidade: 1,
+        }
+      );
+    }
+
+    const certidaoOnus = custas.find((c) => c.tp_tabela === "RI" && c.cd_ato === "13042");
+    if (certidaoOnus?.vl_pagar != null) {
+      novosItens.push({
+        cd_item: crypto.randomUUID(),
+        cd_servico: "",
+        ds_descricao: `Certidão de Ônus (proxy) — ${certidaoOnus.ds_ato}`,
+        tp_servico: "custa",
+        tp_secao: "inicial",
+        vl_unitario: certidaoOnus.vl_pagar,
+        nr_quantidade: 1,
+      });
+    }
+
+    setItens((atual) => [...atual, ...novosItens]);
   }
 
   function atualizarQuantidade(cd_item: string, nr_quantidade: number) {
@@ -297,6 +488,12 @@ export function OrcamentoForm({
   function atualizarValorUnitario(cd_item: string, vl_unitario: number) {
     setItens((atual) =>
       atual.map((item) => (item.cd_item === cd_item ? { ...item, vl_unitario } : item))
+    );
+  }
+
+  function atualizarSecao(cd_item: string, tp_secao: "inicial" | "final") {
+    setItens((atual) =>
+      atual.map((item) => (item.cd_item === cd_item ? { ...item, tp_secao } : item))
     );
   }
 
@@ -320,6 +517,9 @@ export function OrcamentoForm({
         ds_telefone_comprador_convidado: dsTelefoneComprador,
         nm_cidade: nmCidade,
         dt_validade: dtValidade,
+        ds_inscricao_municipal: dsInscricaoMunicipal,
+        vl_transacao: valorTransacao ? Number(valorTransacao) : null,
+        vl_venal: valorVenal ? Number(valorVenal) : null,
         itens: itens.map(({ cd_item: _cd_item, ...item }) => item),
       });
 
@@ -380,7 +580,7 @@ export function OrcamentoForm({
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="nm_comprador_convidado">Nome do comprador</Label>
+                <Label htmlFor="nm_comprador_convidado">Nome do cliente</Label>
                 <Input
                   id="nm_comprador_convidado"
                   value={nmCompradorConvidado}
@@ -388,7 +588,7 @@ export function OrcamentoForm({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ds_telefone_comprador_convidado">Telefone do comprador</Label>
+                <Label htmlFor="ds_telefone_comprador_convidado">Telefone do cliente</Label>
                 <Input
                   id="ds_telefone_comprador_convidado"
                   type="tel"
@@ -400,7 +600,7 @@ export function OrcamentoForm({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="nm_cidade">Cidade</Label>
                 <Select id="nm_cidade" value={nmCidade} onChange={(e) => setNmCidade(e.target.value)}>
-                  {CIDADES_SERVICO.map((cidade) => (
+                  {cidades.map((cidade) => (
                     <option key={cidade} value={cidade}>
                       {cidade}
                     </option>
@@ -418,6 +618,40 @@ export function OrcamentoForm({
                   value={dtValidade}
                   onChange={(e) => setDtValidade(e.target.value)}
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ds_inscricao_municipal">Inscrição Municipal do imóvel (opcional)</Label>
+                <Input
+                  id="ds_inscricao_municipal"
+                  value={dsInscricaoMunicipal}
+                  onChange={(e) => setDsInscricaoMunicipal(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="valor_transacao">Valor da transação (opcional)</Label>
+                <Input
+                  id="valor_transacao"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={valorTransacao}
+                  onChange={(e) => setValorTransacao(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="valor_venal">Valor venal (opcional)</Label>
+                <Input
+                  id="valor_venal"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={valorVenal}
+                  onChange={(e) => setValorVenal(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usados na calculadora de boleto por faixa (ITV) lá embaixo — o sistema usa
+                  sempre o maior dos dois.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -465,7 +699,7 @@ export function OrcamentoForm({
                     variant={categoriasSelecionadas.has(categoria) ? "default" : "outline"}
                     onClick={() => alternarCategoria(categoria)}
                   >
-                    {categoria}
+                    {categoria === OUTROS_SERVICOS ? "Outros serviços" : categoria}
                   </Button>
                 ))}
               </div>
@@ -522,9 +756,40 @@ export function OrcamentoForm({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato. Quando o
-                valor depende de faixa, ajuste manualmente na tabela abaixo.
+                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato, ou use as
+                ferramentas abaixo pra Compra e Venda (ITIV, Lavratura, Registro).
               </p>
+
+              {baseCalculo > 0 && (
+                <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3">
+                  <p className="text-sm font-medium text-foreground">Compra e Venda</p>
+                  <p className="text-xs text-muted-foreground">
+                    Base de cálculo: <strong>{formatarMoeda(baseCalculo)}</strong> (maior valor
+                    entre transação e venal, informados em Informações Básicas)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={adicionarItiv}>
+                      Adicionar ITIV (3%)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={adicionarPacoteCompraVenda}
+                    >
+                      Adicionar pacote completo (ITIV + Lavratura + Registro + Prenotação x2 +
+                      Certidão)
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <BoletoCalculadora
+                custas={custas}
+                valorTransacao={Number(valorTransacao) || 0}
+                valorVenal={Number(valorVenal) || 0}
+                onAdicionar={adicionarBoletoCalculado}
+              />
             </CardContent>
           </Card>
         );
@@ -551,6 +816,7 @@ export function OrcamentoForm({
                       <tr>
                         <th className="px-3 py-2 font-medium">Serviço</th>
                         <th className="px-3 py-2 font-medium">Tipo</th>
+                        <th className="px-3 py-2 font-medium">Seção</th>
                         <th className="px-3 py-2 font-medium">Qtd.</th>
                         <th className="px-3 py-2 font-medium">Valor unit.</th>
                         <th className="px-3 py-2 text-right font-medium">Subtotal</th>
@@ -563,6 +829,18 @@ export function OrcamentoForm({
                           <td className="px-3 py-2">{item.ds_descricao}</td>
                           <td className="px-3 py-2">
                             {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Select
+                              value={item.tp_secao}
+                              onChange={(e) =>
+                                atualizarSecao(item.cd_item, e.target.value as "inicial" | "final")
+                              }
+                              className="h-8 w-24 px-2 text-xs"
+                            >
+                              <option value="inicial">Inicial</option>
+                              <option value="final">Final</option>
+                            </Select>
                           </td>
                           <td className="px-3 py-2">
                             <Input

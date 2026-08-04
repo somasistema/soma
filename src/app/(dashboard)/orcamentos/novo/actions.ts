@@ -1,13 +1,14 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { TipoProcesso, TipoServico } from "@/types/database";
+import type { TipoProcesso, TipoSecaoItem, TipoServico } from "@/types/database";
 import { redirect } from "next/navigation";
 
 export interface ItemOrcamentoInput {
   cd_servico: string;
   ds_descricao: string;
   tp_servico: TipoServico;
+  tp_secao: TipoSecaoItem;
   vl_unitario: number;
   nr_quantidade: number;
 }
@@ -19,6 +20,9 @@ export interface CriarOrcamentoInput {
   ds_telefone_comprador_convidado: string;
   nm_cidade: string;
   dt_validade: string;
+  ds_inscricao_municipal: string;
+  vl_transacao: number | null;
+  vl_venal: number | null;
   itens: ItemOrcamentoInput[];
 }
 
@@ -40,6 +44,9 @@ export async function criarOrcamento(
     p_nm_cidade: input.nm_cidade,
     p_dt_validade: input.dt_validade,
     p_itens: input.itens,
+    p_ds_inscricao_municipal: input.ds_inscricao_municipal || null,
+    p_vl_transacao: input.vl_transacao,
+    p_vl_venal: input.vl_venal,
   });
 
   if (error || !cd_orcamento) {

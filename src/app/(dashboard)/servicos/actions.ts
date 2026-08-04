@@ -3,30 +3,33 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CIDADES_SERVICO, LOCAIS_SERVICO } from "@/types/database";
+import { LOCAIS_SERVICO } from "@/types/database";
 
-const precoOpcional = z
-  .string()
-  .optional()
-  .transform((v) => (v && v.trim() !== "" ? Number(v) : null));
+const PRECO_PREFIXO = "preco__";
 
-const servicoSchema = z
-  .object({
-    cd_codigo: z.string().optional(),
-    tp_local: z.enum(LOCAIS_SERVICO as [string, ...string[]]),
-    nm_categoria: z.string().min(1, "Informe a categoria."),
-    nm_servico: z.string().min(2, "Nome deve ter ao menos 2 caracteres."),
-    sn_valor_variavel: z.coerce.boolean(),
-    vl_salvador: precoOpcional,
-    vl_lauro: precoOpcional,
-    vl_camacari: precoOpcional,
-  })
-  .refine(
-    (data) =>
-      data.sn_valor_variavel ||
-      (data.vl_salvador !== null && data.vl_lauro !== null && data.vl_camacari !== null),
-    { message: "Informe o valor nas 3 cidades, ou marque como valor variável." }
-  );
+// Cidades são dinâmicas (soma.cidades, ver migration 019) — em vez de
+// campos fixos por cidade, o form manda um input preco__<cidade> por
+// cidade ativa, e aqui a gente varre o FormData procurando por eles.
+function extrairPrecos(formData: FormData) {
+  const precos: { nm_cidade: string; vl_valor: number }[] = [];
+
+  for (const [chave, valor] of formData.entries()) {
+    if (!chave.startsWith(PRECO_PREFIXO)) continue;
+    const texto = String(valor).trim();
+    if (texto === "") continue;
+    precos.push({ nm_cidade: chave.slice(PRECO_PREFIXO.length), vl_valor: Number(texto) });
+  }
+
+  return precos;
+}
+
+const servicoBaseSchema = z.object({
+  cd_codigo: z.string().optional(),
+  nm_categoria: z.string().min(1, "Informe a categoria."),
+  nm_servico: z.string().min(2, "Nome deve ter ao menos 2 caracteres."),
+  sn_valor_variavel: z.coerce.boolean(),
+  qtd_cidades: z.coerce.number(),
+});
 
 export type CriarServicoState = { erro?: string } | null;
 
@@ -34,19 +37,25 @@ export async function criarServico(
   _prevState: CriarServicoState,
   formData: FormData
 ): Promise<CriarServicoState> {
-  const parsed = servicoSchema.safeParse({
-    cd_codigo: formData.get("cd_codigo"),
-    tp_local: formData.get("tp_local"),
-    nm_categoria: formData.get("nm_categoria"),
-    nm_servico: formData.get("nm_servico"),
-    sn_valor_variavel: formData.get("sn_valor_variavel") === "on",
-    vl_salvador: formData.get("vl_salvador"),
-    vl_lauro: formData.get("vl_lauro"),
-    vl_camacari: formData.get("vl_camacari"),
-  });
+  const parsed = servicoBaseSchema
+    .extend({ tp_local: z.enum(LOCAIS_SERVICO as [string, ...string[]]) })
+    .safeParse({
+      cd_codigo: formData.get("cd_codigo"),
+      tp_local: formData.get("tp_local"),
+      nm_categoria: formData.get("nm_categoria"),
+      nm_servico: formData.get("nm_servico"),
+      sn_valor_variavel: formData.get("sn_valor_variavel") === "on",
+      qtd_cidades: formData.get("qtd_cidades"),
+    });
 
   if (!parsed.success) {
     return { erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const precos = extrairPrecos(formData);
+
+  if (!parsed.data.sn_valor_variavel && precos.length < parsed.data.qtd_cidades) {
+    return { erro: "Informe o valor em todas as cidades, ou marque como valor variável." };
   }
 
   const supabase = await createClient();
@@ -70,14 +79,11 @@ export async function criarServico(
     return { erro: "Não foi possível salvar o serviço." };
   }
 
-  if (!parsed.data.sn_valor_variavel) {
-    const precos = [
-      { cd_servico: servico.cd_servico, nm_cidade: CIDADES_SERVICO[0], vl_valor: parsed.data.vl_salvador },
-      { cd_servico: servico.cd_servico, nm_cidade: CIDADES_SERVICO[1], vl_valor: parsed.data.vl_lauro },
-      { cd_servico: servico.cd_servico, nm_cidade: CIDADES_SERVICO[2], vl_valor: parsed.data.vl_camacari },
-    ];
-
-    const { error: erroPrecos } = await supabase.schema("soma").from("servico_precos").insert(precos);
+  if (!parsed.data.sn_valor_variavel && precos.length > 0) {
+    const { error: erroPrecos } = await supabase
+      .schema("soma")
+      .from("servico_precos")
+      .insert(precos.map((p) => ({ cd_servico: servico.cd_servico, ...p })));
 
     if (erroPrecos) {
       return { erro: "Serviço criado, mas não foi possível salvar os preços." };
@@ -107,19 +113,22 @@ export async function atualizarServico(
   _prevState: AtualizarServicoState,
   formData: FormData
 ): Promise<AtualizarServicoState> {
-  const parsed = servicoSchema.safeParse({
+  const parsed = servicoBaseSchema.safeParse({
     cd_codigo: formData.get("cd_codigo"),
-    tp_local: formData.get("tp_local"),
     nm_categoria: formData.get("nm_categoria"),
     nm_servico: formData.get("nm_servico"),
     sn_valor_variavel: formData.get("sn_valor_variavel") === "on",
-    vl_salvador: formData.get("vl_salvador"),
-    vl_lauro: formData.get("vl_lauro"),
-    vl_camacari: formData.get("vl_camacari"),
+    qtd_cidades: formData.get("qtd_cidades"),
   });
 
   if (!parsed.success) {
     return { erro: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const precos = extrairPrecos(formData);
+
+  if (!parsed.data.sn_valor_variavel && precos.length < parsed.data.qtd_cidades) {
+    return { erro: "Informe o valor em todas as cidades, ou marque como valor variável." };
   }
 
   const supabase = await createClient();
@@ -152,14 +161,11 @@ export async function atualizarServico(
     return { erro: "Serviço atualizado, mas não foi possível ajustar os preços." };
   }
 
-  if (!parsed.data.sn_valor_variavel) {
-    const precos = [
-      { cd_servico, nm_cidade: CIDADES_SERVICO[0], vl_valor: parsed.data.vl_salvador },
-      { cd_servico, nm_cidade: CIDADES_SERVICO[1], vl_valor: parsed.data.vl_lauro },
-      { cd_servico, nm_cidade: CIDADES_SERVICO[2], vl_valor: parsed.data.vl_camacari },
-    ];
-
-    const { error: erroPrecos } = await supabase.schema("soma").from("servico_precos").insert(precos);
+  if (!parsed.data.sn_valor_variavel && precos.length > 0) {
+    const { error: erroPrecos } = await supabase
+      .schema("soma")
+      .from("servico_precos")
+      .insert(precos.map((p) => ({ cd_servico, ...p })));
 
     if (erroPrecos) {
       return { erro: "Serviço atualizado, mas não foi possível salvar os preços." };
@@ -170,9 +176,7 @@ export async function atualizarServico(
   return null;
 }
 
-export async function excluirServico(
-  cd_servico: string
-): Promise<{ erro?: string }> {
+export async function excluirServico(cd_servico: string): Promise<{ erro?: string }> {
   const supabase = await createClient();
 
   const { error } = await supabase.schema("soma").from("servicos").delete().eq("cd_servico", cd_servico);

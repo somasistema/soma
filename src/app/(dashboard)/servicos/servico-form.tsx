@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CIDADES_SERVICO, type LocalServico } from "@/types/database";
+import type { LocalServico } from "@/types/database";
 import { criarServico } from "./actions";
 
-export function ServicoForm({ local }: { local: LocalServico }) {
+export function ServicoForm({ local, cidades }: { local: LocalServico; cidades: string[] }) {
   const [state, action, pending] = useActionState(criarServico, null);
   const formRef = useRef<HTMLFormElement>(null);
   const precosRef = useRef<HTMLDivElement>(null);
@@ -34,6 +34,7 @@ export function ServicoForm({ local }: { local: LocalServico }) {
       <CardContent>
         <form ref={formRef} action={action} className="flex flex-col gap-4">
           <input type="hidden" name="tp_local" value={local} />
+          <input type="hidden" name="qtd_cidades" value={cidades.length} />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="flex flex-col gap-1.5">
@@ -61,18 +62,18 @@ export function ServicoForm({ local }: { local: LocalServico }) {
           </label>
 
           <div ref={precosRef} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vl_salvador">{CIDADES_SERVICO[0]}</Label>
-              <Input id="vl_salvador" name="vl_salvador" type="number" step="0.01" min="0" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vl_lauro">{CIDADES_SERVICO[1]}</Label>
-              <Input id="vl_lauro" name="vl_lauro" type="number" step="0.01" min="0" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="vl_camacari">{CIDADES_SERVICO[2]}</Label>
-              <Input id="vl_camacari" name="vl_camacari" type="number" step="0.01" min="0" />
-            </div>
+            {cidades.map((cidade) => (
+              <div key={cidade} className="flex flex-col gap-1.5">
+                <Label htmlFor={`preco__${cidade}`}>{cidade}</Label>
+                <Input
+                  id={`preco__${cidade}`}
+                  name={`preco__${cidade}`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            ))}
           </div>
 
           <Button type="submit" disabled={pending} className="self-start">

@@ -1,12 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
   BlocoFluxo,
+  Cidade,
   FluxoBloco,
   Imobiliaria,
+  PacoteItem,
   ServicoComPrecos,
   TabelaCustaItem,
   TipoAplicavelFluxo,
 } from "@/types/database";
+import { CIDADES_SERVICO_PADRAO } from "@/types/database";
 import { OrcamentoForm } from "./orcamento-form";
 
 // Ordem padrão caso a migration 017 ainda não tenha rodado (sem
@@ -23,8 +26,14 @@ const ORDEM_PADRAO: BlocoFluxo[] = [
 export default async function NovoOrcamentoPage() {
   const supabase = await createClient();
 
-  const [{ data: imobiliarias }, { data: servicos }, { data: custas }, { data: blocos }] =
-    await Promise.all([
+  const [
+    { data: imobiliarias },
+    { data: servicos },
+    { data: custas },
+    { data: blocos },
+    { data: cidadesDb },
+    { data: pacoteItens },
+  ] = await Promise.all([
       supabase
         .schema("soma")
         .from("imobiliarias")
@@ -56,7 +65,18 @@ export default async function NovoOrcamentoPage() {
         .select("cd_bloco, sn_ativo, tp_aplicavel")
         .order("posicao_x")
         .returns<Pick<FluxoBloco, "cd_bloco" | "sn_ativo" | "tp_aplicavel">[]>(),
+      supabase
+        .schema("soma")
+        .from("cidades")
+        .select("*")
+        .eq("sn_ativo", true)
+        .order("nr_ordem")
+        .returns<Cidade[]>(),
+      supabase.schema("soma").from("pacote_itens").select("*").returns<PacoteItem[]>(),
     ]);
+
+  const cidades =
+    cidadesDb && cidadesDb.length > 0 ? cidadesDb.map((c) => c.nm_cidade) : CIDADES_SERVICO_PADRAO;
 
   // Bloco sem linha no banco (ainda não rodou a migration 017/018, por
   // exemplo) conta como ativo e aplicável aos dois tipos — nunca
@@ -78,9 +98,11 @@ export default async function NovoOrcamentoPage() {
         imobiliarias={imobiliarias ?? []}
         servicos={servicos ?? []}
         custas={custas ?? []}
+        cidades={cidades}
         blocosAtivos={blocosAtivos}
         blocosAplicaveis={blocosAplicaveis}
         ordemBlocos={ordemBlocos}
+        pacoteItens={pacoteItens ?? []}
       />
     </div>
   );
