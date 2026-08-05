@@ -1,23 +1,22 @@
-import { getUsuarioAtual } from "@/lib/auth";
+import { getSecoesAcessiveis, getUsuarioAtual } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
-import { ROLE_LABEL, type RoleUsuario } from "@/types/database";
+import { ROLE_LABEL, SECAO_ACESSO_LABEL, type SecaoAcesso } from "@/types/database";
 import { logout } from "./actions";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { SidebarNav } from "./sidebar-nav";
 
-const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
-  { href: "/dashboard", label: "Início" },
-  { href: "/orcamentos", label: "Orçamentos", roles: ["master", "juridico"] },
-  // Sem filtro de roles — RLS já restringe cada perfil às linhas que
-  // pode ver (Comprador/Vendedor/Corretor/Imobiliária/Despachante só
-  // enxergam os processos em que estão envolvidos; Master/Jurídico
-  // veem tudo).
-  { href: "/processos", label: "Processos" },
-  { href: "/servicos", label: "Serviços", roles: ["master"] },
-  { href: "/boletos", label: "Taxas e Emolumentos", roles: ["master"] },
-  { href: "/usuarios", label: "Usuários", roles: ["master"] },
-  { href: "/configuracoes", label: "Configurações", roles: ["master"] },
+// Ordem de exibição no menu — quais dessas seções cada perfil vê é
+// configurável em Configurações > Perfil de acesso (ver migration
+// 027); Master sempre vê todas (hardcoded).
+const SECOES_MENU: SecaoAcesso[] = [
+  "dashboard",
+  "orcamentos",
+  "processos",
+  "servicos",
+  "boletos",
+  "usuarios",
+  "configuracoes",
 ];
 
 export default async function DashboardLayout({
@@ -27,9 +26,13 @@ export default async function DashboardLayout({
 }) {
   const usuario = await getUsuarioAtual();
 
-  const itensVisiveis = NAV_ITEMS.filter(
-    (item) => !item.roles || item.roles.includes(usuario.tp_role)
-  );
+  const secoesAcessiveis =
+    usuario.tp_role === "master" ? new Set(SECOES_MENU) : await getSecoesAcessiveis(usuario.tp_role);
+
+  const itensVisiveis = SECOES_MENU.filter((secao) => secoesAcessiveis.has(secao)).map((secao) => ({
+    href: `/${secao}`,
+    label: SECAO_ACESSO_LABEL[secao],
+  }));
 
   return (
     <div className="flex min-h-screen flex-col bg-background md:flex-row">

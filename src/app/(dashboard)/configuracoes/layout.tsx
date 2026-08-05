@@ -1,13 +1,9 @@
 import { Settings2 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getUsuarioAtual } from "@/lib/auth";
+import { exigirAcessoSecao, getUsuarioAtual } from "@/lib/auth";
 
 export default async function ConfiguracoesLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioAtual();
-
-  if (usuario.tp_role !== "master") {
-    redirect("/dashboard");
-  }
+  await exigirAcessoSecao(usuario, "configuracoes");
 
   return (
     <div className="flex flex-col gap-6">

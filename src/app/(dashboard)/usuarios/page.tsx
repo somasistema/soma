@@ -1,10 +1,9 @@
 import { Users } from "lucide-react";
-import { redirect } from "next/navigation";
 import { AtivoBadge } from "@/components/ui/ativo-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
-import { getUsuarioAtual } from "@/lib/auth";
+import { exigirAcessoSecao, getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatarData } from "@/lib/utils";
 import { ROLE_LABEL, type Imobiliaria, type Usuario } from "@/types/database";
@@ -18,10 +17,7 @@ type UsuarioComImobiliaria = Usuario & {
 
 export default async function UsuariosPage() {
   const usuarioAtual = await getUsuarioAtual();
-
-  if (usuarioAtual.tp_role !== "master") {
-    redirect("/dashboard");
-  }
+  await exigirAcessoSecao(usuarioAtual, "usuarios");
 
   const supabase = await createClient();
 

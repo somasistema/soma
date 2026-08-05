@@ -8,6 +8,46 @@ export type RoleUsuario =
   | "comprador"
   | "outro_cliente";
 
+// Seções do menu lateral — o que cada perfil pode acessar é
+// configurável em Configurações > Perfil de acesso (ver migration
+// 027), Master sempre tem acesso a tudo (hardcoded, nunca passa por
+// essa tabela) pra nunca se trancar fora da própria tela que
+// configuraria isso.
+export type SecaoAcesso =
+  | "dashboard"
+  | "orcamentos"
+  | "processos"
+  | "servicos"
+  | "boletos"
+  | "usuarios"
+  | "configuracoes";
+
+export const SECAO_ACESSO_LABEL: Record<SecaoAcesso, string> = {
+  dashboard: "Início",
+  orcamentos: "Orçamentos",
+  processos: "Processos",
+  servicos: "Serviços",
+  boletos: "Taxas e Emolumentos",
+  usuarios: "Usuários",
+  configuracoes: "Configurações",
+};
+
+export const SECOES_ACESSO: SecaoAcesso[] = [
+  "dashboard",
+  "orcamentos",
+  "processos",
+  "servicos",
+  "boletos",
+  "usuarios",
+  "configuracoes",
+];
+
+export interface PerfilAcesso {
+  tp_role: RoleUsuario;
+  cd_secao: SecaoAcesso;
+  sn_ativo: boolean;
+}
+
 // Única escolha fixa no início da criação do orçamento — nunca mistura
 // itens dos dois tipos no mesmo orçamento/processo (ver migration 014).
 export type TipoProcesso = "despachante" | "contrato";

@@ -1,4 +1,4 @@
-import { MapPin, PackageOpen, Workflow } from "lucide-react";
+import { MapPin, PackageOpen, ShieldCheck, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -43,6 +43,20 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">
               Vincule taxas e emolumentos a um serviço — ao adicionar o serviço no orçamento, eles
               entram junto automaticamente.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/perfil-acesso">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <ShieldCheck className="h-5 w-5 text-accent" />
+            <CardTitle>Perfil de acesso</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Escolha quais seções do menu cada perfil (Jurídico, Imobiliária, Despachante...)
+              pode acessar.
             </p>
           </CardContent>
         </Card>

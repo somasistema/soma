@@ -1,15 +1,11 @@
 import { Settings } from "lucide-react";
-import { redirect } from "next/navigation";
-import { getUsuarioAtual } from "@/lib/auth";
+import { exigirAcessoSecao, getUsuarioAtual } from "@/lib/auth";
 import { LOCAIS_SERVICO } from "@/types/database";
 import { ServicosTabs } from "./servicos-tabs";
 
 export default async function ServicosLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioAtual();
-
-  if (usuario.tp_role !== "master") {
-    redirect("/dashboard");
-  }
+  await exigirAcessoSecao(usuario, "servicos");
 
   return (
     <div className="flex flex-col gap-6">
