@@ -41,7 +41,7 @@ export default function ConfiguracoesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Vincule boletos a um serviço — ao adicionar o serviço no orçamento, os boletos
+              Vincule taxas e emolumentos a um serviço — ao adicionar o serviço no orçamento, eles
               entram junto automaticamente.
             </p>
           </CardContent>

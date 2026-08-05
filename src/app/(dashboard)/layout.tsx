@@ -15,7 +15,7 @@ const NAV_ITEMS: { href: string; label: string; roles?: RoleUsuario[] }[] = [
   // veem tudo).
   { href: "/processos", label: "Processos" },
   { href: "/servicos", label: "Serviços", roles: ["master"] },
-  { href: "/boletos", label: "Boleto", roles: ["master"] },
+  { href: "/boletos", label: "Taxas e Emolumentos", roles: ["master"] },
   { href: "/usuarios", label: "Usuários", roles: ["master"] },
   { href: "/configuracoes", label: "Configurações", roles: ["master"] },
 ];

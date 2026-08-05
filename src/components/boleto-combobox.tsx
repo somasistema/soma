@@ -49,7 +49,7 @@ export function BoletoCombobox({
           placeholder={
             selecionado
               ? `[${selecionado.cd_ato ?? "s/ código"}] ${selecionado.ds_ato} — ${rotuloValor(selecionado)}`
-              : "Buscar boleto por código do ato ou descrição..."
+              : "Buscar taxa/emolumento por código do ato ou descrição..."
           }
           className="flex h-10 w-full rounded-radius border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         />
@@ -66,7 +66,7 @@ export function BoletoCombobox({
           >
             <Command.List>
               <Command.Empty className="p-4 text-center text-sm text-muted-foreground">
-                Nenhum boleto encontrado.
+                Nenhuma taxa/emolumento encontrada.
               </Command.Empty>
 
               {TABELAS_CUSTA.map((tabela) => {

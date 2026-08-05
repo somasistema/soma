@@ -18,7 +18,7 @@ function rotuloItem(item: PacoteItem, custa: TabelaCustaItem | undefined) {
   if (item.tp_origem === "faixa") {
     return `${item.tp_tabela_faixa} — ${item.nm_secao_faixa} (por faixa)`;
   }
-  if (!custa) return "Boleto não encontrado";
+  if (!custa) return "Taxa/emolumento não encontrado";
   return `[${custa.tp_tabela} — ${custa.cd_ato ?? "s/ código"}] ${custa.ds_ato}`;
 }
 

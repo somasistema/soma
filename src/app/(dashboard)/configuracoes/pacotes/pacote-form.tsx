@@ -20,7 +20,7 @@ import {
 import { criarPacoteItem } from "./actions";
 
 const ORIGEM_LABEL: Record<TipoOrigemPacoteItem, string> = {
-  custa: "Boleto fixo",
+  custa: "Taxa/emolumento fixo",
   faixa: "Valor variável por faixa (Lavratura/Registro)",
   itiv: "ITIV — 3% automático sobre a base de cálculo",
 };
@@ -122,7 +122,7 @@ export function PacoteForm({
 
           {tpOrigem === "custa" && (
             <div className="flex flex-col gap-1.5">
-              <Label>Boleto</Label>
+              <Label>Taxa/Emolumento</Label>
               <BoletoCombobox custas={custas} value={cdCusta} onChange={setCdCusta} />
             </div>
           )}

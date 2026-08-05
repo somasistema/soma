@@ -40,8 +40,8 @@ export default async function PacotesPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Vincule boletos a um serviço — ao adicionar esse serviço num orçamento, os boletos
-        vinculados entram junto automaticamente. Marcado como opcional, entra com &quot;(opcional)&quot; na
+        Vincule taxas e emolumentos a um serviço — ao adicionar esse serviço num orçamento, eles
+        entram junto automaticamente. Marcado como opcional, entra com &quot;(opcional)&quot; na
         descrição pra você decidir se remove naquele orçamento específico.
       </p>
       <PacoteForm servicos={servicos ?? []} custas={custas ?? []} cidades={cidades} />

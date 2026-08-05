@@ -32,7 +32,7 @@ export async function criarPacoteItem(
   };
 
   if (tpOrigem === "custa") {
-    if (!cdCusta) return { erro: "Escolha o boleto." };
+    if (!cdCusta) return { erro: "Escolha a taxa/emolumento." };
     linha.cd_custa = cdCusta;
   } else if (tpOrigem === "faixa") {
     if (!tpTabelaFaixa || !nmSecaoFaixa) return { erro: "Escolha a tabela e a seção." };

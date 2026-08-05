@@ -1,10 +1,13 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import type { Orcamento, OrcamentoServico, Processo } from "@/types/database";
-import { notFound } from "next/navigation";
 import { CopyLinkButton } from "./copy-link-button";
 import { DocumentosSection } from "./documentos-section";
 import { GerarPdfButton } from "./gerar-pdf-button";
@@ -61,7 +64,18 @@ export default async function OrcamentoDetalhePage({
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
           Processo {processo?.ds_numero_processo}
         </h1>
-        <StatusBadge status={orcamento.tp_status} />
+        <div className="flex items-center gap-3">
+          {orcamento.tp_status === "pendente" && (
+            <Link
+              href={`/orcamentos/${orcamento.cd_orcamento}/editar`}
+              className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5" })}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </Link>
+          )}
+          <StatusBadge status={orcamento.tp_status} />
+        </div>
       </div>
 
       {(orcamento.ds_inscricao_municipal || orcamento.vl_transacao || orcamento.vl_venal) && (

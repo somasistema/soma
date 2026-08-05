@@ -13,24 +13,42 @@ import { BoletoCombobox } from "@/components/boleto-combobox";
 import { BoletoCalculadora } from "@/components/boleto-calculadora";
 import { formatarMoeda } from "@/lib/utils";
 import { resolverItensDoPacote } from "@/lib/pacote-itens";
-import type { PacoteItem, ServicoComPrecos, TabelaCustaItem, TipoProcesso } from "@/types/database";
+import type {
+  OrcamentoServico,
+  PacoteItem,
+  ServicoComPrecos,
+  TabelaCustaItem,
+  TipoProcesso,
+} from "@/types/database";
 import type { ItemOrcamentoInput } from "@/app/(dashboard)/orcamentos/novo/actions";
-import { criarOrcamentoComplementar } from "./actions";
+import { atualizarOrcamento } from "./actions";
 
 interface ItemLinha extends ItemOrcamentoInput {
   cd_item: string;
 }
 
-export function OrcamentoComplementarForm({
-  cdProcesso,
+export function OrcamentoEditarForm({
+  cdOrcamento,
   tpProcesso,
+  nmCidadeInicial,
+  dtValidadeInicial,
+  dsInscricaoMunicipalInicial,
+  vlTransacaoInicial,
+  vlVenalInicial,
+  itensIniciais,
   servicos,
   custas,
   cidades,
   pacoteItens,
 }: {
-  cdProcesso: string;
+  cdOrcamento: string;
   tpProcesso: TipoProcesso;
+  nmCidadeInicial: string;
+  dtValidadeInicial: string;
+  dsInscricaoMunicipalInicial: string;
+  vlTransacaoInicial: string;
+  vlVenalInicial: string;
+  itensIniciais: OrcamentoServico[];
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
   cidades: string[];
@@ -39,16 +57,25 @@ export function OrcamentoComplementarForm({
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  const [nmCidade, setNmCidade] = useState<string>(cidades[0] ?? "");
-  const [dtValidade, setDtValidade] = useState("");
-  const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState("");
-  const [valorTransacao, setValorTransacao] = useState("");
-  const [valorVenal, setValorVenal] = useState("");
+  const [nmCidade, setNmCidade] = useState(nmCidadeInicial);
+  const [dtValidade, setDtValidade] = useState(dtValidadeInicial);
+  const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState(dsInscricaoMunicipalInicial);
+  const [valorTransacao, setValorTransacao] = useState(vlTransacaoInicial);
+  const [valorVenal, setValorVenal] = useState(vlVenalInicial);
   const baseCalculo = Math.max(Number(valorTransacao) || 0, Number(valorVenal) || 0);
-  const [itens, setItens] = useState<ItemLinha[]>([]);
 
-  // O tipo (despachante/contrato) é herdado do processo já existente —
-  // o orçamento complementar não pergunta de novo.
+  const [itens, setItens] = useState<ItemLinha[]>(() =>
+    itensIniciais.map((item) => ({
+      cd_item: crypto.randomUUID(),
+      cd_servico: item.cd_servico ?? "",
+      ds_descricao: item.ds_descricao,
+      tp_servico: item.tp_servico,
+      tp_secao: item.tp_secao,
+      vl_unitario: item.vl_unitario,
+      nr_quantidade: item.nr_quantidade,
+    }))
+  );
+
   const servicosDoTipo = useMemo(
     () =>
       servicos.filter((s) =>
@@ -64,10 +91,10 @@ export function OrcamentoComplementarForm({
     const honorarios = itens
       .filter((item) => item.tp_servico === "honorario")
       .reduce((total, item) => total + item.vl_unitario * item.nr_quantidade, 0);
-    const custas = itens
+    const custasTotal = itens
       .filter((item) => item.tp_servico === "custa")
       .reduce((total, item) => total + item.vl_unitario * item.nr_quantidade, 0);
-    return { honorarios, custas, total: honorarios + custas };
+    return { honorarios, custas: custasTotal, total: honorarios + custasTotal };
   }, [itens]);
 
   function adicionarItem() {
@@ -163,7 +190,7 @@ export function OrcamentoComplementarForm({
     setErro(null);
 
     if (!nmCidade || !dtValidade || itens.length === 0) {
-      setErro("Preencha cidade, validade e adicione ao menos um serviço.");
+      setErro("Preencha cidade, validade e mantenha ao menos um item.");
       return;
     }
 
@@ -175,8 +202,8 @@ export function OrcamentoComplementarForm({
     }
 
     startTransition(async () => {
-      const resultado = await criarOrcamentoComplementar(
-        cdProcesso,
+      const resultado = await atualizarOrcamento(
+        cdOrcamento,
         nmCidade,
         dtValidade,
         itens.map(({ cd_item, ...item }) => {
@@ -198,7 +225,7 @@ export function OrcamentoComplementarForm({
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Dados do orçamento complementar</CardTitle>
+          <CardTitle>Dados do orçamento</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -245,7 +272,7 @@ export function OrcamentoComplementarForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Serviços adicionais</CardTitle>
+          <CardTitle>Serviços</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1.5">
@@ -314,7 +341,7 @@ export function OrcamentoComplementarForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Itens do orçamento complementar</CardTitle>
+          <CardTitle>Itens do orçamento</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="overflow-x-auto rounded-xl border border-border">
@@ -384,7 +411,7 @@ export function OrcamentoComplementarForm({
       {erro && <p className="text-sm text-status-reprovado">{erro}</p>}
 
       <Button type="button" onClick={salvar} disabled={pending} className="self-start">
-        {pending ? "Salvando..." : "Criar orçamento complementar"}
+        {pending ? "Salvando..." : "Salvar alterações"}
       </Button>
     </div>
   );

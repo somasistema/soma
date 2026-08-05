@@ -38,7 +38,7 @@ export function CustaForm({ tabela }: { tabela: TabelaCusta }) {
     <Card>
       <CardHeader className="flex-row items-center gap-2 space-y-0">
         <Plus className="h-5 w-5 text-accent" />
-        <CardTitle>Novo boleto — {tabela}</CardTitle>
+        <CardTitle>Nova taxa/emolumento — {tabela}</CardTitle>
       </CardHeader>
       <CardContent>
         <form ref={formRef} action={action} className="flex flex-col gap-4">

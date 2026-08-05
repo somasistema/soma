@@ -643,12 +643,12 @@ export function OrcamentoForm({
           <Card>
             <CardHeader className="flex-row items-center gap-2 space-y-0">
               <Receipt className="h-5 w-5 text-accent" />
-              <CardTitle>Boletos (Custas)</CardTitle>
+              <CardTitle>Taxas e Emolumentos</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <Label htmlFor="cd_custa">Boleto</Label>
+                  <Label htmlFor="cd_custa">Taxa/Emolumento</Label>
                   <BoletoCombobox
                     custas={custas}
                     value={cdCustaSelecionada}

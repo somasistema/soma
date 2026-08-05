@@ -71,7 +71,7 @@ export async function criarCusta(_prevState: CustaState, formData: FormData): Pr
     });
 
   if (error) {
-    return { erro: "Não foi possível salvar o boleto." };
+    return { erro: "Não foi possível salvar a taxa/emolumento." };
   }
 
   revalidatePath("/boletos", "layout");
@@ -106,7 +106,7 @@ export async function atualizarCusta(
     .eq("cd_custa", cd_custa);
 
   if (error) {
-    return { erro: "Não foi possível atualizar o boleto." };
+    return { erro: "Não foi possível atualizar a taxa/emolumento." };
   }
 
   revalidatePath("/boletos", "layout");
@@ -123,7 +123,7 @@ export async function excluirCusta(cd_custa: string): Promise<{ erro?: string }>
     .eq("cd_custa", cd_custa);
 
   if (error) {
-    return { erro: "Não foi possível excluir o boleto." };
+    return { erro: "Não foi possível excluir a taxa/emolumento." };
   }
 
   revalidatePath("/boletos", "layout");
