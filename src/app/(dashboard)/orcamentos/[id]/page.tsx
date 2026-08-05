@@ -1,14 +1,14 @@
-import { notFound } from "next/navigation";
+import { FadeIn } from "@/components/motion/fade-in";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { FadeIn } from "@/components/motion/fade-in";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import type { Orcamento, OrcamentoServico, Processo } from "@/types/database";
+import { notFound } from "next/navigation";
 import { CopyLinkButton } from "./copy-link-button";
-import { WhatsappShareButton } from "./whatsapp-share-button";
-import { GerarPdfButton } from "./gerar-pdf-button";
 import { DocumentosSection } from "./documentos-section";
+import { GerarPdfButton } from "./gerar-pdf-button";
+import { WhatsappShareButton } from "./whatsapp-share-button";
 
 export default async function OrcamentoDetalhePage({
   params,
@@ -67,7 +67,7 @@ export default async function OrcamentoDetalhePage({
       {(orcamento.ds_inscricao_municipal || orcamento.vl_transacao || orcamento.vl_venal) && (
         <Card>
           <CardHeader>
-            <CardTitle>Dados do imóvel</CardTitle>
+            <CardTitle>Dados do imóvel ou de Transação</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
             {orcamento.ds_inscricao_municipal && (

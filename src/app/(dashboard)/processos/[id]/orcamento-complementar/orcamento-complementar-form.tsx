@@ -4,6 +4,7 @@ import { Receipt, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -229,25 +230,11 @@ export function OrcamentoComplementarForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="valor_transacao">Valor da transação (opcional)</Label>
-            <Input
-              id="valor_transacao"
-              type="number"
-              min="0"
-              step="0.01"
-              value={valorTransacao}
-              onChange={(e) => setValorTransacao(e.target.value)}
-            />
+            <CurrencyInput id="valor_transacao" value={valorTransacao} onChange={setValorTransacao} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="valor_venal">Valor venal (opcional)</Label>
-            <Input
-              id="valor_venal"
-              type="number"
-              min="0"
-              step="0.01"
-              value={valorVenal}
-              onChange={(e) => setValorVenal(e.target.value)}
-            />
+            <CurrencyInput id="valor_venal" value={valorVenal} onChange={setValorVenal} />
             <p className="text-xs text-muted-foreground">
               Usados na calculadora de boleto por faixa (ITV) abaixo — o sistema usa sempre o
               maior dos dois.
@@ -362,14 +349,9 @@ export function OrcamentoComplementarForm({
                       </Select>
                     </td>
                     <td className="px-3 py-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.vl_unitario}
-                        onChange={(e) =>
-                          atualizarValorUnitario(item.cd_item, Number(e.target.value) || 0)
-                        }
+                      <CurrencyInput
+                        value={String(item.vl_unitario)}
+                        onChange={(v) => atualizarValorUnitario(item.cd_item, Number(v) || 0)}
                         className="h-8 w-28"
                       />
                     </td>

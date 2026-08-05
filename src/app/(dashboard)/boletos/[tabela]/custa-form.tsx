@@ -1,9 +1,10 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { TabelaCusta } from "@/types/database";
@@ -12,6 +13,22 @@ import { criarCusta } from "../actions";
 export function CustaForm({ tabela }: { tabela: TabelaCusta }) {
   const [state, action, pending] = useActionState(criarCusta, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [vlFaixaMin, setVlFaixaMin] = useState("");
+  const [vlFaixaMax, setVlFaixaMax] = useState("");
+  const [vlPagar, setVlPagar] = useState("");
+
+  // Limpa os campos de valor durante a renderização (não em efeito)
+  // pra não disparar setState encadeado — só o reset do DOM (campos
+  // não-controlados) fica no efeito.
+  const [estadoAnterior, setEstadoAnterior] = useState(state);
+  if (state !== estadoAnterior) {
+    setEstadoAnterior(state);
+    if (state === null) {
+      setVlFaixaMin("");
+      setVlFaixaMax("");
+      setVlPagar("");
+    }
+  }
 
   useEffect(() => {
     if (state === null) formRef.current?.reset();
@@ -46,15 +63,25 @@ export function CustaForm({ tabela }: { tabela: TabelaCusta }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vl_faixa_min">Faixa — de (R$)</Label>
-              <Input id="vl_faixa_min" name="vl_faixa_min" type="number" step="0.01" min="0" />
+              <CurrencyInput
+                id="vl_faixa_min"
+                name="vl_faixa_min"
+                value={vlFaixaMin}
+                onChange={setVlFaixaMin}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vl_faixa_max">Faixa — até (R$)</Label>
-              <Input id="vl_faixa_max" name="vl_faixa_max" type="number" step="0.01" min="0" />
+              <CurrencyInput
+                id="vl_faixa_max"
+                name="vl_faixa_max"
+                value={vlFaixaMax}
+                onChange={setVlFaixaMax}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vl_pagar">Valor a pagar (R$)</Label>
-              <Input id="vl_pagar" name="vl_pagar" type="number" step="0.01" min="0" />
+              <CurrencyInput id="vl_pagar" name="vl_pagar" value={vlPagar} onChange={setVlPagar} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ds_valor_especial">Valor especial</Label>

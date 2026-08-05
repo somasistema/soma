@@ -1,18 +1,17 @@
 "use client";
 
-import { FileText, ListChecks, Receipt, Trash2 } from "lucide-react";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { BoletoCalculadora } from "@/components/boleto-calculadora";
+import { BoletoCombobox } from "@/components/boleto-combobox";
+import { FadeIn } from "@/components/motion/fade-in";
+import { ServicoCombobox } from "@/components/servico-combobox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ServicoCombobox } from "@/components/servico-combobox";
-import { BoletoCombobox } from "@/components/boleto-combobox";
-import { BoletoCalculadora } from "@/components/boleto-calculadora";
-import { FadeIn } from "@/components/motion/fade-in";
-import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import { resolverItensDoPacote } from "@/lib/pacote-itens";
+import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
   TIPO_PROCESSO_LABEL,
   type BlocoFluxo,
@@ -24,6 +23,8 @@ import {
   type TipoAplicavelFluxo,
   type TipoProcesso,
 } from "@/types/database";
+import { FileText, ListChecks, Receipt, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { criarOrcamento, type ItemOrcamentoInput } from "./actions";
 
 const TIPOS_PROCESSO = Object.keys(TIPO_PROCESSO_LABEL) as TipoProcesso[];
@@ -529,7 +530,7 @@ export function OrcamentoForm({
           <Card>
             <CardHeader className="flex-row items-center gap-2 space-y-0">
               <Receipt className="h-5 w-5 text-accent" />
-              <CardTitle>Dados do Imóvel (ITIV)</CardTitle>
+              <CardTitle>Dados do Imóvel ou de Transação</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -542,25 +543,15 @@ export function OrcamentoForm({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="valor_transacao">Valor da transação (opcional)</Label>
-                <Input
+                <CurrencyInput
                   id="valor_transacao"
-                  type="number"
-                  min="0"
-                  step="0.01"
                   value={valorTransacao}
-                  onChange={(e) => setValorTransacao(e.target.value)}
+                  onChange={setValorTransacao}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="valor_venal">Valor venal (opcional)</Label>
-                <Input
-                  id="valor_venal"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={valorVenal}
-                  onChange={(e) => setValorVenal(e.target.value)}
-                />
+                <CurrencyInput id="valor_venal" value={valorVenal} onChange={setValorVenal} />
               </div>
               <p className="text-xs text-muted-foreground sm:col-span-2">
                 Usados pro cálculo do ITIV (3%) e das custas de Lavratura/Registro por faixa lá
@@ -759,13 +750,10 @@ export function OrcamentoForm({
                             />
                           </td>
                           <td className="px-3 py-2">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.vl_unitario}
-                              onChange={(e) =>
-                                atualizarValorUnitario(item.cd_item, Number(e.target.value) || 0)
+                            <CurrencyInput
+                              value={String(item.vl_unitario)}
+                              onChange={(v) =>
+                                atualizarValorUnitario(item.cd_item, Number(v) || 0)
                               }
                               className="h-8 w-28"
                             />

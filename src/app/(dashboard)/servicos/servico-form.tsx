@@ -1,10 +1,11 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LocalServico } from "@/types/database";
@@ -14,10 +15,19 @@ export function ServicoForm({ local, cidades }: { local: LocalServico; cidades: 
   const [state, action, pending] = useActionState(criarServico, null);
   const formRef = useRef<HTMLFormElement>(null);
   const precosRef = useRef<HTMLDivElement>(null);
+  const [precos, setPrecos] = useState<Record<string, string>>({});
 
-  // Checkbox e campos de preço são não-controlados — formRef.reset() já
-  // devolve o estado inicial deles nativamente, sem precisar de setState
-  // (e sem precisar sincronizar nada) dentro do efeito de reset.
+  // Checkbox é não-controlado — formRef.reset() já devolve o estado
+  // inicial dele nativamente. Preço agora é controlado (precisa de
+  // setState) porque o CurrencyInput exige value/onChange pra formatar
+  // — limpo durante a renderização, não em efeito, pra não disparar
+  // setState encadeado.
+  const [estadoAnterior, setEstadoAnterior] = useState(state);
+  if (state !== estadoAnterior) {
+    setEstadoAnterior(state);
+    if (state === null) setPrecos({});
+  }
+
   useEffect(() => {
     if (state === null) {
       formRef.current?.reset();
@@ -65,12 +75,11 @@ export function ServicoForm({ local, cidades }: { local: LocalServico; cidades: 
             {cidades.map((cidade) => (
               <div key={cidade} className="flex flex-col gap-1.5">
                 <Label htmlFor={`preco__${cidade}`}>{cidade}</Label>
-                <Input
+                <CurrencyInput
                   id={`preco__${cidade}`}
                   name={`preco__${cidade}`}
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  value={precos[cidade] ?? ""}
+                  onChange={(v) => setPrecos((atual) => ({ ...atual, [cidade]: v }))}
                 />
               </div>
             ))}

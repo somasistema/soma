@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { formatarMoeda } from "@/lib/utils";
 import type { TabelaCustaItem } from "@/types/database";
@@ -18,6 +19,9 @@ function rotuloFaixa(item: TabelaCustaItem) {
 
 export function CustaRow({ item }: { item: TabelaCustaItem }) {
   const [editando, setEditando] = useState(false);
+  const [vlFaixaMin, setVlFaixaMin] = useState(String(item.vl_faixa_min ?? ""));
+  const [vlFaixaMax, setVlFaixaMax] = useState(String(item.vl_faixa_max ?? ""));
+  const [vlPagar, setVlPagar] = useState(String(item.vl_pagar ?? ""));
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [excluindo, startExclusao] = useTransition();
@@ -61,29 +65,23 @@ export function CustaRow({ item }: { item: TabelaCustaItem }) {
             </div>
             <Input name="ds_ato" placeholder="Descrição do ato" defaultValue={item.ds_ato} required />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-              <Input
+              <CurrencyInput
                 name="vl_faixa_min"
-                type="number"
-                step="0.01"
-                min="0"
                 placeholder="Faixa — de (R$)"
-                defaultValue={item.vl_faixa_min ?? ""}
+                value={vlFaixaMin}
+                onChange={setVlFaixaMin}
               />
-              <Input
+              <CurrencyInput
                 name="vl_faixa_max"
-                type="number"
-                step="0.01"
-                min="0"
                 placeholder="Faixa — até (R$)"
-                defaultValue={item.vl_faixa_max ?? ""}
+                value={vlFaixaMax}
+                onChange={setVlFaixaMax}
               />
-              <Input
+              <CurrencyInput
                 name="vl_pagar"
-                type="number"
-                step="0.01"
-                min="0"
                 placeholder="Valor a pagar (R$)"
-                defaultValue={item.vl_pagar ?? ""}
+                value={vlPagar}
+                onChange={setVlPagar}
               />
               <Input
                 name="ds_valor_especial"

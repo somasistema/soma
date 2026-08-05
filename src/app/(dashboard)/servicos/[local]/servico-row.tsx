@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { AtivoBadge } from "@/components/ui/ativo-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import type { ServicoComPrecos } from "@/types/database";
 import { formatarMoeda } from "@/lib/utils";
@@ -25,6 +26,9 @@ export function ServicoRow({
 }) {
   const [editando, setEditando] = useState(false);
   const [valorVariavel, setValorVariavel] = useState(servico.sn_valor_variavel);
+  const [precos, setPrecos] = useState<Record<string, string>>(() =>
+    Object.fromEntries(cidades.map((cidade) => [cidade, String(precoPorCidade(servico, cidade) ?? "")]))
+  );
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [excluindo, startExclusao] = useTransition();
@@ -85,14 +89,12 @@ export function ServicoRow({
             {!valorVariavel && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {cidades.map((cidade) => (
-                  <Input
+                  <CurrencyInput
                     key={cidade}
                     name={`preco__${cidade}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
                     placeholder={cidade}
-                    defaultValue={precoPorCidade(servico, cidade) ?? ""}
+                    value={precos[cidade] ?? ""}
+                    onChange={(v) => setPrecos((atual) => ({ ...atual, [cidade]: v }))}
                   />
                 ))}
               </div>
