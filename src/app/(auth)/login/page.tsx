@@ -32,7 +32,7 @@ export default async function LoginPage({
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-10">
       <FadeIn className="flex w-full max-w-sm flex-col items-center gap-8">
-        <Logo size="lg" stacked />
+        <Logo size="lg" />
 
         <p className="-mt-4 text-center text-sm text-muted-foreground">
           Bem-vindo à sua plataforma de gestão inteligente.

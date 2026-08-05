@@ -71,7 +71,7 @@ export default function DefinirSenhaPage() {
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4 py-10">
       <FadeIn className="flex w-full max-w-sm flex-col items-center gap-8">
-        <Logo size="lg" stacked />
+        <Logo size="lg" />
 
         <Card className="w-full">
           <CardContent className="pt-6">

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FadeIn } from "@/components/motion/fade-in";
+import { Logo } from "@/components/logo";
 import { VALOR_FIXO_DEMONSTRACAO } from "@/lib/pagamento-config";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatarData, formatarMoeda } from "@/lib/utils";
@@ -100,7 +101,7 @@ export default async function AceitePage({
       <FadeIn className="flex w-full max-w-2xl flex-col gap-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-serif-doc text-lg font-semibold text-brand">SOMA</p>
+            <Logo size="sm" className="mb-2 items-start" />
             <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
               Processo {orcamento.processo.ds_numero_processo}
             </h1>

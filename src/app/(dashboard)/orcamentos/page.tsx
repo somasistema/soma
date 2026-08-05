@@ -38,7 +38,7 @@ export default async function OrcamentosPage() {
               <thead className="bg-muted text-left text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-medium">Processo</th>
-                  <th className="px-4 py-3 font-medium">Comprador</th>
+                  <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Criado em</th>
                   <th className="px-4 py-3 font-medium">Total</th>
                   <th className="px-4 py-3 font-medium">Status</th>

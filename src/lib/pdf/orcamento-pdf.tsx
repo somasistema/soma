@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { TIPO_PROCESSO_LABEL, type OrcamentoServico, type TipoProcesso } from "@/types/database";
 import { TERMO_DESPACHANTE_INTRO, TERMO_DESPACHANTE_TITULO } from "@/lib/termo-despachante";
 import {
@@ -6,13 +6,21 @@ import {
   OBSERVACAO_REAJUSTE,
   OBSERVACAO_VALOR_VENAL,
 } from "@/lib/orcamento-observacoes";
+import { LOGO_SOMA_BASE64 } from "./logo-base64";
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function formatarData(data: string) {
-  return new Date(data).toLocaleDateString("pt-BR");
+  // Coluna DATE pura (dt_validade, "2026-01-05", sem hora) — formata
+  // direto da string pra nunca depender do fuso do processo que gera
+  // o PDF e arriscar cair no dia anterior/seguinte.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    const [ano, mes, dia] = data.split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+  return new Date(data).toLocaleDateString("pt-BR", { timeZone: "America/Bahia" });
 }
 
 function subtotalSecao(itens: OrcamentoServico[]) {
@@ -21,8 +29,7 @@ function subtotalSecao(itens: OrcamentoServico[]) {
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
-  marca: { fontSize: 20, fontWeight: 700, color: "#1a2b4a", marginBottom: 2 },
-  subMarca: { fontSize: 9, color: "#b08d3e", letterSpacing: 1, marginBottom: 16 },
+  logo: { width: 150, height: 61, marginBottom: 14, objectFit: "contain" },
   titulo: { fontSize: 14, fontWeight: 700, marginBottom: 4 },
   linhaInfo: { fontSize: 10, color: "#555", marginBottom: 2 },
   secao: { marginTop: 20, marginBottom: 8, fontSize: 11, fontWeight: 700 },
@@ -116,8 +123,7 @@ export function OrcamentoPdf({
   return (
     <Document title={`Orçamento ${numeroProcesso}`}>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.marca}>SOMA</Text>
-        <Text style={styles.subMarca}>ASSESSORIA IMOBILIÁRIA</Text>
+        <Image style={styles.logo} src={`data:image/png;base64,${LOGO_SOMA_BASE64}`} />
 
         <Text style={styles.titulo}>Orçamento de Serviços — Processo {numeroProcesso}</Text>
         <Text style={styles.linhaInfo}>Tipo: {TIPO_PROCESSO_LABEL[tipoProcesso]}</Text>

@@ -32,7 +32,7 @@ export default async function ProcessosPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium">Número</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
-                  <th className="px-4 py-3 font-medium">Comprador</th>
+                  <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Criado em</th>
                   <th className="px-4 py-3" />
                 </tr>

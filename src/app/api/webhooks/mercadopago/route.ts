@@ -148,10 +148,10 @@ async function garantirContaComprador(
 
   await supabase.schema("soma").from("andamentos").insert({
     cd_processo: cdProcesso,
-    nm_etapa: "Acesso do comprador liberado",
+    nm_etapa: "Acesso do cliente liberado",
     ds_andamento: usuarioExistente
       ? `Processo vinculado à conta já existente (${email}).`
-      : `Convite de acesso enviado para ${email} — o comprador poderá acompanhar o processo pelo sistema assim que definir a senha.`,
+      : `Convite de acesso enviado para ${email} — o cliente poderá acompanhar o processo pelo sistema assim que definir a senha.`,
   });
 }
 

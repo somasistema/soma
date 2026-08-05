@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData, formatarMoeda } from "@/lib/utils";
+import { formatarData, formatarDataHora, formatarMoeda } from "@/lib/utils";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import {
@@ -177,7 +177,7 @@ export default async function ProcessoDetalhePage({
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-foreground">{andamento.nm_etapa}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(andamento.ts_criacao).toLocaleString("pt-BR")}
+                      {formatarDataHora(andamento.ts_criacao)}
                     </p>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{andamento.ds_andamento}</p>

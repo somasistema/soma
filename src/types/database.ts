@@ -275,7 +275,7 @@ export const ROLE_LABEL: Record<RoleUsuario, string> = {
   despachante: "Despachante",
   corretor: "Corretor",
   vendedor: "Vendedor",
-  comprador: "Comprador",
+  comprador: "Cliente",
   outro_cliente: "Outro cliente",
 };
 

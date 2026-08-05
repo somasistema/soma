@@ -64,10 +64,15 @@ export const TERMO_DESPACHANTE_SECOES: SecaoTermo[] = [
     ],
   },
   {
-    titulo: "8. Comunicações Eletrônicas e LGPD",
+    titulo: "8. Comunicações Eletrônicas e Proteção de Dados (LGPD)",
     paragrafos: [
       "O CONTRATANTE autoriza a utilização de e-mail, WhatsApp e outros meios eletrônicos para envio de comunicações, solicitações de documentos, orçamentos, notificações e demais informações relacionadas aos serviços.",
-      "Os dados pessoais serão tratados exclusivamente para execução dos serviços contratados e cumprimento das obrigações legais, em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).",
+      "Os dados pessoais fornecidos serão tratados pelo DESPACHANTE em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), com base na execução do contrato, no cumprimento de obrigações legais e regulatórias aplicáveis aos serviços e, quando cabível, no legítimo interesse do DESPACHANTE.",
+      "O tratamento abrange dados de identificação, contato e documentos necessários à execução dos serviços, podendo incluir dados de terceiros indicados pelo CONTRATANTE (ex.: cônjuge, procurador, outra parte do negócio), cuja coleta e compartilhamento o CONTRATANTE declara estar autorizado a realizar.",
+      "Os dados poderão ser compartilhados com cartórios, órgãos públicos, instituições financeiras e demais terceiros estritamente necessários à execução dos serviços contratados, bem como com prestadores de tecnologia e de meios de pagamento utilizados pelo DESPACHANTE.",
+      "Os dados serão conservados pelo prazo necessário à execução dos serviços e ao cumprimento de obrigações legais, fiscais e regulatórias, sendo eliminados ou anonimizados após esse período, ressalvadas as hipóteses de retenção previstas em lei.",
+      "O CONTRATANTE poderá, a qualquer momento, exercer os direitos previstos no art. 18 da LGPD — confirmação do tratamento, acesso, correção, anonimização, portabilidade, eliminação, informação sobre compartilhamento e revogação do consentimento, quando aplicável — mediante solicitação pelos canais de contato do DESPACHANTE.",
+      "O DESPACHANTE adota medidas técnicas e administrativas razoáveis para proteger os dados pessoais contra acessos não autorizados e situações acidentais ou ilícitas de destruição, perda, alteração, comunicação ou difusão.",
     ],
   },
   {
