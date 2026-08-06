@@ -24,11 +24,13 @@ export function BoletoCalculadora({
   custas,
   valorTransacao,
   valorVenal,
+  itensAtuais,
   onAdicionar,
 }: {
   custas: TabelaCustaItem[];
   valorTransacao: number;
   valorVenal: number;
+  itensAtuais: { ds_descricao: string }[];
   onAdicionar: (item: { descricao: string; valor: number }) => void;
 }) {
   const gruposFaixa = useMemo(() => {
@@ -55,11 +57,18 @@ export function BoletoCalculadora({
   const faixaEncontrada =
     grupoSelecionado && base > 0 ? encontrarFaixa(grupoSelecionado.itens, base) : undefined;
 
-  function adicionar() {
-    if (!faixaEncontrada || faixaEncontrada.vl_pagar == null) return;
-    const rotulo = faixaEncontrada.cd_ato
+  // Rótulo sem o "(base: ...)" — serve de chave pra saber se essa
+  // faixa já foi lançada, mesmo que a base de cálculo tenha mudado
+  // desde então (senão dava pra lançar de novo só editando o valor).
+  const rotulo = faixaEncontrada
+    ? faixaEncontrada.cd_ato
       ? `[${faixaEncontrada.cd_ato}] ${faixaEncontrada.ds_ato}`
-      : faixaEncontrada.ds_ato;
+      : faixaEncontrada.ds_ato
+    : null;
+  const jaAdicionado = !!rotulo && itensAtuais.some((item) => item.ds_descricao.startsWith(rotulo));
+
+  function adicionar() {
+    if (!faixaEncontrada || faixaEncontrada.vl_pagar == null || !rotulo || jaAdicionado) return;
     onAdicionar({
       descricao: `${rotulo} (base: ${formatarMoeda(base)})`,
       valor: faixaEncontrada.vl_pagar,
@@ -105,11 +114,11 @@ export function BoletoCalculadora({
         type="button"
         variant="outline"
         size="sm"
-        disabled={!faixaEncontrada}
+        disabled={!faixaEncontrada || jaAdicionado}
         onClick={adicionar}
         className="self-start"
       >
-        Adicionar à conta
+        {jaAdicionado ? "Já adicionada" : "Adicionar à conta"}
       </Button>
     </div>
   );

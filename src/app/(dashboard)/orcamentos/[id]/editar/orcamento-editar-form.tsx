@@ -76,6 +76,21 @@ export function OrcamentoEditarForm({
     }))
   );
 
+  // Só deixa lançar o ITIV uma vez — clicar de novo não pode duplicar
+  // o imposto no orçamento.
+  const itivJaAdicionado = itens.some((item) => item.ds_descricao.startsWith("ITIV"));
+
+  // Limpa uma mensagem de erro de validação (ex: "falta o ITIV") assim
+  // que os itens mudam — senão o aviso de uma tentativa de salvar
+  // anterior fica preso na tela mesmo depois de corrigido. Comparação
+  // durante a renderização (não em efeito) pra não disparar setState
+  // encadeado.
+  const [itensAnterior, setItensAnterior] = useState(itens);
+  if (itens !== itensAnterior) {
+    setItensAnterior(itens);
+    setErro(null);
+  }
+
   const servicosDoTipo = useMemo(
     () =>
       servicos.filter((s) =>
@@ -167,7 +182,7 @@ export function OrcamentoEditarForm({
   }
 
   function adicionarItiv() {
-    if (baseCalculo <= 0) return;
+    if (baseCalculo <= 0 || itivJaAdicionado) return;
     setItens((atual) => [
       ...atual,
       {
@@ -323,8 +338,14 @@ export function OrcamentoEditarForm({
                 transação e venal)
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={adicionarItiv}>
-                  Adicionar ITIV (3%)
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={itivJaAdicionado}
+                  onClick={adicionarItiv}
+                >
+                  {itivJaAdicionado ? "ITIV já adicionado" : "Adicionar ITIV (3%)"}
                 </Button>
               </div>
             </div>
@@ -334,6 +355,7 @@ export function OrcamentoEditarForm({
             custas={custas}
             valorTransacao={Number(valorTransacao) || 0}
             valorVenal={Number(valorVenal) || 0}
+            itensAtuais={itens}
             onAdicionar={adicionarBoletoCalculado}
           />
         </CardContent>
