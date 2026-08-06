@@ -53,6 +53,19 @@ const ORGAOS_ORCAMENTO: { chave: OrgaoOrcamento; nome: string; locais: LocalServ
 const CATEGORIA_MIN_ITENS = 3;
 const OUTROS_SERVICOS = "__outros_servicos__";
 
+// Curadoria pedida pelo cliente por órgão: essas categorias sempre
+// caem em "Outros serviços", mesmo tendo itens suficientes pra virar
+// botão próprio — evita poluir a tela com categoria miúda ou pouco
+// usada. Só entra aqui quando TODA ocorrência da categoria (dentre os
+// órgãos marcados) pede agrupamento — se o mesmo nome também existir
+// num órgão que não está nessa lista, prevalece o botão próprio.
+const CATEGORIAS_SEMPRE_AGRUPADAS: Partial<Record<LocalServico, string[]>> = {
+  CRI: ["Outros"],
+  RCPN: ["Outros"],
+  NOTAS: ["Autenticação", "Certidão", "Firma", "Serviço"],
+  SEFAZ: ["Boleto", "Declaração", "Serviço"],
+};
+
 export function OrcamentoForm({
   imobiliarias,
   servicos,
@@ -151,14 +164,20 @@ export function OrcamentoForm({
   // a tela sem esconder nenhum serviço do catálogo.
   const { categoriasPrincipais, categoriasSecundarias } = useMemo(() => {
     const contagem = new Map<string, number>();
+    // true enquanto toda ocorrência dessa categoria vier de um órgão
+    // que pede agrupamento — uma única ocorrência "livre" já destrava.
+    const sempreAgrupar = new Map<string, boolean>();
     for (const s of servicosDosOrgaos) {
       if (!s.nm_categoria) continue;
       contagem.set(s.nm_categoria, (contagem.get(s.nm_categoria) ?? 0) + 1);
+      const pedeAgrupar = !!s.tp_local && !!CATEGORIAS_SEMPRE_AGRUPADAS[s.tp_local]?.includes(s.nm_categoria);
+      sempreAgrupar.set(s.nm_categoria, (sempreAgrupar.get(s.nm_categoria) ?? true) && pedeAgrupar);
     }
     const principais: string[] = [];
     const secundarias: string[] = [];
     for (const [categoria, qtd] of contagem) {
-      (qtd >= CATEGORIA_MIN_ITENS ? principais : secundarias).push(categoria);
+      const forcarAgrupar = sempreAgrupar.get(categoria) ?? false;
+      (qtd >= CATEGORIA_MIN_ITENS && !forcarAgrupar ? principais : secundarias).push(categoria);
     }
     const ordenar = (a: string, b: string) => a.localeCompare(b, "pt-BR");
     return {
