@@ -9,7 +9,7 @@ const COR_ACCENT = "#B8863C";
 // referenciada pela URL absoluta do próprio deploy, não em base64
 // (Gmail/Outlook costumam bloquear imagem embutida).
 function casca({ tituloInterno, corpoHtml }: { tituloInterno: string; corpoHtml: string }) {
-  const siteUrl = getSiteUrl() ?? "https://soma-eta-three.vercel.app";
+  const siteUrl = getSiteUrl() ?? "https://www.somasoluti.com.br";
   const logoUrl = `${siteUrl}${logoSoma.src}`;
 
   return `<!doctype html>
@@ -25,7 +25,7 @@ function casca({ tituloInterno, corpoHtml }: { tituloInterno: string; corpoHtml:
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e5e5;">
             <tr>
-              <td style="background-color:${COR_MARCA}; padding:28px 32px; text-align:center;">
+              <td style="background-color:#ffffff; padding:28px 32px; text-align:center; border-bottom:3px solid ${COR_ACCENT};">
                 <img src="${logoUrl}" alt="SOMA Soluti" height="40" style="height:40px; width:auto;" />
               </td>
             </tr>
