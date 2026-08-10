@@ -70,6 +70,8 @@ export interface Usuario {
   tp_role: RoleUsuario;
   cd_imobiliaria: string | null;
   sn_ativo: boolean;
+  // Freio anti-spam de /esqueci-senha — ver migration 030.
+  ts_ultima_recuperacao_senha: string | null;
   ts_criacao: string;
 }
 

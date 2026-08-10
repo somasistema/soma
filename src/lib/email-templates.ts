@@ -4,6 +4,17 @@ import { getSiteUrl } from "@/lib/mercadopago";
 const COR_MARCA = "#10182B";
 const COR_ACCENT = "#B8863C";
 
+// Nome vem de campo digitado por Master ou do payer da Mercado Pago —
+// nunca confiar isso como HTML puro dentro do e-mail.
+function escaparHtml(texto: string) {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Casca visual comum a todo e-mail transacional — HTML com estilo
 // inline (cliente de e-mail não roda CSS externo/Tailwind). Logo
 // referenciada pela URL absoluta do próprio deploy, não em base64
@@ -74,7 +85,7 @@ export function templateConvite({
   link: string;
   contexto: "cliente" | "equipe" | "recuperacao";
 }) {
-  const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
+  const saudacao = nome ? `Olá, ${escaparHtml(nome)}!` : "Olá!";
   const intro =
     contexto === "cliente"
       ? "Seu pagamento foi confirmado e o acesso à plataforma SOMA já está liberado. Por lá você acompanha os documentos, andamentos e pendências do seu processo em tempo real."
