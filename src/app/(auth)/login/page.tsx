@@ -1,4 +1,5 @@
 import { ArrowRight, Lock, Mail } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,12 +59,12 @@ export default async function LoginPage({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="senha">Senha</Label>
-                  <span
-                    aria-disabled
-                    className="pointer-events-none text-xs font-medium uppercase tracking-wide text-accent opacity-70"
+                  <Link
+                    href="/esqueci-senha"
+                    className="text-xs font-medium uppercase tracking-wide text-accent hover:underline"
                   >
                     Esqueci a senha
-                  </span>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

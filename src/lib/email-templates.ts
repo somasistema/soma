@@ -72,28 +72,40 @@ export function templateConvite({
 }: {
   nome: string | null;
   link: string;
-  contexto: "cliente" | "equipe";
+  contexto: "cliente" | "equipe" | "recuperacao";
 }) {
   const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
   const intro =
     contexto === "cliente"
       ? "Seu pagamento foi confirmado e o acesso à plataforma SOMA já está liberado. Por lá você acompanha os documentos, andamentos e pendências do seu processo em tempo real."
-      : "Você foi convidado a acessar a plataforma SOMA como parte da equipe. Defina sua senha pra começar a usar o sistema.";
+      : contexto === "equipe"
+        ? "Você foi convidado a acessar a plataforma SOMA como parte da equipe. Defina sua senha pra começar a usar o sistema."
+        : "Recebemos um pedido pra redefinir a senha da sua conta na SOMA. Se foi você, clique no botão abaixo pra criar uma nova senha.";
+
+  const textoBotao = contexto === "recuperacao" ? "Criar nova senha" : "Definir senha e acessar";
+
+  const avisoIgnorar =
+    contexto === "recuperacao"
+      ? `<p style="margin:16px 0 0; font-size:12px; color:#999; line-height:1.5;">Se você não pediu essa troca, pode ignorar este e-mail — sua senha continua a mesma.</p>`
+      : "";
 
   const corpoHtml = `
     <p style="margin:0 0 4px; font-size:18px; font-weight:bold; color:${COR_MARCA};">${saudacao}</p>
     <p style="margin:0 0 8px; font-size:14px; color:#333; line-height:1.6;">${intro}</p>
-    <p style="margin:16px 0 0; font-size:14px; color:#333; line-height:1.6;">Clique no botão abaixo pra definir sua senha e entrar:</p>
-    ${botao("Definir senha e acessar", link)}
+    ${botao(textoBotao, link)}
     <p style="margin:16px 0 0; font-size:12px; color:#999; line-height:1.5;">
       Se o botão não funcionar, copie e cole este link no navegador:<br />
       <a href="${link}" style="color:${COR_ACCENT}; word-break:break-all;">${link}</a>
     </p>
+    ${avisoIgnorar}
   `;
 
-  return {
-    subject:
-      contexto === "cliente" ? "Seu acesso à SOMA está liberado" : "Convite de acesso — SOMA",
-    html: casca({ tituloInterno: "Convite de acesso — SOMA", corpoHtml }),
-  };
+  const titulo =
+    contexto === "cliente"
+      ? "Seu acesso à SOMA está liberado"
+      : contexto === "equipe"
+        ? "Convite de acesso — SOMA"
+        : "Redefinição de senha — SOMA";
+
+  return { subject: titulo, html: casca({ tituloInterno: titulo, corpoHtml }) };
 }
