@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getUsuarioAtual } from "@/lib/auth";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { enviarEmail } from "@/lib/resend";
+import { templateConvite } from "@/lib/email-templates";
 
 const ROLES_CRIAVEIS = [
   "master",
@@ -70,13 +72,18 @@ export async function criarUsuario(
   }
 
   const siteUrl = getSiteUrl();
-  const { data: convite, error: erroConvite } = await supabase.auth.admin.inviteUserByEmail(
-    parsed.data.ds_email,
-    { redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined }
-  );
+
+  // generateLink cria o usuário no Supabase Auth e devolve o link de
+  // acesso, mas NÃO manda e-mail nenhum — quem envia é o Resend logo
+  // abaixo, com o nosso próprio template.
+  const { data: convite, error: erroConvite } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email: parsed.data.ds_email,
+    options: { redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined },
+  });
 
   if (erroConvite || !convite?.user) {
-    return { sucesso: false, erro: erroConvite?.message ?? "Não foi possível enviar o convite." };
+    return { sucesso: false, erro: erroConvite?.message ?? "Não foi possível gerar o convite." };
   }
 
   const { error: erroUsuario } = await supabase.schema("soma").from("usuarios").insert({
@@ -92,7 +99,22 @@ export async function criarUsuario(
     return { sucesso: false, erro: erroUsuario.message };
   }
 
+  const { subject, html } = templateConvite({
+    nome: parsed.data.nm_usuario,
+    link: convite.properties.action_link,
+    contexto: "equipe",
+  });
+  const { erro: erroEmail } = await enviarEmail({ to: parsed.data.ds_email, subject, html });
+
   revalidatePath("/usuarios");
+
+  if (erroEmail) {
+    return {
+      sucesso: false,
+      erro: `Usuário criado, mas não foi possível enviar o e-mail de convite: ${erroEmail}. Use "Reenviar convite" na lista.`,
+    };
+  }
+
   return { sucesso: true };
 }
 
@@ -128,15 +150,31 @@ export async function reenviarConvite(email: string): Promise<UsuarioActionState
   const supabase = createServiceRoleClient();
   const siteUrl = getSiteUrl();
 
-  const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined,
+  // O usuário já existe no Supabase Auth (criado no primeiro convite),
+  // então usamos "recovery" em vez de "invite" — generateLink com tipo
+  // "invite" só funciona pra e-mail que ainda não tem conta.
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined },
   });
 
-  if (error) {
+  if (error || !data) {
     return {
       sucesso: false,
       erro: "Não foi possível reenviar — se a pessoa já definiu a senha, ela só precisa fazer login normalmente.",
     };
+  }
+
+  const { subject, html } = templateConvite({
+    nome: null,
+    link: data.properties.action_link,
+    contexto: "equipe",
+  });
+  const { erro: erroEmail } = await enviarEmail({ to: email, subject, html });
+
+  if (erroEmail) {
+    return { sucesso: false, erro: `Não foi possível enviar o e-mail: ${erroEmail}` };
   }
 
   return { sucesso: true };

@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getSiteUrl } from "@/lib/mercadopago";
+import { enviarEmail } from "@/lib/resend";
+import { templateConvite } from "@/lib/email-templates";
 
 // ================================================================
 // Webhook do Mercado Pago — confirmação automática de pagamento.
@@ -90,9 +92,9 @@ const STATUS_MP_PARA_SOMA: Record<MercadoPagoPayment["status"], "pendente" | "co
 // processo (documentos, andamentos, pendências, orçamento) depois de
 // pagar. Se já existir um soma.usuarios com esse e-mail (cliente
 // recorrente), só vincula o processo a ele — não cria conta duplicada.
-// Se não existir, convida por e-mail via Supabase Auth (o link do
-// convite leva a /auth/definir-senha, onde a pessoa cria a senha e
-// já entra logada).
+// Se não existir, gera o convite pelo Supabase Auth e manda o e-mail
+// pelo Resend (o link leva a /auth/definir-senha, onde a pessoa cria
+// a senha e já entra logada).
 async function garantirContaComprador(
   supabase: ReturnType<typeof createServiceRoleClient>,
   cdProcesso: string,
@@ -112,12 +114,14 @@ async function garantirContaComprador(
 
   if (!cdUsuario) {
     const siteUrl = getSiteUrl();
-    const { data: convite, error: erroConvite } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined,
+    const { data: convite, error: erroConvite } = await supabase.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo: siteUrl ? `${siteUrl}/auth/definir-senha` : undefined },
     });
 
     if (erroConvite || !convite?.user) {
-      console.error("Erro ao convidar comprador:", erroConvite);
+      console.error("Erro ao gerar convite do comprador:", erroConvite);
       return;
     }
 
@@ -132,6 +136,16 @@ async function garantirContaComprador(
     if (erroUsuario) {
       console.error("Erro ao criar soma.usuarios do comprador:", erroUsuario);
       return;
+    }
+
+    const { subject, html } = templateConvite({
+      nome: nomeSugerido,
+      link: convite.properties.action_link,
+      contexto: "cliente",
+    });
+    const { erro: erroEmail } = await enviarEmail({ to: email, subject, html });
+    if (erroEmail) {
+      console.error("Erro ao enviar e-mail de acesso do comprador:", erroEmail);
     }
 
     cdUsuario = convite.user.id;
