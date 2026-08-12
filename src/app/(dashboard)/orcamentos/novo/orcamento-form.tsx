@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { resolverItensDoPacote } from "@/lib/pacote-itens";
-import { formatarMoeda, formatarTelefone } from "@/lib/utils";
+import { formatarInscricaoMunicipal, formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
   TIPO_PROCESSO_LABEL,
   type BlocoFluxo,
@@ -571,8 +571,10 @@ export function OrcamentoForm({
                 <Label htmlFor="ds_inscricao_municipal">Inscrição Municipal do imóvel (opcional)</Label>
                 <Input
                   id="ds_inscricao_municipal"
+                  inputMode="numeric"
+                  maxLength={15}
                   value={dsInscricaoMunicipal}
-                  onChange={(e) => setDsInscricaoMunicipal(e.target.value)}
+                  onChange={(e) => setDsInscricaoMunicipal(formatarInscricaoMunicipal(e.target.value))}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -588,9 +590,30 @@ export function OrcamentoForm({
                 <CurrencyInput id="valor_venal" value={valorVenal} onChange={setValorVenal} />
               </div>
               <p className="text-xs text-muted-foreground sm:col-span-2">
-                Usados pro cálculo do ITIV (3%) e das custas de Lavratura/Registro por faixa lá
-                embaixo — o sistema usa sempre o maior dos dois.
+                Usados pro cálculo do ITIV (3%) e das custas de Lavratura/Registro por faixa em
+                Taxas e Emolumentos — o sistema usa sempre o maior dos dois.
               </p>
+
+              {baseCalculo > 0 && (
+                <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3 sm:col-span-2">
+                  <p className="text-sm font-medium text-foreground">Compra e Venda</p>
+                  <p className="text-xs text-muted-foreground">
+                    Base de cálculo: <strong>{formatarMoeda(baseCalculo)}</strong> (maior valor
+                    entre transação e venal)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={itivJaAdicionado}
+                      onClick={adicionarItiv}
+                    >
+                      {itivJaAdicionado ? "ITIV já adicionado" : "Adicionar ITIV (3%)"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         );
@@ -694,31 +717,11 @@ export function OrcamentoForm({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato, ou use o
-                ITIV abaixo. Pra Lavratura, Registro, Prenotação (x2) e Certidão entrarem sozinhos
-                junto com o serviço, configure o pacote em Configurações &gt; Pacotes.
+                Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato. Pra ITIV,
+                use o botão em Dados do Imóvel. Pra Lavratura, Registro, Prenotação (x2) e
+                Certidão entrarem sozinhos junto com o serviço, configure o pacote em
+                Configurações &gt; Pacotes.
               </p>
-
-              {baseCalculo > 0 && (
-                <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3">
-                  <p className="text-sm font-medium text-foreground">Compra e Venda</p>
-                  <p className="text-xs text-muted-foreground">
-                    Base de cálculo: <strong>{formatarMoeda(baseCalculo)}</strong> (maior valor
-                    entre transação e venal, informados em Informações Básicas)
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={itivJaAdicionado}
-                      onClick={adicionarItiv}
-                    >
-                      {itivJaAdicionado ? "ITIV já adicionado" : "Adicionar ITIV (3%)"}
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               <BoletoCalculadora
                 custas={custas}

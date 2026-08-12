@@ -12,12 +12,14 @@ import {
   STATUS_PENDENCIA_LABEL,
   TIPO_PROCESSO_LABEL,
   type Andamento,
+  type LogAuditoria,
   type Orcamento,
   type Pendencia,
   type Processo,
 } from "@/types/database";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
+import { HistoricoProcesso } from "./historico-processo";
 
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
 const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
@@ -65,6 +67,56 @@ export default async function ProcessoDetalhePage({
       .order("ts_criacao", { ascending: false })
       .returns<Orcamento[]>(),
   ]);
+
+  // Histórico com "reverter" — só Master vê (log_auditoria só é
+  // legível por Master, ver migration 033). Junta o log do processo
+  // em si, dos orçamentos dele, e dos itens desses orçamentos.
+  type LogComUsuario = LogAuditoria & { usuarios: { nm_usuario: string } | null };
+  let logsHistorico: LogComUsuario[] = [];
+  if (usuario.tp_role === "master") {
+    const cdsOrcamentos = (orcamentos ?? []).map((o) => o.cd_orcamento);
+
+    const consultas = [
+      supabase
+        .schema("soma")
+        .from("log_auditoria")
+        .select("*, usuarios(nm_usuario)")
+        .eq("nm_tabela", "processos")
+        .eq("cd_registro", id)
+        .returns<LogComUsuario[]>(),
+    ];
+
+    if (cdsOrcamentos.length > 0) {
+      consultas.push(
+        supabase
+          .schema("soma")
+          .from("log_auditoria")
+          .select("*, usuarios(nm_usuario)")
+          .eq("nm_tabela", "orcamentos")
+          .in("cd_registro", cdsOrcamentos)
+          .returns<LogComUsuario[]>(),
+        supabase
+          .schema("soma")
+          .from("log_auditoria")
+          .select("*, usuarios(nm_usuario)")
+          .eq("nm_tabela", "orcamento_servicos")
+          .or(
+            cdsOrcamentos
+              .flatMap((cd) => [
+                `dados_novos->>cd_orcamento.eq.${cd}`,
+                `dados_antigos->>cd_orcamento.eq.${cd}`,
+              ])
+              .join(",")
+          )
+          .returns<LogComUsuario[]>()
+      );
+    }
+
+    const resultados = await Promise.all(consultas);
+    logsHistorico = resultados
+      .flatMap((r) => r.data ?? [])
+      .sort((a, b) => b.ts_criacao.localeCompare(a.ts_criacao));
+  }
 
   return (
     <FadeIn className="flex flex-col gap-6">
@@ -192,6 +244,21 @@ export default async function ProcessoDetalhePage({
           )}
         </CardContent>
       </Card>
+
+      {usuario.tp_role === "master" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico de alterações</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-xs text-muted-foreground">
+              Mudanças nos dados do processo, do orçamento e dos itens — dá pra reverter uma
+              edição pro valor de antes. Status (pago, aceito etc) nunca é revertido por aqui.
+            </p>
+            <HistoricoProcesso logs={logsHistorico} cdProcesso={id} />
+          </CardContent>
+        </Card>
+      )}
     </FadeIn>
   );
 }

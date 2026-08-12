@@ -21,7 +21,7 @@ export async function gerarPdfOrcamento(cdOrcamento: string): Promise<GerarPdfSt
     return { sucesso: false, erro: "Orçamento não encontrado." };
   }
 
-  const [{ data: processo }, { data: itens }] = await Promise.all([
+  const [{ data: processo }, { data: itens }, { data: criador }] = await Promise.all([
     supabase
       .schema("soma")
       .from("processos")
@@ -34,6 +34,12 @@ export async function gerarPdfOrcamento(cdOrcamento: string): Promise<GerarPdfSt
       .select("*")
       .eq("cd_orcamento", cdOrcamento)
       .returns<OrcamentoServico[]>(),
+    supabase
+      .schema("soma")
+      .from("usuarios")
+      .select("nm_usuario")
+      .eq("cd_usuario", orcamento.cd_criador)
+      .maybeSingle<{ nm_usuario: string }>(),
   ]);
 
   if (!processo) {
@@ -47,6 +53,8 @@ export async function gerarPdfOrcamento(cdOrcamento: string): Promise<GerarPdfSt
       nomeCidade={orcamento.nm_cidade}
       dataValidade={orcamento.dt_validade}
       nomeComprador={processo.nm_comprador_convidado}
+      nomeCriador={criador?.nm_usuario ?? null}
+      dataCriacao={orcamento.ts_criacao}
       dsInscricaoMunicipal={orcamento.ds_inscricao_municipal}
       vlTransacao={orcamento.vl_transacao}
       vlVenal={orcamento.vl_venal}

@@ -1,15 +1,12 @@
 import { Users } from "lucide-react";
-import { AtivoBadge } from "@/components/ui/ativo-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/motion/fade-in";
-import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
+import { StaggerTableBody } from "@/components/motion/stagger-list";
 import { exigirAcessoSecao, getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData } from "@/lib/utils";
-import { ROLE_LABEL, type Imobiliaria, type Usuario } from "@/types/database";
+import type { Imobiliaria, Usuario } from "@/types/database";
 import { UsuarioForm } from "./usuario-form";
-import { ToggleAtivoUsuario } from "./toggle-ativo-usuario";
-import { ReenviarConviteButton } from "./reenviar-convite-button";
+import { UsuarioRow } from "./usuario-row";
 
 type UsuarioComImobiliaria = Usuario & {
   imobiliarias: Pick<Imobiliaria, "nm_imobiliaria"> | null;
@@ -67,31 +64,12 @@ export default async function UsuariosPage() {
                 </thead>
                 <StaggerTableBody>
                   {(usuarios ?? []).map((usuario) => (
-                    <StaggerRow
+                    <UsuarioRow
                       key={usuario.cd_usuario}
-                      className="border-t border-border hover:bg-muted/50"
-                    >
-                      <td className="px-4 py-3">{usuario.nm_usuario}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{usuario.ds_email}</td>
-                      <td className="px-4 py-3">{ROLE_LABEL[usuario.tp_role]}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {usuario.imobiliarias?.nm_imobiliaria ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatarData(usuario.ts_criacao)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <AtivoBadge ativo={usuario.sn_ativo} />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <ReenviarConviteButton email={usuario.ds_email} />
-                          {usuario.cd_usuario !== usuarioAtual.cd_usuario && (
-                            <ToggleAtivoUsuario cdUsuario={usuario.cd_usuario} ativo={usuario.sn_ativo} />
-                          )}
-                        </div>
-                      </td>
-                    </StaggerRow>
+                      usuario={usuario}
+                      imobiliarias={imobiliarias ?? []}
+                      ehUsuarioAtual={usuario.cd_usuario === usuarioAtual.cd_usuario}
+                    />
                   ))}
                   {(!usuarios || usuarios.length === 0) && (
                     <tr>

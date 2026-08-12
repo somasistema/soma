@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSecoesAcessiveis, getUsuarioAtual } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
@@ -42,7 +43,10 @@ export default async function DashboardLayout({
           <SidebarNav items={itensVisiveis} />
         </div>
         <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <div className="flex items-center gap-2.5 px-2">
+          <Link
+            href="/meu-perfil"
+            className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted"
+          >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand font-serif-doc text-sm font-bold text-accent">
               {usuario.nm_usuario.charAt(0).toUpperCase()}
             </span>
@@ -50,7 +54,7 @@ export default async function DashboardLayout({
               <p className="truncate text-sm font-medium text-foreground">{usuario.nm_usuario}</p>
               <p className="text-xs text-muted-foreground">{ROLE_LABEL[usuario.tp_role]}</p>
             </div>
-          </div>
+          </Link>
           <form action={logout}>
             <Button type="submit" variant="outline" size="sm" className="w-full">
               Sair

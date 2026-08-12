@@ -14,8 +14,9 @@ export default async function PerfilAcessoPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Marque quais seções do menu cada perfil pode acessar. Master não aparece aqui — sempre
-        tem acesso a tudo, pra ninguém se trancar fora desta própria tela.
+        Início e Configurações só têm liga/desliga de acesso. Orçamentos, Processos, Usuários,
+        Serviços e Taxas e Emolumentos têm controle fino de Ver/Criar/Editar/Excluir. Master não
+        aparece aqui — sempre tem acesso total, pra ninguém se trancar fora desta própria tela.
       </p>
       <PerfilAcessoMatriz acessos={acessos ?? []} />
     </div>

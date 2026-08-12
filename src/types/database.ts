@@ -42,10 +42,41 @@ export const SECOES_ACESSO: SecaoAcesso[] = [
   "configuracoes",
 ];
 
+// As 5 seções com CRUD de verdade — Início e Configurações ficam de
+// fora, só têm liga/desliga (sn_ver). Ver migration 032.
+export const SECOES_COM_CRUD: SecaoAcesso[] = [
+  "orcamentos",
+  "processos",
+  "usuarios",
+  "servicos",
+  "boletos",
+];
+
+export type AcaoPermissao = "ver" | "criar" | "editar" | "excluir";
+
+export type TipoOperacaoAuditoria = "INSERT" | "UPDATE" | "DELETE";
+
+// Log genérico de qualquer INSERT/UPDATE/DELETE nas tabelas
+// auditadas — ver migration 033. dados_antigos/dados_novos guardam a
+// linha inteira em JSON (a que muda depende de tp_operacao).
+export interface LogAuditoria {
+  cd_log: string;
+  cd_usuario: string | null;
+  nm_tabela: string;
+  tp_operacao: TipoOperacaoAuditoria;
+  cd_registro: string | null;
+  dados_antigos: Record<string, unknown> | null;
+  dados_novos: Record<string, unknown> | null;
+  ts_criacao: string;
+}
+
 export interface PerfilAcesso {
   tp_role: RoleUsuario;
   cd_secao: SecaoAcesso;
-  sn_ativo: boolean;
+  sn_ver: boolean;
+  sn_criar: boolean;
+  sn_editar: boolean;
+  sn_excluir: boolean;
 }
 
 // Única escolha fixa no início da criação do orçamento — nunca mistura

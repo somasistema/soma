@@ -93,6 +93,8 @@ export interface OrcamentoPdfProps {
   nomeCidade: string;
   dataValidade: string;
   nomeComprador: string | null;
+  nomeCriador: string | null;
+  dataCriacao: string;
   dsInscricaoMunicipal: string | null;
   vlTransacao: number | null;
   vlVenal: number | null;
@@ -108,6 +110,8 @@ export function OrcamentoPdf({
   nomeCidade,
   dataValidade,
   nomeComprador,
+  nomeCriador,
+  dataCriacao,
   dsInscricaoMunicipal,
   vlTransacao,
   vlVenal,
@@ -137,6 +141,9 @@ export function OrcamentoPdf({
         )}
         {vlVenal != null && <Text style={styles.linhaInfo}>Valor venal: {formatarMoeda(vlVenal)}</Text>}
         <Text style={styles.linhaInfo}>Válido até: {formatarData(dataValidade)}</Text>
+        <Text style={styles.linhaInfo}>
+          Orçamento gerado por: {nomeCriador ?? "—"} em {formatarData(dataCriacao)}
+        </Text>
 
         {temSecoes ? (
           <>

@@ -25,6 +25,7 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
   const [aprovado, setAprovado] = useState(false);
   const [temConta, setTemConta] = useState(false);
   const [emailConta, setEmailConta] = useState("");
+  const [codigoCopiado, setCodigoCopiado] = useState(false);
 
   useEffect(() => {
     const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
@@ -79,18 +80,30 @@ export function PagamentoCheckout({ token, valor }: { token: string; valor: numb
   if (resultadoPix) {
     return (
       <FadeIn className="flex flex-col items-center gap-3 text-center">
-        <p className="text-sm text-foreground">
-          Escaneie o QR Code no app do seu banco para pagar via Pix:
-        </p>
+        <p className="text-sm text-foreground">Escaneie o QR Code ou use o Pix copia e cola:</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`data:image/png;base64,${resultadoPix.qrCodeBase64}`}
           alt="QR Code Pix"
           className="h-56 w-56"
         />
-        <p className="max-w-full break-all rounded-radius bg-muted px-3 py-2 text-xs text-muted-foreground">
-          {resultadoPix.qrCode}
-        </p>
+        <div className="flex w-full max-w-sm items-center gap-2">
+          <p className="flex-1 truncate rounded-radius bg-muted px-3 py-2 text-left text-xs text-muted-foreground">
+            {resultadoPix.qrCode}
+          </p>
+          <Button
+            type="button"
+            variant="accent"
+            size="sm"
+            onClick={async () => {
+              await navigator.clipboard.writeText(resultadoPix.qrCode);
+              setCodigoCopiado(true);
+              setTimeout(() => setCodigoCopiado(false), 2000);
+            }}
+          >
+            {codigoCopiado ? "Copiado!" : "Copiar código"}
+          </Button>
+        </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-pendente" />
           Verificando automaticamente assim que o pagamento for identificado...

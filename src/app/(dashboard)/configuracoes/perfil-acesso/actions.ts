@@ -2,19 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { RoleUsuario, SecaoAcesso } from "@/types/database";
+import type { AcaoPermissao, RoleUsuario, SecaoAcesso } from "@/types/database";
 
 export async function alternarAcesso(
   tpRole: RoleUsuario,
   cdSecao: SecaoAcesso,
-  snAtivo: boolean
+  acao: AcaoPermissao,
+  valor: boolean
 ): Promise<{ erro?: string }> {
   const supabase = await createClient();
+  const coluna = `sn_${acao}`;
 
   const { error } = await supabase
     .schema("soma")
     .from("perfil_acesso")
-    .update({ sn_ativo: snAtivo })
+    .update({ [coluna]: valor })
     .eq("tp_role", tpRole)
     .eq("cd_secao", cdSecao);
 

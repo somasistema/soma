@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { ServicoCombobox } from "@/components/servico-combobox";
 import { BoletoCombobox } from "@/components/boleto-combobox";
 import { BoletoCalculadora } from "@/components/boleto-calculadora";
-import { formatarMoeda } from "@/lib/utils";
+import { formatarInscricaoMunicipal, formatarMoeda } from "@/lib/utils";
 import { resolverItensDoPacote } from "@/lib/pacote-itens";
 import type {
   OrcamentoServico,
@@ -266,8 +266,10 @@ export function OrcamentoEditarForm({
             <Label htmlFor="ds_inscricao_municipal">Inscrição Municipal do imóvel (opcional)</Label>
             <Input
               id="ds_inscricao_municipal"
+              inputMode="numeric"
+              maxLength={15}
               value={dsInscricaoMunicipal}
-              onChange={(e) => setDsInscricaoMunicipal(e.target.value)}
+              onChange={(e) => setDsInscricaoMunicipal(formatarInscricaoMunicipal(e.target.value))}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -278,10 +280,31 @@ export function OrcamentoEditarForm({
             <Label htmlFor="valor_venal">Valor venal (opcional)</Label>
             <CurrencyInput id="valor_venal" value={valorVenal} onChange={setValorVenal} />
             <p className="text-xs text-muted-foreground">
-              Usados na calculadora de taxa por faixa (ITV) abaixo — o sistema usa sempre o
-              maior dos dois.
+              Usados na calculadora de taxa por faixa (ITV) em Taxas e Emolumentos — o sistema usa
+              sempre o maior dos dois.
             </p>
           </div>
+
+          {baseCalculo > 0 && (
+            <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3 sm:col-span-2">
+              <p className="text-sm font-medium text-foreground">Compra e Venda</p>
+              <p className="text-xs text-muted-foreground">
+                Base de cálculo: <strong>{formatarMoeda(baseCalculo)}</strong> (maior valor entre
+                transação e venal)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={itivJaAdicionado}
+                  onClick={adicionarItiv}
+                >
+                  {itivJaAdicionado ? "ITIV já adicionado" : "Adicionar ITIV (3%)"}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -325,31 +348,11 @@ export function OrcamentoEditarForm({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato, ou use o ITIV
-            abaixo. Pra Lavratura, Registro, Prenotação (x2) e Certidão entrarem sozinhos junto
-            com o serviço, configure o pacote em Configurações &gt; Pacotes.
+            Custas oficiais de cartório/tribunal (TJBA) — busque pelo código do ato. Pra ITIV, use
+            o botão em Dados do orçamento. Pra Lavratura, Registro, Prenotação (x2) e Certidão
+            entrarem sozinhos junto com o serviço, configure o pacote em Configurações &gt;
+            Pacotes.
           </p>
-
-          {baseCalculo > 0 && (
-            <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3">
-              <p className="text-sm font-medium text-foreground">Compra e Venda</p>
-              <p className="text-xs text-muted-foreground">
-                Base de cálculo: <strong>{formatarMoeda(baseCalculo)}</strong> (maior valor entre
-                transação e venal)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={itivJaAdicionado}
-                  onClick={adicionarItiv}
-                >
-                  {itivJaAdicionado ? "ITIV já adicionado" : "Adicionar ITIV (3%)"}
-                </Button>
-              </div>
-            </div>
-          )}
 
           <BoletoCalculadora
             custas={custas}

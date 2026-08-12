@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { PerfilAcesso, SecaoAcesso, Usuario } from "@/types/database";
+import type { AcaoPermissao, PerfilAcesso, SecaoAcesso, Usuario } from "@/types/database";
 
 export async function getUsuarioAtual(): Promise<Usuario> {
   const supabase = await createClient();
@@ -27,9 +27,9 @@ export async function getUsuarioAtual(): Promise<Usuario> {
   return usuario;
 }
 
-// Quais seções o perfil do usuário pode acessar — configurável em
-// Configurações > Perfil de acesso (ver migration 027). Master nunca
-// passa por aqui (ver exigirAcessoSecao) e sempre acessa tudo.
+// Quais seções o perfil do usuário pode VER — configurável em
+// Configurações > Perfil de acesso (ver migrations 027/032). Master
+// nunca passa por aqui (ver exigirAcessoSecao) e sempre acessa tudo.
 export async function getSecoesAcessiveis(tpRole: Usuario["tp_role"]): Promise<Set<SecaoAcesso>> {
   const supabase = await createClient();
 
@@ -38,7 +38,7 @@ export async function getSecoesAcessiveis(tpRole: Usuario["tp_role"]): Promise<S
     .from("perfil_acesso")
     .select("cd_secao")
     .eq("tp_role", tpRole)
-    .eq("sn_ativo", true)
+    .eq("sn_ver", true)
     .returns<Pick<PerfilAcesso, "cd_secao">[]>();
 
   return new Set((data ?? []).map((row) => row.cd_secao));
@@ -54,4 +54,32 @@ export async function exigirAcessoSecao(usuario: Usuario, secao: SecaoAcesso) {
   if (!secoes.has(secao)) {
     redirect("/dashboard");
   }
+}
+
+// Checagem granular de CRUD (ver/criar/editar/excluir) — usada nas 5
+// seções que têm operações de escrita fora do alcance do RLS comum
+// (ex: soma.usuarios só é gravável via service_role, então o RLS não
+// protege nada ali; a checagem precisa ser feita aqui no app). Nas
+// tabelas onde o RLS já consulta soma.fn_tem_permissao() diretamente
+// (Serviços, Taxas e Emolumentos, Orçamentos), isso é redundante mas
+// inofensivo — dá o erro mais cedo, com mensagem melhor.
+export async function temPermissao(
+  usuario: Usuario,
+  secao: SecaoAcesso,
+  acao: AcaoPermissao
+): Promise<boolean> {
+  if (usuario.tp_role === "master") return true;
+
+  const supabase = await createClient();
+  const coluna = `sn_${acao}` as const;
+
+  const { data } = await supabase
+    .schema("soma")
+    .from("perfil_acesso")
+    .select(coluna)
+    .eq("tp_role", usuario.tp_role)
+    .eq("cd_secao", secao)
+    .maybeSingle<Record<string, boolean>>();
+
+  return data?.[coluna] === true;
 }

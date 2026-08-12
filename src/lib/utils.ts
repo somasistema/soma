@@ -40,3 +40,9 @@ export function formatarTelefone(valor: string) {
   if (digitos.length <= 10) return digitos.replace(/^(\d{2})(\d{4})(\d*)/, "($1) $2-$3");
   return digitos.replace(/^(\d{2})(\d{5})(\d*)/, "($1) $2-$3");
 }
+
+// Inscrição Municipal — só número, até 15 dígitos (limite da coluna
+// VARCHAR(15) no banco, ver migration 031).
+export function formatarInscricaoMunicipal(valor: string) {
+  return valor.replace(/\D/g, "").slice(0, 15);
+}
