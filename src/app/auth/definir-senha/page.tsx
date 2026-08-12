@@ -1,8 +1,8 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,21 @@ import { Logo } from "@/components/logo";
 import { FadeIn } from "@/components/motion/fade-in";
 import { createClient } from "@/lib/supabase/client";
 
-// Onde o link de convite (soma.auth.admin.inviteUserByEmail) cai. O
-// client do Supabase detecta a sessão pelo hash da própria URL
-// (detectSessionInUrl, ligado por padrão) — não tem servidor no meio
-// aqui, por isso a tela inteira é client-side.
+// Onde o link de convite/recuperação cai. Recebemos um token_hash na
+// query string (não o action_link bruto do Supabase — ver
+// src/lib/auth-links.ts pro motivo) e consumimos ele aqui mesmo, via
+// verifyOtp, só quando essa página roda de verdade no navegador.
 export default function DefinirSenhaPage() {
+  return (
+    <Suspense fallback={null}>
+      <DefinirSenhaConteudo />
+    </Suspense>
+  );
+}
+
+function DefinirSenhaConteudo() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [supabase] = useState(() => createClient());
   const [carregando, setCarregando] = useState(true);
   const [sessaoValida, setSessaoValida] = useState(false);
@@ -33,14 +42,31 @@ export default function DefinirSenhaPage() {
       setCarregando(false);
     });
 
-    // Se a sessão já tinha sido detectada antes deste efeito montar.
+    const tokenHash = searchParams.get("token_hash");
+    const tipo = searchParams.get("type");
+
+    if (tokenHash && (tipo === "invite" || tipo === "recovery")) {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: tipo }).then(({ data, error }) => {
+        if (error || !data.session) {
+          setCarregando(false);
+          return;
+        }
+        setSessaoValida(true);
+        setCarregando(false);
+      });
+      return () => subscription.unsubscribe();
+    }
+
+    // Compatibilidade com links antigos (action_link direto, tokens no
+    // fragmento #access_token=... da própria URL, lidos automaticamente
+    // pelo client do Supabase via detectSessionInUrl).
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setSessaoValida(true);
       setCarregando(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();

@@ -7,6 +7,7 @@ import { getSiteUrl } from "@/lib/mercadopago";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { enviarEmail } from "@/lib/resend";
 import { templateConvite } from "@/lib/email-templates";
+import { linkDefinirSenha } from "@/lib/auth-links";
 import { registrarAuditoria } from "@/lib/auditoria";
 import type { AcaoPermissao, Usuario } from "@/types/database";
 
@@ -119,7 +120,7 @@ export async function criarUsuario(
 
   const { subject, html } = templateConvite({
     nome: parsed.data.nm_usuario,
-    link: convite.properties.action_link,
+    link: linkDefinirSenha(siteUrl, convite.properties.hashed_token, "invite"),
     contexto: "equipe",
   });
   const { erro: erroEmail } = await enviarEmail({ to: parsed.data.ds_email, subject, html });
@@ -353,7 +354,7 @@ export async function reenviarConvite(email: string): Promise<UsuarioActionState
 
   const { subject, html } = templateConvite({
     nome: null,
-    link: data.properties.action_link,
+    link: linkDefinirSenha(siteUrl, data.properties.hashed_token, "recovery"),
     contexto: "equipe",
   });
   const { erro: erroEmail } = await enviarEmail({ to: email, subject, html });

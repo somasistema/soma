@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { enviarEmail } from "@/lib/resend";
 import { templateConvite } from "@/lib/email-templates";
+import { linkDefinirSenha } from "@/lib/auth-links";
 
 // Sem login pra acessar essa tela, então precisa de um freio contra
 // pedido repetido pro mesmo e-mail (spam na caixa de entrada da
@@ -60,7 +61,7 @@ export async function solicitarRecuperacaoSenha(formData: FormData) {
 
   const { subject, html } = templateConvite({
     nome: null,
-    link: data.properties.action_link,
+    link: linkDefinirSenha(siteUrl, data.properties.hashed_token, "recovery"),
     contexto: "recuperacao",
   });
 

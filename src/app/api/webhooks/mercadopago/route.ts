@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { enviarEmail } from "@/lib/resend";
 import { templateConvite } from "@/lib/email-templates";
+import { linkDefinirSenha } from "@/lib/auth-links";
 
 // ================================================================
 // Webhook do Mercado Pago — confirmação automática de pagamento.
@@ -140,7 +141,7 @@ async function garantirContaComprador(
 
     const { subject, html } = templateConvite({
       nome: nomeSugerido,
-      link: convite.properties.action_link,
+      link: linkDefinirSenha(siteUrl, convite.properties.hashed_token, "invite"),
       contexto: "cliente",
     });
     const { erro: erroEmail } = await enviarEmail({ to: email, subject, html });
