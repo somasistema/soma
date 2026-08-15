@@ -57,7 +57,6 @@ export default async function UsuariosPage() {
                     <th className="px-4 py-3 font-medium">E-mail</th>
                     <th className="px-4 py-3 font-medium">Perfil</th>
                     <th className="px-4 py-3 font-medium">Imobiliária</th>
-                    <th className="px-4 py-3 font-medium">Criado em</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -73,7 +72,7 @@ export default async function UsuariosPage() {
                   ))}
                   {(!usuarios || usuarios.length === 0) && (
                     <tr>
-                      <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                         Nenhum usuário cadastrado.
                       </td>
                     </tr>

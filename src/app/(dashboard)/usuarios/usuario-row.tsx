@@ -7,7 +7,6 @@ import { AtivoBadge } from "@/components/ui/ativo-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { formatarData } from "@/lib/utils";
 import { ROLE_LABEL, type Imobiliaria, type RoleUsuario, type Usuario } from "@/types/database";
 import { atualizarUsuario, excluirUsuario } from "./actions";
 import { ToggleAtivoUsuario } from "./toggle-ativo-usuario";
@@ -126,7 +125,6 @@ export function UsuarioRow({
       <td className="px-4 py-3 text-muted-foreground">
         {usuario.imobiliarias?.nm_imobiliaria ?? "—"}
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{formatarData(usuario.ts_criacao)}</td>
       <td className="px-4 py-3">
         <AtivoBadge ativo={usuario.sn_ativo} />
       </td>

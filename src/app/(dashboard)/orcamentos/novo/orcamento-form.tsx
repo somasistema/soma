@@ -857,7 +857,7 @@ export function OrcamentoForm({
             type="button"
             onClick={salvar}
             disabled={pending || !podeSelecionarServicos || itens.length === 0}
-            className="mt-2 w-full uppercase tracking-wide"
+            className="mt-2 w-full font-bold uppercase tracking-wide"
           >
             {pending ? "Salvando..." : "Criar orçamento"}
           </Button>

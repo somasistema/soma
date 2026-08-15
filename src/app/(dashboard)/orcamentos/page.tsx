@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData, formatarMoeda } from "@/lib/utils";
+import { cn, formatarData, formatarMoeda } from "@/lib/utils";
 import type { Orcamento, Processo } from "@/types/database";
 
 type OrcamentoComProcesso = Orcamento & {
@@ -26,7 +26,7 @@ export default async function OrcamentosPage() {
     <div className="flex flex-col gap-6">
       <FadeIn className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Orçamentos</h1>
-        <Link href="/orcamentos/novo" className={buttonVariants({ variant: "default" })}>
+        <Link href="/orcamentos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
           Novo orçamento
         </Link>
       </FadeIn>
@@ -76,7 +76,7 @@ export default async function OrcamentosPage() {
         <FadeIn className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-card py-16 text-center">
           <FileText className="h-12 w-12 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Nenhum orçamento criado ainda.</p>
-          <Link href="/orcamentos/novo" className={buttonVariants({ variant: "default" })}>
+          <Link href="/orcamentos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
             Novo orçamento
           </Link>
         </FadeIn>
