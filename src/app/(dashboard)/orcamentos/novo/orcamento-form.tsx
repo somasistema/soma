@@ -6,6 +6,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { ServicoCombobox } from "@/components/servico-combobox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +104,12 @@ export function OrcamentoForm({
   const [nmCidade, setNmCidade] = useState<string>(cidades[0] ?? "");
   const [dtValidade, setDtValidade] = useState("");
   const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState("");
+
+  // Nova regra: 50% de desconto nas taxas elegíveis (marcadas em
+  // Configurações > Taxas e Emolumentos) quando é o primeiro imóvel ou
+  // primeiro financiamento do cliente. Recalcula na hora, sem precisar
+  // remover e re-adicionar os itens já lançados.
+  const [snPrimeiroImovel, setSnPrimeiroImovel] = useState(false);
 
   // Opcionais — alimentam a calculadora/pacote de Compra e Venda lá
   // embaixo (ITIV, Lavratura, Registro), não travam nada em branco.
@@ -317,15 +324,24 @@ export function OrcamentoForm({
     categoriasSelecionadas,
   ]);
 
+  // Desconto de 50% só nos itens marcados como elegíveis (ver
+  // sn_desconto_primeiro_imovel em Configurações > Taxas e Emolumentos)
+  // e só quando o checkbox acima está marcado — recalcula na hora,
+  // sem precisar remover e re-adicionar item nenhum.
+  function vlUnitarioComDesconto(item: ItemLinha) {
+    return snPrimeiroImovel && item.snDescontoElegivel ? item.vl_unitario * 0.5 : item.vl_unitario;
+  }
+
   const totais = useMemo(() => {
     const honorarios = itens
       .filter((item) => item.tp_servico === "honorario")
-      .reduce((total, item) => total + item.vl_unitario * item.nr_quantidade, 0);
+      .reduce((total, item) => total + vlUnitarioComDesconto(item) * item.nr_quantidade, 0);
     const custas = itens
       .filter((item) => item.tp_servico === "custa")
-      .reduce((total, item) => total + item.vl_unitario * item.nr_quantidade, 0);
+      .reduce((total, item) => total + vlUnitarioComDesconto(item) * item.nr_quantidade, 0);
     return { honorarios, custas, total: honorarios + custas };
-  }, [itens]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itens, snPrimeiroImovel]);
 
   function adicionarItem() {
     const servico = servicosParaAdicionar.find((s) => s.cd_servico === cdServicoSelecionado);
@@ -367,12 +383,17 @@ export function OrcamentoForm({
         tp_secao: "inicial",
         vl_unitario: custa.vl_pagar ?? 0,
         nr_quantidade: 1,
+        snDescontoElegivel: custa.sn_desconto_primeiro_imovel,
       },
     ]);
     setCdCustaSelecionada("");
   }
 
-  function adicionarBoletoCalculado(item: { descricao: string; valor: number }) {
+  function adicionarBoletoCalculado(item: {
+    descricao: string;
+    valor: number;
+    snDescontoElegivel: boolean;
+  }) {
     setItens((atual) => [
       ...atual,
       {
@@ -383,6 +404,7 @@ export function OrcamentoForm({
         tp_secao: "inicial",
         vl_unitario: item.valor,
         nr_quantidade: 1,
+        snDescontoElegivel: item.snDescontoElegivel,
       },
     ]);
   }
@@ -456,7 +478,15 @@ export function OrcamentoForm({
         ds_inscricao_municipal: dsInscricaoMunicipal,
         vl_transacao: valorTransacao ? Number(valorTransacao) : null,
         vl_venal: valorVenal ? Number(valorVenal) : null,
-        itens: itens.map(({ cd_item: _cd_item, ...item }) => item),
+        sn_primeiro_imovel: snPrimeiroImovel,
+        itens: itens.map((item) => ({
+          cd_servico: item.cd_servico,
+          ds_descricao: item.ds_descricao,
+          tp_servico: item.tp_servico,
+          tp_secao: item.tp_secao,
+          nr_quantidade: item.nr_quantidade,
+          vl_unitario: vlUnitarioComDesconto(item),
+        })),
       });
 
       if (resultado?.erro) {
@@ -501,6 +531,14 @@ export function OrcamentoForm({
               <CardTitle>Informações Básicas</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex items-center gap-2 rounded-radius border border-accent/30 bg-accent/5 px-3 py-2.5 text-sm font-medium text-foreground sm:col-span-2">
+                <Checkbox
+                  checked={snPrimeiroImovel}
+                  onChange={(e) => setSnPrimeiroImovel(e.target.checked)}
+                />
+                É o primeiro imóvel ou primeiro financiamento do cliente (aplica 50% de desconto
+                nas taxas elegíveis)
+              </label>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cd_imobiliaria">Imobiliária</Label>
                 <Select
@@ -766,7 +804,14 @@ export function OrcamentoForm({
                     <tbody>
                       {itens.map((item) => (
                         <tr key={item.cd_item} className="border-t border-border">
-                          <td className="px-3 py-2">{item.ds_descricao}</td>
+                          <td className="px-3 py-2">
+                            {item.ds_descricao}
+                            {snPrimeiroImovel && item.snDescontoElegivel && (
+                              <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                                -50%
+                              </span>
+                            )}
+                          </td>
                           <td className="px-3 py-2">
                             {item.tp_servico === "honorario" ? "Honorário" : "Custa"}
                           </td>
@@ -803,7 +848,7 @@ export function OrcamentoForm({
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
-                            {formatarMoeda(item.vl_unitario * item.nr_quantidade)}
+                            {formatarMoeda(vlUnitarioComDesconto(item) * item.nr_quantidade)}
                           </td>
                           <td className="px-3 py-2 text-right">
                             <Button

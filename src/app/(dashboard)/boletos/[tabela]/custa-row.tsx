@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { formatarMoeda } from "@/lib/utils";
@@ -89,6 +90,13 @@ export function CustaRow({ item }: { item: TabelaCustaItem }) {
                 defaultValue={item.ds_valor_especial ?? ""}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <Checkbox
+                name="sn_desconto_primeiro_imovel"
+                defaultChecked={item.sn_desconto_primeiro_imovel}
+              />
+              Entra no desconto de 50% pra primeiro imóvel/financiamento
+            </label>
             <div className="flex items-center gap-2">
               <Button type="submit" size="sm" disabled={pending}>
                 {pending ? "Salvando..." : "Salvar"}
@@ -115,7 +123,14 @@ export function CustaRow({ item }: { item: TabelaCustaItem }) {
     >
       <td className="px-4 py-3 text-muted-foreground">{item.cd_ato ?? "—"}</td>
       <td className="px-4 py-3 text-muted-foreground">{item.nm_secao}</td>
-      <td className="px-4 py-3">{item.ds_ato}</td>
+      <td className="px-4 py-3">
+        {item.ds_ato}
+        {item.sn_desconto_primeiro_imovel && (
+          <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+            -50% 1º imóvel
+          </span>
+        )}
+      </td>
       <td className="px-4 py-3 text-muted-foreground">{rotuloFaixa(item)}</td>
       <td className="px-4 py-3 text-right">
         {item.ds_valor_especial ?? (item.vl_pagar != null ? formatarMoeda(item.vl_pagar) : "—")}

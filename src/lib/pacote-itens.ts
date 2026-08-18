@@ -27,6 +27,7 @@ export function resolverItensDoPacote(
   for (const vinculo of vinculos) {
     let descricao: string;
     let valor: number;
+    let snDescontoElegivel = false;
 
     if (vinculo.tp_origem === "itiv") {
       if (baseCalculo <= 0) continue;
@@ -38,11 +39,13 @@ export function resolverItensDoPacote(
       if (!custa?.vl_pagar) continue;
       valor = custa.vl_pagar;
       descricao = custa.ds_ato;
+      snDescontoElegivel = custa.sn_desconto_primeiro_imovel;
     } else {
       const custa = custas.find((c) => c.cd_custa === vinculo.cd_custa);
       if (!custa) continue;
       valor = custa.vl_pagar ?? 0;
       descricao = custa.cd_ato ? `[${custa.cd_ato}] ${custa.ds_ato}` : custa.ds_ato;
+      snDescontoElegivel = custa.sn_desconto_primeiro_imovel;
     }
 
     if (vinculo.sn_opcional) descricao = `${descricao} (opcional)`;
@@ -58,6 +61,7 @@ export function resolverItensDoPacote(
         tp_secao: secao,
         vl_unitario: valor,
         nr_quantidade: 1,
+        snDescontoElegivel,
       });
     }
   }

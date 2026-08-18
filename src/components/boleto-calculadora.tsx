@@ -31,7 +31,11 @@ export function BoletoCalculadora({
   valorTransacao: number;
   valorVenal: number;
   itensAtuais: { ds_descricao: string }[];
-  onAdicionar: (item: { descricao: string; valor: number }) => void;
+  onAdicionar: (item: {
+    descricao: string;
+    valor: number;
+    snDescontoElegivel: boolean;
+  }) => void;
 }) {
   const gruposFaixa = useMemo(() => {
     const mapa = new Map<string, { tabela: TabelaCusta; secao: string; itens: TabelaCustaItem[] }>();
@@ -72,6 +76,7 @@ export function BoletoCalculadora({
     onAdicionar({
       descricao: `${rotulo} (base: ${formatarMoeda(base)})`,
       valor: faixaEncontrada.vl_pagar,
+      snDescontoElegivel: faixaEncontrada.sn_desconto_primeiro_imovel,
     });
   }
 

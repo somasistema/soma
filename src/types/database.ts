@@ -234,6 +234,7 @@ export interface Orcamento {
   vl_total_honorarios: number;
   vl_total_custas: number;
   vl_total_geral: number;
+  sn_primeiro_imovel: boolean;
   ds_pdf_url: string | null;
   cd_token_aceite: string;
   ts_aceite: string | null;
@@ -389,6 +390,7 @@ export interface TabelaCustaItem {
   vl_pagar: number | null;
   ds_valor_especial: string | null;
   nr_ordem: number;
+  sn_desconto_primeiro_imovel: boolean;
 }
 
 // Liga um serviço a boletos que devem entrar junto automaticamente no

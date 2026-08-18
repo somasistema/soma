@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,6 +98,11 @@ export function CustaForm({ tabela }: { tabela: TabelaCusta }) {
             pagar&quot; quando for fixo. &quot;Valor especial&quot; é pra atos sem valor
             monetário (Gratuita, Isento etc).
           </p>
+
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <Checkbox name="sn_desconto_primeiro_imovel" />
+            Entra no desconto de 50% pra primeiro imóvel/financiamento
+          </label>
 
           <Button type="submit" disabled={pending} className="self-start">
             {pending ? "Salvando..." : "Adicionar"}

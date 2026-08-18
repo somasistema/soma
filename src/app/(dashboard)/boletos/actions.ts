@@ -19,6 +19,7 @@ const custaSchema = z.object({
   vl_faixa_max: numeroOpcional,
   vl_pagar: numeroOpcional,
   ds_valor_especial: z.string().optional(),
+  sn_desconto_primeiro_imovel: z.string().optional().transform((v) => v === "on"),
 });
 
 function parseFormData(formData: FormData) {
@@ -31,6 +32,7 @@ function parseFormData(formData: FormData) {
     vl_faixa_max: formData.get("vl_faixa_max"),
     vl_pagar: formData.get("vl_pagar"),
     ds_valor_especial: formData.get("ds_valor_especial"),
+    sn_desconto_primeiro_imovel: formData.get("sn_desconto_primeiro_imovel"),
   });
 }
 
@@ -67,6 +69,7 @@ export async function criarCusta(_prevState: CustaState, formData: FormData): Pr
       vl_faixa_max: parsed.data.vl_faixa_max,
       vl_pagar: parsed.data.vl_pagar,
       ds_valor_especial: parsed.data.ds_valor_especial || null,
+      sn_desconto_primeiro_imovel: parsed.data.sn_desconto_primeiro_imovel,
       nr_ordem: (ultimo?.nr_ordem ?? 0) + 10,
     });
 
@@ -102,6 +105,7 @@ export async function atualizarCusta(
       vl_faixa_max: parsed.data.vl_faixa_max,
       vl_pagar: parsed.data.vl_pagar,
       ds_valor_especial: parsed.data.ds_valor_especial || null,
+      sn_desconto_primeiro_imovel: parsed.data.sn_desconto_primeiro_imovel,
     })
     .eq("cd_custa", cd_custa);
 

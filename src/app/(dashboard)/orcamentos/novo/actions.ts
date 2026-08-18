@@ -11,6 +11,10 @@ export interface ItemOrcamentoInput {
   tp_secao: TipoSecaoItem;
   vl_unitario: number;
   nr_quantidade: number;
+  // Só usado no client, pra saber quais itens recalcular quando marca
+  // "primeiro imóvel/financiamento" — nunca vai pro banco (removido do
+  // payload antes de chamar essa action, ver orcamento-form.tsx).
+  snDescontoElegivel?: boolean;
 }
 
 export interface CriarOrcamentoInput {
@@ -23,6 +27,7 @@ export interface CriarOrcamentoInput {
   ds_inscricao_municipal: string;
   vl_transacao: number | null;
   vl_venal: number | null;
+  sn_primeiro_imovel: boolean;
   itens: ItemOrcamentoInput[];
 }
 
@@ -47,6 +52,7 @@ export async function criarOrcamento(
     p_ds_inscricao_municipal: input.ds_inscricao_municipal || null,
     p_vl_transacao: input.vl_transacao,
     p_vl_venal: input.vl_venal,
+    p_sn_primeiro_imovel: input.sn_primeiro_imovel,
   });
 
   if (error || !cd_orcamento) {
