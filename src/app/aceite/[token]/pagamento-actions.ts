@@ -65,6 +65,11 @@ export async function criarPagamento(
     return { sucesso: false, erro: "Este orçamento não está disponível para pagamento." };
   }
 
+  // Ver comentário em pagamento-config.ts: quando sair do modo demo, o
+  // valor real cobrado aqui deve ser vlHonorariosAceitos(orcamento.itens)
+  // — nunca vl_total_geral/vl_total_aceito, que incluem custas (essas
+  // ficam pra guia/DAJ que o despachante manda direto, fora do sistema,
+  // até a sprint 03 automatizar isso).
   const valor = VALOR_FIXO_DEMONSTRACAO;
   const siteUrl = getSiteUrl();
 

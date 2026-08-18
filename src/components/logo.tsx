@@ -5,11 +5,12 @@ import { cn } from "@/lib/utils";
 const SIZE_CLASS = {
   sm: { logo: "h-7", tagline: "text-[9px]" },
   lg: { logo: "h-14", tagline: "text-xs" },
+  xl: { logo: "h-20", tagline: "text-sm" },
 } as const;
 
 export function Logo({
   size = "sm",
-  tagline = size === "lg",
+  tagline = size === "lg" || size === "xl",
   className,
 }: {
   size?: keyof typeof SIZE_CLASS;
@@ -24,12 +25,12 @@ export function Logo({
         src={logoSoma}
         alt="SOMA Soluti"
         className={cn("w-auto object-contain", classes.logo)}
-        priority={size === "lg"}
+        priority={size === "lg" || size === "xl"}
       />
       {tagline && (
         <span
           className={cn(
-            "font-medium uppercase tracking-wider text-accent",
+            "font-bold uppercase tracking-wider text-accent",
             classes.tagline
           )}
         >

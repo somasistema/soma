@@ -10,6 +10,7 @@ import type { Orcamento, Processo } from "@/types/database";
 
 type OrcamentoComProcesso = Orcamento & {
   processos: Pick<Processo, "ds_numero_processo" | "nm_comprador_convidado"> | null;
+  usuarios: { nm_usuario: string } | null;
 };
 
 export default async function OrcamentosPage() {
@@ -18,7 +19,7 @@ export default async function OrcamentosPage() {
   const { data: orcamentos } = await supabase
     .schema("soma")
     .from("orcamentos")
-    .select("*, processos(ds_numero_processo, nm_comprador_convidado)")
+    .select("*, processos(ds_numero_processo, nm_comprador_convidado), usuarios(nm_usuario)")
     .order("ts_criacao", { ascending: false })
     .returns<OrcamentoComProcesso[]>();
 
@@ -40,6 +41,7 @@ export default async function OrcamentosPage() {
                   <th className="px-4 py-3 font-medium">Processo</th>
                   <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Criado em</th>
+                  <th className="px-4 py-3 font-medium">Criado por</th>
                   <th className="px-4 py-3 font-medium">Total</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3" />
@@ -54,6 +56,9 @@ export default async function OrcamentosPage() {
                     <td className="px-4 py-3">{orcamento.processos?.ds_numero_processo}</td>
                     <td className="px-4 py-3">{orcamento.processos?.nm_comprador_convidado}</td>
                     <td className="px-4 py-3">{formatarData(orcamento.ts_criacao)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {orcamento.usuarios?.nm_usuario ?? "—"}
+                    </td>
                     <td className="px-4 py-3">{formatarMoeda(orcamento.vl_total_geral)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={orcamento.tp_status} />

@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Logo } from "@/components/logo";
 import { VALOR_FIXO_DEMONSTRACAO } from "@/lib/pagamento-config";
+import { vlHonorariosAceitos } from "@/lib/orcamento-totais";
 import { createPublicClient } from "@/lib/supabase/public";
 import { formatarData, formatarMoeda } from "@/lib/utils";
 import {
@@ -95,6 +96,8 @@ export default async function AceitePage({
   const vencido = orcamento.dt_validade < hoje;
   const itensIniciais = orcamento.itens.filter((item) => item.tp_secao !== "final");
   const itensFinais = orcamento.itens.filter((item) => item.tp_secao === "final");
+  const finalizado = orcamento.tp_status !== "pendente";
+  const vlHonorarios = vlHonorariosAceitos(orcamento.itens);
 
   return (
     <div className="flex min-h-screen justify-center bg-muted px-4 py-12">
@@ -149,9 +152,15 @@ export default async function AceitePage({
 
               <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
                 <p className="font-serif-doc text-lg font-semibold text-foreground">
-                  Total {orcamento.tp_status !== "pendente" ? "aceito" : "geral"}:{" "}
-                  {formatarMoeda(orcamento.vl_total_aceito ?? orcamento.vl_total_geral)}
+                  {finalizado ? "Total a pagar (honorários)" : "Total geral"}:{" "}
+                  {formatarMoeda(finalizado ? vlHonorarios : orcamento.vl_total_geral)}
                 </p>
+                {finalizado && (
+                  <p className="text-xs text-muted-foreground">
+                    As custas/taxas do órgão são recolhidas à parte, via guia (DAJ) enviada
+                    diretamente pelo despachante.
+                  </p>
+                )}
               </div>
 
               <p className="mt-4 text-sm text-muted-foreground">

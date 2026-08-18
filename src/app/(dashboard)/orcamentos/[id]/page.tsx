@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { createClient } from "@/lib/supabase/server";
-import { formatarMoeda } from "@/lib/utils";
+import { formatarData, formatarMoeda } from "@/lib/utils";
 import type { Orcamento, OrcamentoServico, Processo } from "@/types/database";
 import { CopyLinkButton } from "./copy-link-button";
 import { DocumentosSection } from "./documentos-section";
@@ -32,7 +32,7 @@ export default async function OrcamentoDetalhePage({
     notFound();
   }
 
-  const [{ data: processo }, { data: itens }] = await Promise.all([
+  const [{ data: processo }, { data: itens }, { data: criador }] = await Promise.all([
     supabase
       .schema("soma")
       .from("processos")
@@ -45,6 +45,12 @@ export default async function OrcamentoDetalhePage({
       .select("*")
       .eq("cd_orcamento", orcamento.cd_orcamento)
       .returns<OrcamentoServico[]>(),
+    supabase
+      .schema("soma")
+      .from("usuarios")
+      .select("nm_usuario")
+      .eq("cd_usuario", orcamento.cd_criador)
+      .maybeSingle<{ nm_usuario: string }>(),
   ]);
 
   // NEXT_PUBLIC_VERCEL_URL é injetada automaticamente pela Vercel em todo
@@ -61,9 +67,14 @@ export default async function OrcamentoDetalhePage({
   return (
     <FadeIn className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
-          Processo {processo?.ds_numero_processo}
-        </h1>
+        <div>
+          <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
+            Processo {processo?.ds_numero_processo}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Criado por {criador?.nm_usuario ?? "—"} em {formatarData(orcamento.ts_criacao)}
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           {orcamento.tp_status === "pendente" && (
             <Link
@@ -131,13 +142,14 @@ export default async function OrcamentoDetalhePage({
 
           <div className="mt-4 flex flex-col items-end gap-1 border-t border-border pt-4 text-sm">
             <p className="text-muted-foreground">
-              Honorários: {formatarMoeda(orcamento.vl_total_honorarios)}
-            </p>
-            <p className="text-muted-foreground">
-              Custas: {formatarMoeda(orcamento.vl_total_custas)}
+              Custas (guia/DAJ enviada à parte pelo despachante):{" "}
+              {formatarMoeda(orcamento.vl_total_custas)}
             </p>
             <p className="font-serif-doc text-lg font-semibold text-foreground">
-              Total: {formatarMoeda(orcamento.vl_total_geral)}
+              Total a cobrar do cliente (honorários): {formatarMoeda(orcamento.vl_total_honorarios)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Total geral do orçamento: {formatarMoeda(orcamento.vl_total_geral)}
             </p>
           </div>
         </CardContent>
