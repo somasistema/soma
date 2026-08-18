@@ -831,10 +831,10 @@ export function OrcamentoForm({
 
       <Card className="sticky top-8 border-none bg-brand text-brand-foreground">
         <CardHeader>
-          <CardTitle className="text-brand-foreground">Resumo</CardTitle>
+          <CardTitle className="font-bold text-brand-foreground">Resumo</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 text-sm text-brand-foreground/70">
+          <div className="flex flex-col gap-1 text-sm font-bold text-brand-foreground/70">
             <div className="flex justify-between">
               <span>Honorários</span>
               <span>{formatarMoeda(totais.honorarios)}</span>
@@ -845,10 +845,10 @@ export function OrcamentoForm({
             </div>
           </div>
           <div className="flex flex-col gap-1 border-t border-brand-foreground/20 pt-4">
-            <span className="text-xs font-medium uppercase tracking-wide text-brand-foreground/70">
+            <span className="text-xs font-bold uppercase tracking-wide text-brand-foreground/70">
               Total
             </span>
-            <span className="font-serif-doc text-2xl font-semibold text-accent">
+            <span className="font-serif-doc text-2xl font-bold text-accent">
               {formatarMoeda(totais.total)}
             </span>
           </div>
@@ -861,7 +861,7 @@ export function OrcamentoForm({
           >
             {pending ? "Salvando..." : "Criar orçamento"}
           </Button>
-          <p className="text-xs text-brand-foreground/70">
+          <p className="text-xs font-bold text-brand-foreground/70">
             PDF e envio por WhatsApp ficam disponíveis na página do orçamento após criá-lo.
           </p>
         </CardContent>

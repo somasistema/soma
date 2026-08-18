@@ -39,7 +39,7 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
       <DashboardSidebar>
         <div>
-          <Logo size="sm" className="hidden px-2 md:flex" />
+          <Logo size="lg" tagline={false} className="hidden px-2 md:flex" />
           <SidebarNav items={itensVisiveis} />
         </div>
         <div className="flex flex-col gap-3 border-t border-border pt-4">
