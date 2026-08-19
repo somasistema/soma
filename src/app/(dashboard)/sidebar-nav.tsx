@@ -1,6 +1,15 @@
 "use client";
 
-import { FileText, Folder, LayoutDashboard, Receipt, Settings, Settings2, Users } from "lucide-react";
+import {
+  BarChart3,
+  FileText,
+  Folder,
+  LayoutDashboard,
+  Receipt,
+  Settings,
+  Settings2,
+  Users,
+} from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 const ICONS = {
   "/dashboard": LayoutDashboard,
+  "/kpis": BarChart3,
   "/orcamentos": FileText,
   "/processos": Folder,
   "/servicos": Settings,

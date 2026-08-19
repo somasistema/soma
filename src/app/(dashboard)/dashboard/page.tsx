@@ -6,26 +6,52 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData } from "@/lib/utils";
-import { ROLE_LABEL, TIPO_PROCESSO_LABEL, type Processo } from "@/types/database";
+import { formatarData, formatarMoeda } from "@/lib/utils";
+import {
+  ROLE_LABEL,
+  TIPO_PROCESSO_LABEL,
+  type Orcamento,
+  type Processo,
+  type StatusOrcamento,
+} from "@/types/database";
+
+const STATUS_REALIZADO: StatusOrcamento[] = ["pago", "liberado"];
 
 export default async function DashboardPage() {
   const usuario = await getUsuarioAtual();
   const ehMasterOuJuridico = usuario.tp_role === "master" || usuario.tp_role === "juridico";
+  const ehCorretor = usuario.tp_role === "corretor";
 
   // RLS de soma.processos já restringe às linhas de cada perfil (comprador,
   // vendedor, corretor, despachante ou imobiliária) — não precisa filtrar
   // por auth.uid() aqui de novo.
   const supabase = await createClient();
-  const { data: processos } = ehMasterOuJuridico
-    ? { data: null }
-    : await supabase
-        .schema("soma")
-        .from("processos")
-        .select("*")
-        .order("ts_criacao", { ascending: false })
-        .limit(5)
-        .returns<Processo[]>();
+  const [{ data: processos }, { data: orcamentosCorretor }] = await Promise.all([
+    ehMasterOuJuridico
+      ? Promise.resolve({ data: null })
+      : supabase
+          .schema("soma")
+          .from("processos")
+          .select("*")
+          .order("ts_criacao", { ascending: false })
+          .limit(5)
+          .returns<Processo[]>(),
+    // RLS de soma.orcamentos já restringe a linhas cujo processo é do
+    // corretor logado — não precisa filtrar cd_corretor aqui de novo.
+    ehCorretor
+      ? supabase
+          .schema("soma")
+          .from("orcamentos")
+          .select("*, processos(cd_processo)")
+          .returns<(Orcamento & { processos: Pick<Processo, "cd_processo"> | null })[]>()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const qtdOrcamentosCorretor = orcamentosCorretor?.length ?? 0;
+  const vlRealizadoCorretor = (orcamentosCorretor ?? [])
+    .filter((o) => STATUS_REALIZADO.includes(o.tp_status))
+    .reduce((soma, o) => soma + o.vl_total_geral, 0);
+  const vlTotalCorretor = (orcamentosCorretor ?? []).reduce((soma, o) => soma + o.vl_total_geral, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,6 +86,41 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </FadeIn>
+
+      {ehCorretor && (
+        <FadeIn delay={0.06} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Meus orçamentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold text-foreground">
+              {qtdOrcamentosCorretor}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Faturamento realizado
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold text-foreground">
+              {formatarMoeda(vlRealizadoCorretor)}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total em orçamentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-2xl font-semibold text-foreground">
+              {formatarMoeda(vlTotalCorretor)}
+            </CardContent>
+          </Card>
+        </FadeIn>
+      )}
 
       {!ehMasterOuJuridico && (
         <FadeIn delay={0.08}>

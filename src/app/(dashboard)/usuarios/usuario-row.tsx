@@ -18,6 +18,7 @@ const ROLES_EDITAVEIS: RoleUsuario[] = [
   "imobiliaria",
   "despachante",
   "corretor",
+  "gerente",
   "vendedor",
   "outro_cliente",
 ];

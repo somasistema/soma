@@ -4,6 +4,7 @@ export type RoleUsuario =
   | "imobiliaria"
   | "despachante"
   | "corretor"
+  | "gerente"
   | "vendedor"
   | "comprador"
   | "outro_cliente";
@@ -20,7 +21,8 @@ export type SecaoAcesso =
   | "servicos"
   | "boletos"
   | "usuarios"
-  | "configuracoes";
+  | "configuracoes"
+  | "kpis";
 
 export const SECAO_ACESSO_LABEL: Record<SecaoAcesso, string> = {
   dashboard: "Início",
@@ -30,6 +32,7 @@ export const SECAO_ACESSO_LABEL: Record<SecaoAcesso, string> = {
   boletos: "Taxas e Emolumentos",
   usuarios: "Usuários",
   configuracoes: "Configurações",
+  kpis: "Indicadores",
 };
 
 export const SECOES_ACESSO: SecaoAcesso[] = [
@@ -40,6 +43,7 @@ export const SECOES_ACESSO: SecaoAcesso[] = [
   "boletos",
   "usuarios",
   "configuracoes",
+  "kpis",
 ];
 
 // As 5 seções com CRUD de verdade — Início e Configurações ficam de
@@ -348,6 +352,7 @@ export const ROLE_LABEL: Record<RoleUsuario, string> = {
   imobiliaria: "Imobiliária",
   despachante: "Despachante",
   corretor: "Corretor",
+  gerente: "Gerente",
   vendedor: "Vendedor",
   comprador: "Cliente",
   outro_cliente: "Outro cliente",

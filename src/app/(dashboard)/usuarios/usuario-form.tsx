@@ -16,6 +16,7 @@ const ROLES_CRIAVEIS: RoleUsuario[] = [
   "imobiliaria",
   "despachante",
   "corretor",
+  "gerente",
   "vendedor",
   "outro_cliente",
 ];

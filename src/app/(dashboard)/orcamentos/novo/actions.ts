@@ -28,6 +28,7 @@ export interface CriarOrcamentoInput {
   vl_transacao: number | null;
   vl_venal: number | null;
   sn_primeiro_imovel: boolean;
+  cd_corretor: string | null;
   itens: ItemOrcamentoInput[];
 }
 
@@ -53,6 +54,7 @@ export async function criarOrcamento(
     p_vl_transacao: input.vl_transacao,
     p_vl_venal: input.vl_venal,
     p_sn_primeiro_imovel: input.sn_primeiro_imovel,
+    p_cd_corretor: input.cd_corretor,
   });
 
   if (error || !cd_orcamento) {

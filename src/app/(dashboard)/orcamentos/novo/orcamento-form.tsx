@@ -23,6 +23,7 @@ import {
   type TabelaCustaItem,
   type TipoAplicavelFluxo,
   type TipoProcesso,
+  type Usuario,
 } from "@/types/database";
 import { FileText, ListChecks, Receipt, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
@@ -76,6 +77,7 @@ export function OrcamentoForm({
   blocosAplicaveis,
   ordemBlocos,
   pacoteItens,
+  corretores,
 }: {
   imobiliarias: Imobiliaria[];
   servicos: ServicoComPrecos[];
@@ -85,6 +87,7 @@ export function OrcamentoForm({
   blocosAplicaveis: Partial<Record<BlocoFluxo, TipoAplicavelFluxo>>;
   ordemBlocos: BlocoFluxo[];
   pacoteItens: PacoteItem[];
+  corretores: Pick<Usuario, "cd_usuario" | "nm_usuario">[];
 }) {
   // Falta linha no banco (ex: migration 017 ainda não rodou) conta
   // como ativo — configurável em Configurações > Fluxo, nunca esconde
@@ -104,6 +107,10 @@ export function OrcamentoForm({
   const [nmCidade, setNmCidade] = useState<string>(cidades[0] ?? "");
   const [dtValidade, setDtValidade] = useState("");
   const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState("");
+
+  // Atribuição opcional de corretor — não afeta o cálculo, só alimenta
+  // o ranking por corretor em /kpis (visão do Gerente).
+  const [cdCorretor, setCdCorretor] = useState("");
 
   // Nova regra: 50% de desconto nas taxas elegíveis (marcadas em
   // Configurações > Taxas e Emolumentos) quando é o primeiro imóvel ou
@@ -479,6 +486,7 @@ export function OrcamentoForm({
         vl_transacao: valorTransacao ? Number(valorTransacao) : null,
         vl_venal: valorVenal ? Number(valorVenal) : null,
         sn_primeiro_imovel: snPrimeiroImovel,
+        cd_corretor: cdCorretor || null,
         itens: itens.map((item) => ({
           cd_servico: item.cd_servico,
           ds_descricao: item.ds_descricao,
@@ -553,6 +561,26 @@ export function OrcamentoForm({
                   ))}
                 </Select>
               </div>
+              {corretores.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="cd_corretor">Corretor (opcional)</Label>
+                  <Select
+                    id="cd_corretor"
+                    value={cdCorretor}
+                    onChange={(e) => setCdCorretor(e.target.value)}
+                  >
+                    <option value="">Nenhum</option>
+                    {corretores.map((corretor) => (
+                      <option key={corretor.cd_usuario} value={corretor.cd_usuario}>
+                        {corretor.nm_usuario}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Só pra ranking em Indicadores — não afeta o cálculo do orçamento.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="nm_comprador_convidado">Nome do cliente</Label>
                 <Input

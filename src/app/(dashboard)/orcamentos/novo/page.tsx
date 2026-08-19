@@ -8,6 +8,7 @@ import type {
   ServicoComPrecos,
   TabelaCustaItem,
   TipoAplicavelFluxo,
+  Usuario,
 } from "@/types/database";
 import { CIDADES_SERVICO_PADRAO } from "@/types/database";
 import { OrcamentoForm } from "./orcamento-form";
@@ -34,6 +35,7 @@ export default async function NovoOrcamentoPage() {
     { data: blocos },
     { data: cidadesDb },
     { data: pacoteItens },
+    { data: corretores },
   ] = await Promise.all([
       supabase
         .schema("soma")
@@ -74,6 +76,14 @@ export default async function NovoOrcamentoPage() {
         .order("nr_ordem")
         .returns<Cidade[]>(),
       supabase.schema("soma").from("pacote_itens").select("*").returns<PacoteItem[]>(),
+      supabase
+        .schema("soma")
+        .from("usuarios")
+        .select("cd_usuario, nm_usuario")
+        .eq("tp_role", "corretor")
+        .eq("sn_ativo", true)
+        .order("nm_usuario")
+        .returns<Pick<Usuario, "cd_usuario" | "nm_usuario">[]>(),
     ]);
 
   const cidades =
@@ -104,6 +114,7 @@ export default async function NovoOrcamentoPage() {
         blocosAplicaveis={blocosAplicaveis}
         ordemBlocos={ordemBlocos}
         pacoteItens={pacoteItens ?? []}
+        corretores={corretores ?? []}
       />
     </div>
   );

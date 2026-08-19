@@ -12,6 +12,7 @@ import { SidebarNav } from "./sidebar-nav";
 // 027); Master sempre vê todas (hardcoded).
 const SECOES_MENU: SecaoAcesso[] = [
   "dashboard",
+  "kpis",
   "orcamentos",
   "processos",
   "servicos",

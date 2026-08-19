@@ -23,6 +23,7 @@ const ROLES_CONFIGURAVEIS: RoleUsuario[] = [
   "imobiliaria",
   "despachante",
   "corretor",
+  "gerente",
   "vendedor",
   "comprador",
   "outro_cliente",
