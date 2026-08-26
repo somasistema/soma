@@ -17,9 +17,11 @@ import {
   type Pendencia,
   type Processo,
 } from "@/types/database";
+import { DocumentosSection } from "../../orcamentos/[id]/documentos-section";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 import { HistoricoProcesso } from "./historico-processo";
+import { MinutaSection } from "./minuta-section";
 
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
 const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
@@ -130,6 +132,13 @@ export default async function ProcessoDetalhePage({
         </p>
       </div>
 
+      {processo.tp_processo === "contrato" && (
+        <>
+          <DocumentosSection cdProcesso={id} />
+          <MinutaSection processo={processo} />
+        </>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Orçamentos</CardTitle>
@@ -138,7 +147,7 @@ export default async function ProcessoDetalhePage({
               href={`/processos/${id}/orcamento-complementar`}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Novo orçamento complementar
+              {orcamentos && orcamentos.length > 0 ? "Novo orçamento complementar" : "Novo orçamento"}
             </Link>
           )}
         </CardHeader>

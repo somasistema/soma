@@ -217,8 +217,70 @@ export interface Processo {
   ds_observacoes_juridicas: string | null;
   nm_comprador_convidado: string | null;
   ds_telefone_comprador_convidado: string | null;
+  tp_etapa_contrato: TipoEtapaContrato | null;
   ts_criacao: string;
   ts_atualizacao: string;
+}
+
+// Etapa do fluxo de contrato — só existe (não-null) quando
+// tp_processo = "contrato". Orçamento do Despachante entra em
+// paralelo a essa esteira, sem depender dela.
+export type TipoEtapaContrato =
+  | "documentacao"
+  | "minuta_pendente"
+  | "minuta_reprovada"
+  | "aguardando_assinatura"
+  | "concluido";
+
+export const ETAPA_CONTRATO_LABEL: Record<TipoEtapaContrato, string> = {
+  documentacao: "Documentação em análise",
+  minuta_pendente: "Minuta em aprovação",
+  minuta_reprovada: "Minuta reprovada",
+  aguardando_assinatura: "Aguardando assinatura",
+  concluido: "Concluído",
+};
+
+// As 5 frentes que precisam aprovar a minuta antes do contrato final.
+export type TipoPapelAprovacao = "corretor" | "comprador" | "vendedor" | "imobiliaria" | "juridico";
+
+export const PAPEL_APROVACAO_LABEL: Record<TipoPapelAprovacao, string> = {
+  corretor: "Corretor",
+  comprador: "Comprador",
+  vendedor: "Vendedor",
+  imobiliaria: "Imobiliária",
+  juridico: "Jurídico",
+};
+
+export type StatusMinuta = "em_aprovacao" | "aprovada" | "reprovada";
+export type StatusAprovacaoMinuta = "pendente" | "aprovada" | "reprovada";
+export type StatusContrato = "aguardando_assinatura" | "assinado";
+
+export interface Minuta {
+  cd_minuta: string;
+  cd_processo: string;
+  cd_criador: string | null;
+  nr_versao: number;
+  ds_storage_url: string;
+  tp_status: StatusMinuta;
+  ts_criacao: string;
+}
+
+export interface MinutaAprovacao {
+  cd_aprovacao: string;
+  cd_minuta: string;
+  tp_papel: TipoPapelAprovacao;
+  cd_usuario: string | null;
+  tp_status: StatusAprovacaoMinuta;
+  ds_comentario: string | null;
+  ts_decisao: string | null;
+}
+
+export interface Contrato {
+  cd_contrato: string;
+  cd_processo: string;
+  cd_minuta: string;
+  tp_status: StatusContrato;
+  ts_criacao: string;
 }
 
 // Onde cada item entra no PDF/tela — Custos Iniciais x Custos Finais,

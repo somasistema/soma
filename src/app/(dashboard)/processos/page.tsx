@@ -1,12 +1,17 @@
 import { Folder } from "lucide-react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
+import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData } from "@/lib/utils";
+import { cn, formatarData } from "@/lib/utils";
 import { TIPO_PROCESSO_LABEL, type Processo } from "@/types/database";
 
+const PODE_CRIAR_PROCESSO = new Set(["master", "juridico"]);
+
 export default async function ProcessosPage() {
+  const usuario = await getUsuarioAtual();
   const supabase = await createClient();
 
   // RLS já restringe às linhas que o usuário pode ver (Master/Jurídico
@@ -20,8 +25,13 @@ export default async function ProcessosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <FadeIn>
+      <FadeIn className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Processos</h1>
+        {PODE_CRIAR_PROCESSO.has(usuario.tp_role) && (
+          <Link href="/processos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
+            Novo processo (Contrato)
+          </Link>
+        )}
       </FadeIn>
 
       {processos && processos.length > 0 ? (
