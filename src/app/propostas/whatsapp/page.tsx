@@ -1,8 +1,9 @@
-import { MessageCircle, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
+import { WhatsappDemoChat } from "./whatsapp-demo-chat";
 
 const ESCOPO = [
   {
@@ -148,64 +149,7 @@ export default function PropostaWhatsappPage() {
               <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 Triagem por IA e transferência (handoff) — 2.2 / 2.3
               </p>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_260px]">
-                <div className="flex flex-col gap-2 rounded-radius border border-border bg-muted/50 p-4">
-                  <div className="mb-1 flex items-center gap-2 border-b border-border pb-3 text-xs font-semibold text-muted-foreground">
-                    <MessageCircle className="h-4 w-4 text-[#1F9E56]" />
-                    WhatsApp Business — SOMA
-                  </div>
-                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-card px-3 py-2 text-sm">
-                    <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
-                      Cliente
-                    </span>
-                    Oi, queria saber se já saiu o registro do processo SOMA-2026-0114
-                  </div>
-                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm border border-[#1F9E56]/30 bg-[#1F9E56]/10 px-3 py-2 text-sm">
-                    <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
-                      Agente SOMA (IA)
-                    </span>
-                    O processo 0114 está em &quot;Aguardando registro no cartório&quot;. Última
-                    atualização: ontem, 17h32.
-                  </div>
-                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-card px-3 py-2 text-sm">
-                    <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
-                      Cliente
-                    </span>
-                    E dá pra adiantar? Preciso pra amanhã
-                  </div>
-                  <div className="mx-auto rounded-lg border border-dashed border-accent/50 bg-accent/10 px-3 py-2 text-center text-xs font-semibold text-accent">
-                    ↳ assunto exige intervenção humana — encaminhado ao Despachante
-                  </div>
-                </div>
-
-                <div className="flex flex-col justify-center gap-3 rounded-radius border border-border bg-muted/50 p-4">
-                  {[
-                    <>
-                      Mensagem chega via <strong className="text-foreground">Evolution API</strong>
-                    </>,
-                    <>
-                      Agente <strong className="text-foreground">n8n + Claude</strong> identifica o
-                      assunto
-                    </>,
-                    <>
-                      Resolve direto ou decide <strong className="text-foreground">transferir</strong>
-                    </>,
-                    <>
-                      Cai na inbox do{" "}
-                      <strong className="text-foreground">
-                        Jurídico, Imobiliária ou Despachante
-                      </strong>
-                    </>,
-                  ].map((texto, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand font-serif-doc text-[10px] font-bold text-brand-foreground">
-                        {i + 1}
-                      </span>
-                      {texto}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <WhatsappDemoChat />
             </div>
           </CardContent>
         </Card>
