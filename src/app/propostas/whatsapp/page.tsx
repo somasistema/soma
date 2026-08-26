@@ -2,14 +2,14 @@ import { XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Logo } from "@/components/logo";
-import { cn } from "@/lib/utils";
+import { cn, formatarMoeda } from "@/lib/utils";
 import { WhatsappDemoChat } from "./whatsapp-demo-chat";
 
 const ESCOPO = [
   {
     titulo: "Canal",
     tag: "2.1",
-    itens: ["Conexão a um número de WhatsApp Business via Evolution API"],
+    itens: ["Conexão a um número de WhatsApp Business via Z-api"],
   },
   {
     titulo: "Interface de atendimento",
@@ -37,7 +37,7 @@ const FORA_DE_ESCOPO = [
 ];
 
 const STACK = [
-  { nome: "Evolution API — conexão WhatsApp", cor: "bg-[#1F9E56]" },
+  { nome: "Z-api — conexão WhatsApp", cor: "bg-[#1F9E56]" },
   { nome: "n8n — orquestração do agente", cor: "bg-brand" },
   { nome: "API da Claude — triagem por IA", cor: "bg-accent" },
   { nome: "Integração direta com o schema soma.* já existente", cor: "bg-muted-foreground" },
@@ -48,8 +48,9 @@ const FASES = [
     numero: 1,
     titulo: "Conexão WhatsApp + agente de triagem",
     descricao:
-      "Número conectado via Evolution API; agente em n8n/Claude API identifica o assunto e decide se resolve ou transfere.",
+      "Número conectado via Z-api; agente em n8n/Claude API identifica o assunto e decide se resolve ou transfere.",
     prazo: "7 dias úteis",
+    valor: 950,
   },
   {
     numero: 2,
@@ -57,6 +58,7 @@ const FASES = [
     descricao:
       "Conversas por perfil (Jurídico / Imobiliária / Despachante), histórico completo e handoff.",
     prazo: "7 dias úteis",
+    valor: 950,
   },
   {
     numero: 3,
@@ -64,8 +66,12 @@ const FASES = [
     descricao:
       "Associação opcional de conversa a um processo (ex: SOMA-2026-0001) e polimento geral.",
     prazo: "4 dias úteis",
+    valor: 500,
   },
 ];
+
+const PRAZO_TOTAL = "18 dias úteis";
+const VALOR_TOTAL = FASES.reduce((soma, fase) => soma + fase.valor, 0);
 
 export default function PropostaWhatsappPage() {
   return (
@@ -214,17 +220,28 @@ export default function PropostaWhatsappPage() {
                 </div>
                 <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
                   <span className="text-xs text-muted-foreground/70">{fase.prazo}</span>
-                  <span className="font-serif-doc text-sm font-semibold italic text-accent">
-                    A definir
+                  <span className="font-serif-doc text-sm font-semibold text-foreground">
+                    {formatarMoeda(fase.valor)}
                   </span>
                 </div>
               </div>
             ))}
 
-            <div className="mt-2 rounded-r-lg border-l-[3px] border-accent bg-accent/10 px-4 py-3 text-sm text-muted-foreground">
-              <strong className="text-foreground">Estrutura de pagamento sugerida</strong> — valores
-              a definir com base no escalonamento de esforço de cada fase: parte na assinatura, parte
-              na entrega de cada fase, seguindo o mesmo modelo do contrato original.
+            <div className="flex items-center justify-between border-t border-border pt-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Total</h3>
+                <span className="text-xs text-muted-foreground/70">{PRAZO_TOTAL}</span>
+              </div>
+              <span className="font-serif-doc text-xl font-semibold text-accent">
+                {formatarMoeda(VALOR_TOTAL)}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-r-lg border-l-[3px] border-accent bg-accent/10 px-4 py-3 text-sm text-muted-foreground">
+              <strong className="text-foreground">Investimento total: {formatarMoeda(VALOR_TOTAL)}.</strong>{" "}
+              Estrutura de pagamento sugerida: {formatarMoeda(FASES[0].valor)} na assinatura,{" "}
+              {formatarMoeda(FASES[1].valor)} na entrega da Fase 2 e {formatarMoeda(FASES[2].valor)}{" "}
+              na entrega final, seguindo o mesmo modelo do contrato original.
             </div>
           </CardContent>
         </Card>
