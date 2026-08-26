@@ -101,7 +101,8 @@ export function CustaForm({ tabela }: { tabela: TabelaCusta }) {
 
           <label className="flex items-center gap-2 text-sm text-foreground">
             <Checkbox name="sn_desconto_primeiro_imovel" />
-            Entra no desconto de 50% pra primeiro imóvel/financiamento
+            Entra no desconto de 50% pra primeiro imóvel financiado (só a taxa de registro por
+            valor — confirmar com a Milena antes de marcar em outra taxa)
           </label>
 
           <Button type="submit" disabled={pending} className="self-start">

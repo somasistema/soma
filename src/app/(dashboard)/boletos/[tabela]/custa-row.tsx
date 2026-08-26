@@ -95,7 +95,8 @@ export function CustaRow({ item }: { item: TabelaCustaItem }) {
                 name="sn_desconto_primeiro_imovel"
                 defaultChecked={item.sn_desconto_primeiro_imovel}
               />
-              Entra no desconto de 50% pra primeiro imóvel/financiamento
+              Entra no desconto de 50% pra primeiro imóvel financiado (só a taxa de registro por
+              valor — confirmar com a Milena antes de marcar em outra taxa)
             </label>
             <div className="flex items-center gap-2">
               <Button type="submit" size="sm" disabled={pending}>

@@ -544,8 +544,10 @@ export function OrcamentoForm({
                   checked={snPrimeiroImovel}
                   onChange={(e) => setSnPrimeiroImovel(e.target.checked)}
                 />
-                É o primeiro imóvel ou primeiro financiamento do cliente (aplica 50% de desconto
-                nas taxas elegíveis)
+                É o primeiro imóvel financiado (financiamento bancário) do cliente — aplica 50% de
+                desconto só na taxa de registro calculada pelo valor do imóvel. Não vale pra compra
+                à vista ou por consórcio, e não afeta taxas fixas (prenotação, certidão de ônus,
+                averbações).
               </label>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cd_imobiliaria">Imobiliária</Label>
