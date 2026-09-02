@@ -48,7 +48,7 @@ function casca({ tituloInterno, corpoHtml }: { tituloInterno: string; corpoHtml:
             <tr>
               <td style="padding:20px 32px; background-color:#fafafa; border-top:1px solid #eee;">
                 <p style="margin:0; font-size:12px; color:#888; line-height:1.5;">
-                  SOMA Assessoria Imobiliária — este é um e-mail automático, não é preciso responder.
+                  SOMA  — este é um e-mail automático, não é preciso responder.
                 </p>
               </td>
             </tr>

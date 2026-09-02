@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { formatarData, formatarDataHora, formatarMoeda } from "@/lib/utils";
+import { formatarData, formatarMoeda } from "@/lib/utils";
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import {
@@ -22,6 +22,7 @@ import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 import { HistoricoProcesso } from "./historico-processo";
 import { MinutaSection } from "./minuta-section";
+import { TimelineProcesso } from "./timeline-processo";
 
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
 const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
@@ -221,36 +222,14 @@ export default async function ProcessoDetalhePage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Log de andamentos</CardTitle>
+          <CardTitle>Timeline do processo</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="text-xs text-muted-foreground">
-            Registrado automaticamente a cada movimento do processo — não precisa preencher.
-          </p>
-
-          {andamentos && andamentos.length > 0 ? (
-            <StaggerList className="flex flex-col gap-2">
-              {andamentos.map((andamento) => (
-                <StaggerItem
-                  key={andamento.cd_andamento}
-                  className="rounded-radius border border-border p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">{andamento.nm_etapa}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatarDataHora(andamento.ts_criacao)}
-                    </p>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{andamento.ds_andamento}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {andamento.usuarios?.nm_usuario ?? "Sistema"}
-                  </p>
-                </StaggerItem>
-              ))}
-            </StaggerList>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum andamento registrado ainda.</p>
-          )}
+        <CardContent>
+          <TimelineProcesso
+            andamentos={andamentos ?? []}
+            pendencias={pendencias ?? []}
+            orcamentos={orcamentos ?? []}
+          />
         </CardContent>
       </Card>
 

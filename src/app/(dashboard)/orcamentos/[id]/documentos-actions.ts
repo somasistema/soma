@@ -1,7 +1,9 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { processarOcr } from "@/lib/ocr/processar";
 import type { StatusDocumento } from "@/types/database";
 
 export type DocumentoActionState = { sucesso: true } | { sucesso: false; erro: string };
@@ -40,19 +42,68 @@ export async function uploadDocumento(formData: FormData): Promise<DocumentoActi
     return { sucesso: false, erro: erroUpload.message };
   }
 
-  const { error: erroInsert } = await supabase.schema("soma").from("documentos").insert({
-    cd_processo: cdProcesso,
-    cd_enviado_por: user.id,
-    tp_perfil_alvo: tpPerfilAlvo,
-    nm_tipo_documento: nmTipoDocumento,
-    nm_arquivo: arquivo.name,
-    ds_storage_url: caminho,
-  });
+  const { data: documentoCriado, error: erroInsert } = await supabase
+    .schema("soma")
+    .from("documentos")
+    .insert({
+      cd_processo: cdProcesso,
+      cd_enviado_por: user.id,
+      tp_perfil_alvo: tpPerfilAlvo,
+      nm_tipo_documento: nmTipoDocumento,
+      nm_arquivo: arquivo.name,
+      ds_storage_url: caminho,
+    })
+    .select("cd_documento")
+    .single();
 
-  if (erroInsert) {
-    return { sucesso: false, erro: erroInsert.message };
+  if (erroInsert || !documentoCriado) {
+    return { sucesso: false, erro: erroInsert?.message ?? "Falha ao registrar o documento." };
   }
 
+  // OCR roda logo depois do upload, no mesmo request. Nunca lança
+  // (falha fica registrada em soma.documento_ocr) — não trava o envio.
+  await processarOcr(documentoCriado.cd_documento);
+
+  return { sucesso: true };
+}
+
+// Reprocessa o OCR de um documento (arquivo estava ruim, primeira
+// tentativa falhou). Só quem já enxerga o documento.
+export async function reprocessarOcr(cdDocumento: string): Promise<DocumentoActionState> {
+  const supabase = await createClient();
+
+  const { data: documento } = await supabase
+    .schema("soma")
+    .from("documentos")
+    .select("cd_documento")
+    .eq("cd_documento", cdDocumento)
+    .maybeSingle();
+
+  if (!documento) {
+    return { sucesso: false, erro: "Documento não encontrado." };
+  }
+
+  await processarOcr(cdDocumento);
+  return { sucesso: true };
+}
+
+export async function confirmarCampoOcr(
+  cdCampo: string,
+  dsValor: string
+): Promise<DocumentoActionState> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.schema("soma").rpc("fn_confirmar_campo_ocr", {
+    p_cd_campo: cdCampo,
+    p_ds_valor: dsValor,
+  });
+
+  if (error) {
+    return { sucesso: false, erro: error.message };
+  }
+
+  revalidatePath("/processos", "layout");
+  revalidatePath("/orcamentos", "layout");
   return { sucesso: true };
 }
 

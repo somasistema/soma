@@ -1,17 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { assinaturaConfigurada } from "@/lib/assinatura";
 import { cn, formatarDataHora } from "@/lib/utils";
 import {
   ETAPA_CONTRATO_LABEL,
   PAPEL_APROVACAO_LABEL,
   type Contrato,
+  type ContratoSignatario,
   type Minuta,
   type MinutaAprovacao,
   type Processo,
   type TipoPapelAprovacao,
 } from "@/types/database";
+import { ContratoAssinatura } from "./contrato-assinatura";
 import { MinutaDecisaoBotoes } from "./minuta-decisao-botoes";
+import { MinutaDeModeloForm } from "./minuta-de-modelo-form";
 import { MinutaUploadForm } from "./minuta-upload-form";
 
 const PAPEIS: TipoPapelAprovacao[] = ["corretor", "comprador", "vendedor", "imobiliaria", "juridico"];
@@ -84,7 +88,7 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
   ]);
 
   let urlMinuta: string | null = null;
-  if (minutaAtual) {
+  if (minutaAtual?.ds_storage_url) {
     const { data } = await supabase.storage
       .from("minutas")
       .createSignedUrl(minutaAtual.ds_storage_url, 60 * 10);
@@ -95,6 +99,40 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
     (usuario.tp_role === "master" || usuario.tp_role === "juridico") &&
     (!minutaAtual || minutaAtual.tp_status === "reprovada") &&
     !contrato;
+
+  let signatarios: ContratoSignatario[] = [];
+  let urlContratoAssinado: string | null = null;
+  if (contrato) {
+    const { data } = await supabase
+      .schema("soma")
+      .from("contrato_signatarios")
+      .select("*")
+      .eq("cd_contrato", contrato.cd_contrato)
+      .returns<ContratoSignatario[]>();
+    signatarios = data ?? [];
+
+    if (contrato.ds_arquivo_assinado_url) {
+      const { data: assinado } = await supabase.storage
+        .from("minutas")
+        .createSignedUrl(contrato.ds_arquivo_assinado_url, 60 * 10);
+      urlContratoAssinado = assinado?.signedUrl ?? null;
+    }
+  }
+
+  const podeReenviarAssinatura =
+    usuario.tp_role === "master" || usuario.tp_role === "juridico";
+
+  let modelos: { cd_modelo: string; nm_modelo: string }[] = [];
+  if (podeEnviarMinuta) {
+    const { data } = await supabase
+      .schema("soma")
+      .from("modelos_contrato")
+      .select("cd_modelo, nm_modelo")
+      .eq("sn_ativo", true)
+      .order("nm_modelo")
+      .returns<{ cd_modelo: string; nm_modelo: string }[]>();
+    modelos = data ?? [];
+  }
 
   return (
     <Card>
@@ -111,7 +149,12 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
           </p>
         )}
 
-        {podeEnviarMinuta && <MinutaUploadForm cdProcesso={processo.cd_processo} />}
+        {podeEnviarMinuta && (
+          <>
+            <MinutaUploadForm cdProcesso={processo.cd_processo} />
+            <MinutaDeModeloForm cdProcesso={processo.cd_processo} modelos={modelos} />
+          </>
+        )}
 
         {minutaAtual && (
           <div className="flex flex-col gap-3">
@@ -133,6 +176,17 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
                 Enviada em {formatarDataHora(minutaAtual.ts_criacao)}
               </span>
             </div>
+
+            {minutaAtual.ds_conteudo && (
+              <details className="rounded-radius border border-border p-3">
+                <summary className="cursor-pointer text-sm text-foreground">
+                  Ver texto da minuta
+                </summary>
+                <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
+                  {minutaAtual.ds_conteudo}
+                </pre>
+              </details>
+            )}
 
             <div className="flex flex-col gap-2">
               {PAPEIS.map((papel) => {
@@ -189,14 +243,22 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
                 Ver contrato
               </a>
             )}
-            <button
-              type="button"
-              disabled
-              title="Assinatura digital via Autentique — em breve"
-              className="flex h-9 w-fit cursor-not-allowed items-center gap-1.5 rounded-radius border border-border px-3 text-sm font-medium text-muted-foreground opacity-60"
-            >
-              Enviar para assinatura (em breve)
-            </button>
+            {!urlMinuta && minutaAtual?.ds_conteudo && (
+              <details className="rounded-radius border border-border bg-card p-3">
+                <summary className="cursor-pointer text-sm text-foreground">Ver contrato</summary>
+                <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
+                  {minutaAtual.ds_conteudo}
+                </pre>
+              </details>
+            )}
+
+            <ContratoAssinatura
+              contrato={contrato}
+              signatarios={signatarios}
+              assinaturaConfigurada={assinaturaConfigurada()}
+              podeReenviar={podeReenviarAssinatura}
+              urlContratoAssinado={urlContratoAssinado}
+            />
           </div>
         )}
 

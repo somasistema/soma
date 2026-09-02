@@ -1,4 +1,4 @@
-import { History, MapPin, PackageOpen, ShieldCheck, Workflow } from "lucide-react";
+import { History, MapPin, PackageOpen, ScrollText, ShieldCheck, Workflow } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -43,6 +43,20 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">
               Vincule taxas e emolumentos a um serviço — ao adicionar o serviço no orçamento, eles
               entram junto automaticamente.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/modelos-contrato">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <ScrollText className="h-5 w-5 text-accent" />
+            <CardTitle>Modelos de contrato</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Textos-base de contrato que o Jurídico monta e versiona — a minuta de cada processo
+              é gerada a partir de um deles.
             </p>
           </CardContent>
         </Card>

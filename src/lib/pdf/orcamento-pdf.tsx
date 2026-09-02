@@ -1,11 +1,11 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { TIPO_PROCESSO_LABEL, type OrcamentoServico, type TipoProcesso } from "@/types/database";
-import { TERMO_DESPACHANTE_INTRO, TERMO_DESPACHANTE_TITULO } from "@/lib/termo-despachante";
 import {
   OBSERVACAO_PRAZO_SECOES,
   OBSERVACAO_REAJUSTE,
   OBSERVACAO_VALOR_VENAL,
 } from "@/lib/orcamento-observacoes";
+import { TERMO_DESPACHANTE_INTRO, TERMO_DESPACHANTE_TITULO } from "@/lib/termo-despachante";
+import { TIPO_PROCESSO_LABEL, type OrcamentoServico, type TipoProcesso } from "@/types/database";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { LOGO_SOMA_BASE64 } from "./logo-base64";
 
 function formatarMoeda(valor: number) {
@@ -180,7 +180,7 @@ export function OrcamentoPdf({
         </Text>
 
         <Text style={styles.rodape}>
-          SOMA Assessoria Imobiliária — Documento gerado eletronicamente, sem necessidade de
+          SOMA — Documento gerado eletronicamente, sem necessidade de
           assinatura manuscrita.
         </Text>
       </Page>

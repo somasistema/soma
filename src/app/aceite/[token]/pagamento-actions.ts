@@ -1,10 +1,10 @@
 "use server";
 
-import { Payment } from "mercadopago";
 import { getMercadoPagoClient, getSiteUrl } from "@/lib/mercadopago";
 import { VALOR_FIXO_DEMONSTRACAO } from "@/lib/pagamento-config";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { OrcamentoAceite } from "@/types/database";
+import { Payment } from "mercadopago";
 
 export interface PagamentoPayerInput {
   email: string;
@@ -83,7 +83,7 @@ export async function criarPagamento(
         payment_method_id: formData.payment_method_id,
         issuer_id: formData.issuer_id ? Number(formData.issuer_id) : undefined,
         payer: formData.payer,
-        description: `Orçamento ${orcamento.processo.ds_numero_processo} — SOMA Assessoria Imobiliária`,
+        description: `Orçamento ${orcamento.processo.ds_numero_processo} — SOMA`,
         external_reference: orcamento.cd_orcamento,
         notification_url: siteUrl ? `${siteUrl}/api/webhooks/mercadopago` : undefined,
         metadata: emailContaExistente ? { email_conta_existente: emailContaExistente } : undefined,

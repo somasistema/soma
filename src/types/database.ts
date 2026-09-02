@@ -253,14 +253,38 @@ export const PAPEL_APROVACAO_LABEL: Record<TipoPapelAprovacao, string> = {
 
 export type StatusMinuta = "em_aprovacao" | "aprovada" | "reprovada";
 export type StatusAprovacaoMinuta = "pendente" | "aprovada" | "reprovada";
-export type StatusContrato = "aguardando_assinatura" | "assinado";
+export type StatusContrato =
+  | "aguardando_assinatura"
+  | "enviado"
+  | "assinado"
+  | "recusado"
+  | "cancelado";
+
+export const STATUS_CONTRATO_LABEL: Record<StatusContrato, string> = {
+  aguardando_assinatura: "Aguardando envio para assinatura",
+  enviado: "Enviado — aguardando assinaturas",
+  assinado: "Assinado por todos",
+  recusado: "Assinatura recusada",
+  cancelado: "Envio cancelado",
+};
+
+export type StatusSignatario = "pendente" | "assinado" | "recusado";
+
+export const STATUS_SIGNATARIO_LABEL: Record<StatusSignatario, string> = {
+  pendente: "Pendente",
+  assinado: "Assinado",
+  recusado: "Recusado",
+};
 
 export interface Minuta {
   cd_minuta: string;
   cd_processo: string;
   cd_criador: string | null;
   nr_versao: number;
-  ds_storage_url: string;
+  // Uma minuta é um arquivo no Storage (upload manual do Jurídico) OU
+  // um texto gerado de um modelo — nunca os dois nulos (ver migration 043).
+  ds_storage_url: string | null;
+  ds_conteudo: string | null;
   tp_status: StatusMinuta;
   ts_criacao: string;
 }
@@ -281,7 +305,65 @@ export interface Contrato {
   cd_minuta: string;
   tp_status: StatusContrato;
   ts_criacao: string;
+  // Assinatura digital (migration 045). Nulos enquanto não enviado.
+  ds_provedor_assinatura: string | null;
+  ds_documento_externo_id: string | null;
+  ds_url_documento: string | null;
+  ds_arquivo_assinado_url: string | null;
+  ds_erro_envio: string | null;
+  ts_envio_assinatura: string | null;
+  ts_assinatura_concluida: string | null;
 }
+
+export interface ContratoSignatario {
+  cd_signatario: string;
+  cd_contrato: string;
+  tp_papel: TipoPapelAprovacao;
+  cd_usuario: string | null;
+  nm_signatario: string;
+  ds_email: string;
+  tp_status: StatusSignatario;
+  ds_assinatura_externo_id: string | null;
+  ds_url_assinatura: string | null;
+  ts_assinatura: string | null;
+}
+
+// Biblioteca de textos-base de contrato (migration 043). O Jurídico
+// monta uma vez, versiona, e gera minutas a partir deles.
+export interface ModeloContrato {
+  cd_modelo: string;
+  nm_modelo: string;
+  ds_descricao: string | null;
+  ds_conteudo: string;
+  nr_versao: number;
+  sn_ativo: boolean;
+  cd_criador: string | null;
+  cd_editor: string | null;
+  ts_criacao: string;
+  ts_atualizacao: string;
+}
+
+export interface ModeloContratoVersao {
+  cd_versao: string;
+  cd_modelo: string;
+  nr_versao: number;
+  nm_modelo: string;
+  ds_conteudo: string;
+  cd_editor: string | null;
+  ts_criacao: string;
+}
+
+// Campos que fn_gerar_minuta_de_modelo troca pelos dados do processo.
+// A tela de edição mostra essa lista como ajuda.
+export const CAMPOS_MODELO_CONTRATO: { token: string; descricao: string }[] = [
+  { token: "{{numero_processo}}", descricao: "Número do processo (ex: SOMA-2026-0007)" },
+  { token: "{{comprador}}", descricao: "Nome do comprador" },
+  { token: "{{vendedor}}", descricao: "Nome do vendedor" },
+  { token: "{{corretor}}", descricao: "Nome do corretor" },
+  { token: "{{imobiliaria}}", descricao: "Nome da imobiliária" },
+  { token: "{{data_hoje}}", descricao: "Data de hoje (dd/mm/aaaa)" },
+  { token: "{{data_extenso}}", descricao: "Data de hoje por extenso" },
+];
 
 // Onde cada item entra no PDF/tela — Custos Iniciais x Custos Finais,
 // igual o processo manual sempre separou (ver migration 020).
@@ -380,6 +462,78 @@ export const STATUS_DOCUMENTO_LABEL: Record<StatusDocumento, string> = {
   validado: "Validado",
   rejeitado: "Rejeitado",
 };
+
+// --- OCR dos documentos (migration 044) ------------------------------
+
+export type StatusOcr = "na_fila" | "processando" | "concluido" | "falha";
+
+export const STATUS_OCR_LABEL: Record<StatusOcr, string> = {
+  na_fila: "Na fila",
+  processando: "Lendo documento...",
+  concluido: "Leitura concluída",
+  falha: "Falha na leitura",
+};
+
+export type TipoDocumentoOcr =
+  | "rg"
+  | "cpf"
+  | "cnh"
+  | "comprovante_residencia"
+  | "matricula_imovel"
+  | "certidao"
+  | "contrato_social"
+  | "outro";
+
+export const TIPO_DOCUMENTO_OCR_LABEL: Record<TipoDocumentoOcr, string> = {
+  rg: "RG / Identidade",
+  cpf: "CPF",
+  cnh: "CNH",
+  comprovante_residencia: "Comprovante de residência",
+  matricula_imovel: "Matrícula do imóvel",
+  certidao: "Certidão",
+  contrato_social: "Contrato social",
+  outro: "Outro",
+};
+
+// Nomes de campo que os parsers produzem (soma.documento_ocr_campos.nm_campo).
+export const CAMPO_OCR_LABEL: Record<string, string> = {
+  nome: "Nome",
+  cpf: "CPF",
+  rg: "RG",
+  data_nascimento: "Data de nascimento",
+  nome_mae: "Nome da mãe",
+  nome_pai: "Nome do pai",
+  cnh_registro: "Registro da CNH",
+  cep: "CEP",
+  endereco: "Endereço",
+  matricula: "Nº da matrícula",
+  cartorio: "Cartório / Registro de Imóveis",
+  cnpj: "CNPJ",
+  razao_social: "Razão social",
+};
+
+export interface DocumentoOcr {
+  cd_documento_ocr: string;
+  cd_documento: string;
+  tp_status: StatusOcr;
+  tp_documento_detectado: TipoDocumentoOcr | null;
+  ds_texto_extraido: string | null;
+  nr_confianca: number | null;
+  nr_paginas: number | null;
+  ds_erro: string | null;
+  ds_motor: string;
+  ts_criacao: string;
+  ts_processamento: string | null;
+}
+
+export interface DocumentoOcrCampo {
+  cd_campo: string;
+  cd_documento_ocr: string;
+  nm_campo: string;
+  ds_valor: string;
+  nr_confianca: number | null;
+  sn_confirmado: boolean;
+}
 
 export interface Andamento {
   cd_andamento: string;

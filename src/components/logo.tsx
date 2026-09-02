@@ -1,6 +1,6 @@
-import Image from "next/image";
 import logoSoma from "@/assets/SOMA.png";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const SIZE_CLASS = {
   sm: { logo: "h-7", tagline: "text-[9px]" },
@@ -34,7 +34,6 @@ export function Logo({
             classes.tagline
           )}
         >
-          Assessoria Imobiliária
         </span>
       )}
     </div>

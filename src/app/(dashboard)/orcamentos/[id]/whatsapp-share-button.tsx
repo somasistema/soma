@@ -22,7 +22,7 @@ export function WhatsappShareButton({
   // se já vier com DDI (13 dígitos, começando com 55) usamos como está.
   const numeroComDdi = digitos.length > 11 ? digitos : `55${digitos}`;
 
-  const mensagem = `Olá${nomeComprador ? `, ${nomeComprador}` : ""}! Segue o orçamento do processo ${numeroProcesso} da SOMA Assessoria Imobiliária para sua análise e aceite: ${link}`;
+  const mensagem = `Olá${nomeComprador ? `, ${nomeComprador}` : ""}! Segue o orçamento do processo ${numeroProcesso} da SOMA  para sua análise e aceite: ${link}`;
 
   const url = `https://wa.me/${numeroComDdi}?text=${encodeURIComponent(mensagem)}`;
 
