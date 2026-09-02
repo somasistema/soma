@@ -62,6 +62,30 @@ export async function gerarMinutaDeModelo(
   return { sucesso: true };
 }
 
+// Renderiza o modelo com os dados do processo SEM criar a minuta —
+// pro Jurídico conferir antes de mandar pras 5 frentes.
+export async function previsualizarMinutaDeModelo(
+  cdProcesso: string,
+  cdModelo: string
+): Promise<{ sucesso: true; texto: string } | { sucesso: false; erro: string }> {
+  if (!cdModelo) {
+    return { sucesso: false, erro: "Escolha um modelo." };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.schema("soma").rpc("fn_render_modelo_contrato", {
+    p_cd_processo: cdProcesso,
+    p_cd_modelo: cdModelo,
+  });
+
+  if (error) {
+    return { sucesso: false, erro: error.message };
+  }
+
+  return { sucesso: true, texto: (data as string | null) ?? "" };
+}
+
 export async function decidirMinuta(
   cdMinuta: string,
   tpPapel: TipoPapelAprovacao,

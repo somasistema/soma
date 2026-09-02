@@ -14,11 +14,13 @@ export async function reconhecer(paginas: PaginaImagem[]): Promise<ResultadoOcr>
   const { createWorker } = await import("tesseract.js");
 
   const tessdataPath = process.env.OCR_TESSDATA_PATH || undefined;
+  // Em produção não definimos OCR_TESSDATA_PATH: baixa o por.traineddata
+  // desta CDN (mesma que o tesseract.js usa por padrão) e cacheia em
+  // /tmp. Local, aponta pra pasta com o arquivo e não baixa nada.
+  const CDN_TESSDATA = "https://tessdata.projectnaptha.com/4.0.0";
 
   const worker = await createWorker(LANG, 1, {
-    // Com OCR_TESSDATA_PATH apontando pra uma pasta local, lê o
-    // por.traineddata (sem .gz) de lá; sem a env, baixa da CDN e cacheia.
-    langPath: tessdataPath,
+    langPath: tessdataPath ?? CDN_TESSDATA,
     cachePath: process.env.OCR_TESSDATA_CACHE || "/tmp/tesseract",
     gzip: !tessdataPath,
     logger: () => {},
