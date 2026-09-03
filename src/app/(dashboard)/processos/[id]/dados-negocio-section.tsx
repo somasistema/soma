@@ -2,12 +2,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import {
-  STATUS_DOC_INTAKE_LABEL,
+  CATEGORIA_DOC_INTAKE_LABEL,
+  CATEGORIAS_DOC_COMPRADOR,
+  CATEGORIAS_DOC_VENDEDOR,
+  type CategoriaDocIntake,
+  type Documento,
   type ProcessoCorretor,
   type ProcessoNegocio,
   type ProcessoParte,
-  type StatusDocIntake,
 } from "@/types/database";
+import { DocumentoAnexarButton } from "./documento-anexar-button";
+
+type DocDaParte = Pick<
+  Documento,
+  "cd_documento" | "cd_parte" | "tp_categoria_intake" | "nm_arquivo" | "ds_storage_url"
+> & { urlAssinada: string | null };
 
 function Linha({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   if (valor === null || valor === undefined || valor === "") return null;
@@ -24,11 +33,17 @@ function simNao(v: boolean | null) {
   return v ? "Sim" : "Não";
 }
 
-function docLabel(v: StatusDocIntake | null) {
-  return v ? STATUS_DOC_INTAKE_LABEL[v] : null;
-}
-
-function ParteCard({ parte }: { parte: ProcessoParte }) {
+function ParteCard({
+  parte,
+  cdProcesso,
+  categorias,
+  docsPorCategoria,
+}: {
+  parte: ProcessoParte;
+  cdProcesso: string;
+  categorias: CategoriaDocIntake[];
+  docsPorCategoria: Map<string, DocDaParte>;
+}) {
   return (
     <div className="rounded-radius border border-border p-3">
       <p className="text-sm font-medium text-foreground">{parte.nm_parte}</p>
@@ -37,14 +52,54 @@ function ParteCard({ parte }: { parte: ProcessoParte }) {
         <Linha rotulo="E-mail" valor={parte.ds_email} />
         <Linha rotulo="Profissão" valor={parte.ds_profissao} />
         <Linha rotulo="Conta bancária" valor={parte.ds_conta_bancaria} />
-        <Linha rotulo="Identidade / CNH" valor={docLabel(parte.tp_doc_identidade)} />
-        <Linha rotulo="Certidão de estado civil" valor={docLabel(parte.tp_doc_estado_civil)} />
-        <Linha
-          rotulo="Comprovante de residência"
-          valor={docLabel(parte.tp_doc_comprovante_residencia)}
-        />
-        <Linha rotulo="Certidão de ônus / Escritura" valor={docLabel(parte.tp_doc_onus_escritura)} />
         <Linha rotulo="Observações" valor={parte.ds_documentos_obs} />
+      </div>
+
+      <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
+      <div className="flex flex-col">
+        {categorias.map((categoria) => {
+          const doc = docsPorCategoria.get(categoria);
+          return (
+            <div
+              key={categoria}
+              className="flex items-center justify-between gap-3 border-t border-border py-1.5 text-sm first:border-t-0"
+            >
+              <span className="text-muted-foreground">
+                {CATEGORIA_DOC_INTAKE_LABEL[categoria]}
+              </span>
+              {doc ? (
+                <span className="flex items-center gap-2">
+                  {doc.urlAssinada && (
+                    <a
+                      href={doc.urlAssinada}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-brand underline"
+                    >
+                      ver arquivo
+                    </a>
+                  )}
+                  <span className="inline-flex items-center rounded-full bg-status-aceito/15 px-2.5 py-0.5 text-xs font-medium text-status-aceito">
+                    OK
+                  </span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <DocumentoAnexarButton
+                    cdProcesso={cdProcesso}
+                    cdParte={parte.cd_parte}
+                    tpLado={parte.tp_lado}
+                    tpCategoria={categoria}
+                    rotuloCategoria={CATEGORIA_DOC_INTAKE_LABEL[categoria]}
+                  />
+                  <span className="inline-flex items-center rounded-full bg-status-reprovado/15 px-2.5 py-0.5 text-xs font-medium text-status-reprovado">
+                    Falta
+                  </span>
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -53,28 +108,51 @@ function ParteCard({ parte }: { parte: ProcessoParte }) {
 export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }) {
   const supabase = await createClient();
 
-  const [{ data: negocio }, { data: partes }, { data: corretores }] = await Promise.all([
-    supabase
-      .schema("soma")
-      .from("processo_negocio")
-      .select("*")
-      .eq("cd_processo", cdProcesso)
-      .maybeSingle<ProcessoNegocio>(),
-    supabase
-      .schema("soma")
-      .from("processo_parte")
-      .select("*")
-      .eq("cd_processo", cdProcesso)
-      .order("tp_lado")
-      .order("nr_ordem")
-      .returns<ProcessoParte[]>(),
-    supabase
-      .schema("soma")
-      .from("processo_corretor")
-      .select("*")
-      .eq("cd_processo", cdProcesso)
-      .returns<ProcessoCorretor[]>(),
-  ]);
+  const [{ data: negocio }, { data: partes }, { data: corretores }, { data: documentos }] =
+    await Promise.all([
+      supabase
+        .schema("soma")
+        .from("processo_negocio")
+        .select("*")
+        .eq("cd_processo", cdProcesso)
+        .maybeSingle<ProcessoNegocio>(),
+      supabase
+        .schema("soma")
+        .from("processo_parte")
+        .select("*")
+        .eq("cd_processo", cdProcesso)
+        .order("tp_lado")
+        .order("nr_ordem")
+        .returns<ProcessoParte[]>(),
+      supabase
+        .schema("soma")
+        .from("processo_corretor")
+        .select("*")
+        .eq("cd_processo", cdProcesso)
+        .returns<ProcessoCorretor[]>(),
+      supabase
+        .schema("soma")
+        .from("documentos")
+        .select("cd_documento, cd_parte, tp_categoria_intake, nm_arquivo, ds_storage_url")
+        .eq("cd_processo", cdProcesso)
+        .not("cd_parte", "is", null)
+        .not("tp_categoria_intake", "is", null)
+        .returns<Omit<DocDaParte, "urlAssinada">[]>(),
+    ]);
+
+  // (cd_parte -> (categoria -> documento com URL assinada))
+  const docsPorParte = new Map<string, Map<string, DocDaParte>>();
+  await Promise.all(
+    (documentos ?? []).map(async (doc) => {
+      const { data } = await supabase.storage
+        .from("documentos")
+        .createSignedUrl(doc.ds_storage_url, 60 * 10);
+      const comUrl: DocDaParte = { ...doc, urlAssinada: data?.signedUrl ?? null };
+      const porCategoria = docsPorParte.get(doc.cd_parte!) ?? new Map<string, DocDaParte>();
+      porCategoria.set(doc.tp_categoria_intake!, comUrl);
+      docsPorParte.set(doc.cd_parte!, porCategoria);
+    })
+  );
 
   const vendedores = (partes ?? []).filter((p) => p.tp_lado === "vendedor");
   const compradores = (partes ?? []).filter((p) => p.tp_lado === "comprador");
@@ -97,7 +175,13 @@ export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-foreground">Vendedores</p>
             {vendedores.map((p) => (
-              <ParteCard key={p.cd_parte} parte={p} />
+              <ParteCard
+                key={p.cd_parte}
+                parte={p}
+                cdProcesso={cdProcesso}
+                categorias={CATEGORIAS_DOC_VENDEDOR}
+                docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
+              />
             ))}
           </div>
         )}
@@ -106,7 +190,13 @@ export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-foreground">Compradores</p>
             {compradores.map((p) => (
-              <ParteCard key={p.cd_parte} parte={p} />
+              <ParteCard
+                key={p.cd_parte}
+                parte={p}
+                cdProcesso={cdProcesso}
+                categorias={CATEGORIAS_DOC_COMPRADOR}
+                docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
+              />
             ))}
           </div>
         )}

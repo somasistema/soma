@@ -11,10 +11,6 @@ export interface ParteInput {
   ds_email: string;
   ds_profissao: string;
   ds_conta_bancaria: string;
-  tp_doc_identidade: string;
-  tp_doc_estado_civil: string;
-  tp_doc_comprovante_residencia: string;
-  tp_doc_onus_escritura: string;
   ds_documentos_obs: string;
 }
 

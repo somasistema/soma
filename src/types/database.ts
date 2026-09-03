@@ -224,15 +224,36 @@ export interface Processo {
 
 // --- Dados do negócio capturados na abertura (migration 048) --------
 
-export type StatusDocIntake = "ok" | "falta" | "ressalva";
+export type LadoParte = "vendedor" | "comprador";
 
-export const STATUS_DOC_INTAKE_LABEL: Record<StatusDocIntake, string> = {
-  ok: "OK",
-  falta: "Falta",
-  ressalva: "Com ressalva",
+// Categorias do checklist de documentos do intake (migration 049). O
+// status é derivado: anexou (existe soma.documentos com essa categoria
+// para a parte) = OK; não anexou = Falta.
+export type CategoriaDocIntake =
+  | "identidade"
+  | "estado_civil"
+  | "comprovante_residencia"
+  | "onus_escritura";
+
+export const CATEGORIA_DOC_INTAKE_LABEL: Record<CategoriaDocIntake, string> = {
+  identidade: "Identidade ou CNH",
+  estado_civil: "Certidão de estado civil",
+  comprovante_residencia: "Comprovante de residência",
+  onus_escritura: "Certidão de ônus ou Escritura",
 };
 
-export type LadoParte = "vendedor" | "comprador";
+export const CATEGORIAS_DOC_VENDEDOR: CategoriaDocIntake[] = [
+  "identidade",
+  "estado_civil",
+  "comprovante_residencia",
+  "onus_escritura",
+];
+
+export const CATEGORIAS_DOC_COMPRADOR: CategoriaDocIntake[] = [
+  "identidade",
+  "estado_civil",
+  "comprovante_residencia",
+];
 
 export interface ProcessoNegocio {
   cd_processo: string;
@@ -260,10 +281,6 @@ export interface ProcessoParte {
   ds_email: string | null;
   ds_profissao: string | null;
   ds_conta_bancaria: string | null;
-  tp_doc_identidade: StatusDocIntake | null;
-  tp_doc_estado_civil: StatusDocIntake | null;
-  tp_doc_comprovante_residencia: StatusDocIntake | null;
-  tp_doc_onus_escritura: StatusDocIntake | null;
   ds_documentos_obs: string | null;
 }
 
@@ -501,6 +518,9 @@ export interface Documento {
   ts_validacao: string | null;
   ds_observacoes: string | null;
   ts_criacao: string;
+  // Vínculo com o checklist do intake (migration 049), nulos em upload avulso.
+  cd_parte: string | null;
+  tp_categoria_intake: CategoriaDocIntake | null;
 }
 
 export const PERFIL_DOCUMENTO_LABEL: Record<PerfilDocumento, string> = {

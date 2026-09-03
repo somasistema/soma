@@ -57,17 +57,6 @@ function SimNao({
   );
 }
 
-function DocStatus({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">—</option>
-      <option value="ok">OK</option>
-      <option value="falta">Falta</option>
-      <option value="ressalva">Com ressalva</option>
-    </Select>
-  );
-}
-
 const parteVazia = (tp_lado: "vendedor" | "comprador"): ParteInput => ({
   tp_lado,
   nr_ordem: 0,
@@ -76,10 +65,6 @@ const parteVazia = (tp_lado: "vendedor" | "comprador"): ParteInput => ({
   ds_email: "",
   ds_profissao: "",
   ds_conta_bancaria: "",
-  tp_doc_identidade: "",
-  tp_doc_estado_civil: "",
-  tp_doc_comprovante_residencia: "",
-  tp_doc_onus_escritura: "",
   ds_documentos_obs: "",
 });
 
@@ -96,8 +81,6 @@ function ParteFields({
   onRemove: () => void;
   podeRemover: boolean;
 }) {
-  const ehVendedor = parte.tp_lado === "vendedor";
-
   return (
     <div className="flex flex-col gap-3 rounded-radius border border-border p-4">
       <div className="flex items-center justify-between">
@@ -148,36 +131,6 @@ function ParteFields({
             onChange={(e) => onChange({ ds_conta_bancaria: e.target.value })}
           />
         </Campo>
-      </div>
-
-      <p className="text-xs font-medium text-muted-foreground">Documentos (foto ou PDF)</p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Campo label="Identidade ou CNH">
-          <DocStatus
-            value={parte.tp_doc_identidade}
-            onChange={(v) => onChange({ tp_doc_identidade: v })}
-          />
-        </Campo>
-        <Campo label="Certidão de estado civil">
-          <DocStatus
-            value={parte.tp_doc_estado_civil}
-            onChange={(v) => onChange({ tp_doc_estado_civil: v })}
-          />
-        </Campo>
-        <Campo label="Comprovante de residência">
-          <DocStatus
-            value={parte.tp_doc_comprovante_residencia}
-            onChange={(v) => onChange({ tp_doc_comprovante_residencia: v })}
-          />
-        </Campo>
-        {ehVendedor && (
-          <Campo label="Certidão de ônus ou Escritura">
-            <DocStatus
-              value={parte.tp_doc_onus_escritura}
-              onChange={(v) => onChange({ tp_doc_onus_escritura: v })}
-            />
-          </Campo>
-        )}
         <Campo label="Observações sobre os documentos" className="sm:col-span-2">
           <textarea
             className={TEXTAREA_CLASS}
@@ -186,6 +139,11 @@ function ParteFields({
           />
         </Campo>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Os documentos (identidade, certidões, comprovante...) são anexados na tela do processo
+        depois de criado — quem anexa fica como OK, quem não anexa fica como Falta.
+      </p>
     </div>
   );
 }

@@ -15,6 +15,9 @@ export async function uploadDocumento(formData: FormData): Promise<DocumentoActi
   const tpPerfilAlvo = formData.get("tp_perfil_alvo") as string;
   const nmTipoDocumento = formData.get("nm_tipo_documento") as string;
   const arquivo = formData.get("arquivo") as File | null;
+  // Opcionais — preenchidos quando o upload vem do checklist por parte.
+  const cdParte = (formData.get("cd_parte") as string) || null;
+  const tpCategoriaIntake = (formData.get("tp_categoria_intake") as string) || null;
 
   if (!cdProcesso || !tpPerfilAlvo || !nmTipoDocumento) {
     return { sucesso: false, erro: "Preencha o tipo de documento e o perfil alvo." };
@@ -52,6 +55,8 @@ export async function uploadDocumento(formData: FormData): Promise<DocumentoActi
       nm_tipo_documento: nmTipoDocumento,
       nm_arquivo: arquivo.name,
       ds_storage_url: caminho,
+      cd_parte: cdParte,
+      tp_categoria_intake: tpCategoriaIntake,
     })
     .select("cd_documento")
     .single();

@@ -42,12 +42,8 @@ CREATE TABLE soma.processo_parte (
   ds_email VARCHAR(255),
   ds_profissao VARCHAR(120),
   ds_conta_bancaria VARCHAR(255),
-  -- checklist do intake: 'ok' | 'falta' | 'ressalva' (com observação)
-  tp_doc_identidade VARCHAR(12) CHECK (tp_doc_identidade IN ('ok', 'falta', 'ressalva')),
-  tp_doc_estado_civil VARCHAR(12) CHECK (tp_doc_estado_civil IN ('ok', 'falta', 'ressalva')),
-  tp_doc_comprovante_residencia VARCHAR(12)
-    CHECK (tp_doc_comprovante_residencia IN ('ok', 'falta', 'ressalva')),
-  tp_doc_onus_escritura VARCHAR(12) CHECK (tp_doc_onus_escritura IN ('ok', 'falta', 'ressalva')),
+  -- O status dos documentos NÃO fica aqui: é derivado de soma.documentos
+  -- (anexou = OK, não anexou = Falta), ver migration 049.
   ds_documentos_obs TEXT
 );
 
@@ -123,8 +119,7 @@ BEGIN
   DELETE FROM soma.processo_parte WHERE cd_processo = p_cd_processo;
   INSERT INTO soma.processo_parte (
     cd_processo, tp_lado, nr_ordem, nm_parte, ds_telefone, ds_email,
-    ds_profissao, ds_conta_bancaria, tp_doc_identidade, tp_doc_estado_civil,
-    tp_doc_comprovante_residencia, tp_doc_onus_escritura, ds_documentos_obs
+    ds_profissao, ds_conta_bancaria, ds_documentos_obs
   )
   SELECT
     p_cd_processo,
@@ -135,10 +130,6 @@ BEGIN
     NULLIF(parte->>'ds_email', ''),
     NULLIF(parte->>'ds_profissao', ''),
     NULLIF(parte->>'ds_conta_bancaria', ''),
-    NULLIF(parte->>'tp_doc_identidade', ''),
-    NULLIF(parte->>'tp_doc_estado_civil', ''),
-    NULLIF(parte->>'tp_doc_comprovante_residencia', ''),
-    NULLIF(parte->>'tp_doc_onus_escritura', ''),
     NULLIF(parte->>'ds_documentos_obs', '')
   FROM jsonb_array_elements(COALESCE(p_partes, '[]'::jsonb)) AS parte
   WHERE NULLIF(trim(parte->>'nm_parte'), '') IS NOT NULL;
