@@ -136,7 +136,7 @@ export default async function ProcessoDetalhePage({
 
       {processo.tp_processo === "contrato" && (
         <>
-          <DadosNegocioSection cdProcesso={id} />
+          <DadosNegocioSection cdProcesso={id} numeroProcesso={processo.ds_numero_processo} />
           <DocumentosSection cdProcesso={id} />
           <MinutaSection processo={processo} />
         </>

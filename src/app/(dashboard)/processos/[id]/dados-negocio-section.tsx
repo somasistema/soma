@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSiteUrl } from "@/lib/mercadopago";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
 import {
@@ -12,6 +13,7 @@ import {
   type ProcessoParte,
 } from "@/types/database";
 import { DocumentoAnexarButton } from "./documento-anexar-button";
+import { LinkParteButton } from "./link-parte-button";
 
 type DocDaParte = Pick<
   Documento,
@@ -36,17 +38,31 @@ function simNao(v: boolean | null) {
 function ParteCard({
   parte,
   cdProcesso,
+  numeroProcesso,
+  linkPreenchimento,
   categorias,
   docsPorCategoria,
 }: {
   parte: ProcessoParte;
   cdProcesso: string;
+  numeroProcesso: string;
+  linkPreenchimento: string | null;
   categorias: CategoriaDocIntake[];
   docsPorCategoria: Map<string, DocDaParte>;
 }) {
   return (
     <div className="rounded-radius border border-border p-3">
-      <p className="text-sm font-medium text-foreground">{parte.nm_parte}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">{parte.nm_parte}</p>
+        {linkPreenchimento && (
+          <LinkParteButton
+            link={linkPreenchimento}
+            telefone={parte.ds_telefone}
+            nome={parte.nm_parte}
+            numeroProcesso={numeroProcesso}
+          />
+        )}
+      </div>
       <div className="mt-1 flex flex-col">
         <Linha rotulo="Telefone" valor={parte.ds_telefone} />
         <Linha rotulo="E-mail" valor={parte.ds_email} />
@@ -105,8 +121,15 @@ function ParteCard({
   );
 }
 
-export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }) {
+export async function DadosNegocioSection({
+  cdProcesso,
+  numeroProcesso,
+}: {
+  cdProcesso: string;
+  numeroProcesso: string;
+}) {
   const supabase = await createClient();
+  const linkBase = getSiteUrl();
 
   const [{ data: negocio }, { data: partes }, { data: corretores }, { data: documentos }] =
     await Promise.all([
@@ -179,6 +202,10 @@ export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }
                 key={p.cd_parte}
                 parte={p}
                 cdProcesso={cdProcesso}
+                numeroProcesso={numeroProcesso}
+                linkPreenchimento={
+                  linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
+                }
                 categorias={CATEGORIAS_DOC_VENDEDOR}
                 docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
               />
@@ -194,6 +221,10 @@ export async function DadosNegocioSection({ cdProcesso }: { cdProcesso: string }
                 key={p.cd_parte}
                 parte={p}
                 cdProcesso={cdProcesso}
+                numeroProcesso={numeroProcesso}
+                linkPreenchimento={
+                  linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
+                }
                 categorias={CATEGORIAS_DOC_COMPRADOR}
                 docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
               />

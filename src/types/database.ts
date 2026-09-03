@@ -282,6 +282,22 @@ export interface ProcessoParte {
   ds_profissao: string | null;
   ds_conta_bancaria: string | null;
   ds_documentos_obs: string | null;
+  // Link público de autoatendimento da parte (migration 050).
+  cd_token_parte: string | null;
+}
+
+// Retorno de soma.fn_parte_por_token — tela pública /parte/[token].
+export interface ParteAutoatendimento {
+  cd_parte: string;
+  cd_processo: string;
+  tp_lado: LadoParte;
+  nm_parte: string;
+  ds_telefone: string | null;
+  ds_email: string | null;
+  ds_profissao: string | null;
+  ds_conta_bancaria: string | null;
+  ds_numero_processo: string;
+  documentos: { tp_categoria_intake: CategoriaDocIntake; nm_arquivo: string }[];
 }
 
 export interface ProcessoCorretor {
