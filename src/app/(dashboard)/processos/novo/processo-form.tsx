@@ -1,128 +1,499 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { formatarTelefone } from "@/lib/utils";
-import type { Imobiliaria, Usuario } from "@/types/database";
-import { criarProcesso } from "./actions";
+import type { Imobiliaria } from "@/types/database";
+import {
+  criarProcesso,
+  type CorretorInput,
+  type NegocioInput,
+  type ParteInput,
+} from "./actions";
 
-export function ProcessoForm({
-  imobiliarias,
-  corretores,
-  vendedores,
+const TEXTAREA_CLASS =
+  "flex min-h-[80px] w-full rounded-radius border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
+
+function Campo({
+  label,
+  htmlFor,
+  children,
+  className,
 }: {
-  imobiliarias: Imobiliaria[];
-  corretores: Pick<Usuario, "cd_usuario" | "nm_usuario">[];
-  vendedores: Pick<Usuario, "cd_usuario" | "nm_usuario">[];
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+  className?: string;
 }) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function SimNao({
+  value,
+  onChange,
+  id,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  id?: string;
+}) {
+  return (
+    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">—</option>
+      <option value="true">Sim</option>
+      <option value="false">Não</option>
+    </Select>
+  );
+}
+
+function DocStatus({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <Select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">—</option>
+      <option value="ok">OK</option>
+      <option value="falta">Falta</option>
+      <option value="ressalva">Com ressalva</option>
+    </Select>
+  );
+}
+
+const parteVazia = (tp_lado: "vendedor" | "comprador"): ParteInput => ({
+  tp_lado,
+  nr_ordem: 0,
+  nm_parte: "",
+  ds_telefone: "",
+  ds_email: "",
+  ds_profissao: "",
+  ds_conta_bancaria: "",
+  tp_doc_identidade: "",
+  tp_doc_estado_civil: "",
+  tp_doc_comprovante_residencia: "",
+  tp_doc_onus_escritura: "",
+  ds_documentos_obs: "",
+});
+
+function ParteFields({
+  parte,
+  titulo,
+  onChange,
+  onRemove,
+  podeRemover,
+}: {
+  parte: ParteInput;
+  titulo: string;
+  onChange: (patch: Partial<ParteInput>) => void;
+  onRemove: () => void;
+  podeRemover: boolean;
+}) {
+  const ehVendedor = parte.tp_lado === "vendedor";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-radius border border-border p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground">{titulo}</span>
+        {podeRemover && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onRemove}
+            aria-label="Remover"
+            className="h-7 w-7"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Campo label="Nome">
+          <Input value={parte.nm_parte} onChange={(e) => onChange({ nm_parte: e.target.value })} />
+        </Campo>
+        <Campo label="Telefone">
+          <Input
+            type="tel"
+            placeholder="(71) 99999-9999"
+            value={parte.ds_telefone}
+            onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
+          />
+        </Campo>
+        <Campo label="E-mail">
+          <Input
+            type="email"
+            value={parte.ds_email}
+            onChange={(e) => onChange({ ds_email: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Profissão">
+          <Input
+            value={parte.ds_profissao}
+            onChange={(e) => onChange({ ds_profissao: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Conta bancária" className="sm:col-span-2">
+          <Input
+            placeholder="Banco, agência e conta"
+            value={parte.ds_conta_bancaria}
+            onChange={(e) => onChange({ ds_conta_bancaria: e.target.value })}
+          />
+        </Campo>
+      </div>
+
+      <p className="text-xs font-medium text-muted-foreground">Documentos (foto ou PDF)</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Campo label="Identidade ou CNH">
+          <DocStatus
+            value={parte.tp_doc_identidade}
+            onChange={(v) => onChange({ tp_doc_identidade: v })}
+          />
+        </Campo>
+        <Campo label="Certidão de estado civil">
+          <DocStatus
+            value={parte.tp_doc_estado_civil}
+            onChange={(v) => onChange({ tp_doc_estado_civil: v })}
+          />
+        </Campo>
+        <Campo label="Comprovante de residência">
+          <DocStatus
+            value={parte.tp_doc_comprovante_residencia}
+            onChange={(v) => onChange({ tp_doc_comprovante_residencia: v })}
+          />
+        </Campo>
+        {ehVendedor && (
+          <Campo label="Certidão de ônus ou Escritura">
+            <DocStatus
+              value={parte.tp_doc_onus_escritura}
+              onChange={(v) => onChange({ tp_doc_onus_escritura: v })}
+            />
+          </Campo>
+        )}
+        <Campo label="Observações sobre os documentos" className="sm:col-span-2">
+          <textarea
+            className={TEXTAREA_CLASS}
+            value={parte.ds_documentos_obs}
+            onChange={(e) => onChange({ ds_documentos_obs: e.target.value })}
+          />
+        </Campo>
+      </div>
+    </div>
+  );
+}
+
+export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
   const [cdImobiliaria, setCdImobiliaria] = useState(imobiliarias[0]?.cd_imobiliaria ?? "");
-  const [nmCompradorConvidado, setNmCompradorConvidado] = useState("");
-  const [dsTelefoneComprador, setDsTelefoneComprador] = useState("");
-  const [cdVendedor, setCdVendedor] = useState("");
-  const [cdCorretor, setCdCorretor] = useState("");
+  const [nmCliente, setNmCliente] = useState("");
+  const [dsTelefone, setDsTelefone] = useState("");
+
+  const [vendedores, setVendedores] = useState<ParteInput[]>([parteVazia("vendedor")]);
+  const [compradores, setCompradores] = useState<ParteInput[]>([parteVazia("comprador")]);
+  const [corretores, setCorretores] = useState<CorretorInput[]>([]);
+
+  const [negocio, setNegocio] = useState<NegocioInput>({
+    vl_imovel: "",
+    vl_entrada: "",
+    vl_financiamento: "",
+    ds_banco: "",
+    sn_possui_inquilino: "",
+    sn_ocupado: "",
+    ds_entrega_chaves: "",
+    ds_itens_imovel: "",
+    vl_honorarios_total: "",
+    ds_honorarios_quando: "",
+    vl_honorarios_imobiliaria: "",
+  });
+
+  function patchNegocio(patch: Partial<NegocioInput>) {
+    setNegocio((n) => ({ ...n, ...patch }));
+  }
+
+  function patchParte(
+    lista: ParteInput[],
+    setLista: (v: ParteInput[]) => void,
+    idx: number,
+    patch: Partial<ParteInput>
+  ) {
+    setLista(lista.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  }
 
   function salvar() {
     setErro(null);
-
-    if (!cdImobiliaria || !nmCompradorConvidado) {
+    if (!cdImobiliaria || !nmCliente.trim()) {
       setErro("Preencha a imobiliária e o nome do cliente.");
       return;
     }
 
+    const partes: ParteInput[] = [
+      ...vendedores.map((p, i) => ({ ...p, tp_lado: "vendedor" as const, nr_ordem: i })),
+      ...compradores.map((p, i) => ({ ...p, tp_lado: "comprador" as const, nr_ordem: i })),
+    ].filter((p) => p.nm_parte.trim());
+
     startTransition(async () => {
       const resultado = await criarProcesso({
         cd_imobiliaria: cdImobiliaria,
-        nm_comprador_convidado: nmCompradorConvidado,
-        ds_telefone_comprador_convidado: dsTelefoneComprador,
-        cd_vendedor: cdVendedor || null,
-        cd_corretor: cdCorretor || null,
+        nm_comprador_convidado: nmCliente.trim(),
+        ds_telefone_comprador_convidado: dsTelefone,
+        negocio,
+        partes,
+        corretores: corretores.filter((c) => c.nm_corretor.trim()),
       });
-
-      if (resultado?.erro) {
-        setErro(resultado.erro);
-      }
+      if (resultado?.erro) setErro(resultado.erro);
     });
   }
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Dados do processo</CardTitle>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cd_imobiliaria">Imobiliária</Label>
-          <Select
-            id="cd_imobiliaria"
-            value={cdImobiliaria}
-            onChange={(e) => setCdImobiliaria(e.target.value)}
-          >
-            {imobiliarias.map((imobiliaria) => (
-              <option key={imobiliaria.cd_imobiliaria} value={imobiliaria.cd_imobiliaria}>
-                {imobiliaria.nm_imobiliaria}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="nm_comprador_convidado">Nome do cliente</Label>
-          <Input
-            id="nm_comprador_convidado"
-            value={nmCompradorConvidado}
-            onChange={(e) => setNmCompradorConvidado(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ds_telefone_comprador_convidado">Telefone do cliente</Label>
-          <Input
-            id="ds_telefone_comprador_convidado"
-            type="tel"
-            placeholder="(71) 99999-9999"
-            value={dsTelefoneComprador}
-            onChange={(e) => setDsTelefoneComprador(formatarTelefone(e.target.value))}
-          />
-        </div>
-        {vendedores.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cd_vendedor">Vendedor (opcional)</Label>
-            <Select id="cd_vendedor" value={cdVendedor} onChange={(e) => setCdVendedor(e.target.value)}>
-              <option value="">Nenhum</option>
-              {vendedores.map((vendedor) => (
-                <option key={vendedor.cd_usuario} value={vendedor.cd_usuario}>
-                  {vendedor.nm_usuario}
+    <div className="flex max-w-3xl flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Dados do processo</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo label="Imobiliária" htmlFor="cd_imobiliaria">
+            <Select
+              id="cd_imobiliaria"
+              value={cdImobiliaria}
+              onChange={(e) => setCdImobiliaria(e.target.value)}
+            >
+              {imobiliarias.map((imob) => (
+                <option key={imob.cd_imobiliaria} value={imob.cd_imobiliaria}>
+                  {imob.nm_imobiliaria}
                 </option>
               ))}
             </Select>
-          </div>
-        )}
-        {corretores.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cd_corretor">Corretor (opcional)</Label>
-            <Select id="cd_corretor" value={cdCorretor} onChange={(e) => setCdCorretor(e.target.value)}>
-              <option value="">Nenhum</option>
-              {corretores.map((corretor) => (
-                <option key={corretor.cd_usuario} value={corretor.cd_usuario}>
-                  {corretor.nm_usuario}
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
+          </Campo>
+          <Campo label="Nome do cliente" htmlFor="nm_cliente">
+            <Input
+              id="nm_cliente"
+              value={nmCliente}
+              onChange={(e) => setNmCliente(e.target.value)}
+            />
+          </Campo>
+          <Campo label="Telefone do cliente" htmlFor="ds_telefone">
+            <Input
+              id="ds_telefone"
+              type="tel"
+              placeholder="(71) 99999-9999"
+              value={dsTelefone}
+              onChange={(e) => setDsTelefone(formatarTelefone(e.target.value))}
+            />
+          </Campo>
+        </CardContent>
+      </Card>
 
-        <div className="sm:col-span-2">
-          <Button type="button" onClick={salvar} disabled={pending} className="font-bold">
-            {pending ? "Criando..." : "Criar processo"}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendedores</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {vendedores.map((parte, idx) => (
+            <ParteFields
+              key={idx}
+              parte={parte}
+              titulo={idx === 0 ? "Vendedor" : `Vendedor / cônjuge ${idx + 1}`}
+              podeRemover={vendedores.length > 1}
+              onChange={(patch) => patchParte(vendedores, setVendedores, idx, patch)}
+              onRemove={() => setVendedores(vendedores.filter((_, i) => i !== idx))}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit gap-1.5"
+            onClick={() => setVendedores([...vendedores, parteVazia("vendedor")])}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar vendedor
           </Button>
-          {erro && <p className="mt-2 text-sm text-status-reprovado">{erro}</p>}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Compradores</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {compradores.map((parte, idx) => (
+            <ParteFields
+              key={idx}
+              parte={parte}
+              titulo={idx === 0 ? "Comprador" : `Comprador / cônjuge ${idx + 1}`}
+              podeRemover={compradores.length > 1}
+              onChange={(patch) => patchParte(compradores, setCompradores, idx, patch)}
+              onRemove={() => setCompradores(compradores.filter((_, i) => i !== idx))}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit gap-1.5"
+            onClick={() => setCompradores([...compradores, parteVazia("comprador")])}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar comprador
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Imóvel</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo label="Valor do imóvel">
+            <CurrencyInput
+              value={negocio.vl_imovel}
+              onChange={(v) => patchNegocio({ vl_imovel: v })}
+            />
+          </Campo>
+          <Campo label="Valor de entrada (se houver)">
+            <CurrencyInput
+              value={negocio.vl_entrada}
+              onChange={(v) => patchNegocio({ vl_entrada: v })}
+            />
+          </Campo>
+          <Campo label="Valor do financiamento">
+            <CurrencyInput
+              value={negocio.vl_financiamento}
+              onChange={(v) => patchNegocio({ vl_financiamento: v })}
+            />
+          </Campo>
+          <Campo label="Qual banco">
+            <Input
+              value={negocio.ds_banco}
+              onChange={(e) => patchNegocio({ ds_banco: e.target.value })}
+            />
+          </Campo>
+          <Campo label="Possui inquilino?">
+            <SimNao
+              value={negocio.sn_possui_inquilino}
+              onChange={(v) => patchNegocio({ sn_possui_inquilino: v })}
+            />
+          </Campo>
+          <Campo label="Está ocupado?">
+            <SimNao value={negocio.sn_ocupado} onChange={(v) => patchNegocio({ sn_ocupado: v })} />
+          </Campo>
+          <Campo label="Entrega das chaves" className="sm:col-span-2">
+            <Input
+              placeholder="Ex: 30 dias após o recurso final"
+              value={negocio.ds_entrega_chaves}
+              onChange={(e) => patchNegocio({ ds_entrega_chaves: e.target.value })}
+            />
+          </Campo>
+          <Campo label="O que fica no imóvel (por cômodo)" className="sm:col-span-2">
+            <textarea
+              className={TEXTAREA_CLASS}
+              placeholder="Ex: armários embutidos nos 2 quartos"
+              value={negocio.ds_itens_imovel}
+              onChange={(e) => patchNegocio({ ds_itens_imovel: e.target.value })}
+            />
+          </Campo>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Honorários</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Campo label="Valor total">
+              <CurrencyInput
+                value={negocio.vl_honorarios_total}
+                onChange={(v) => patchNegocio({ vl_honorarios_total: v })}
+              />
+            </Campo>
+            <Campo label="Quando">
+              <Input
+                placeholder="Ex: na quitação total"
+                value={negocio.ds_honorarios_quando}
+                onChange={(e) => patchNegocio({ ds_honorarios_quando: e.target.value })}
+              />
+            </Campo>
+            <Campo label="Honorários da imobiliária">
+              <CurrencyInput
+                value={negocio.vl_honorarios_imobiliaria}
+                onChange={(v) => patchNegocio({ vl_honorarios_imobiliaria: v })}
+              />
+            </Campo>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {corretores.map((corretor, idx) => (
+              <div key={idx} className="grid grid-cols-1 gap-3 rounded-radius border border-border p-3 sm:grid-cols-[1fr_auto_auto]">
+                <Campo label="Corretor">
+                  <Input
+                    value={corretor.nm_corretor}
+                    onChange={(e) =>
+                      setCorretores(
+                        corretores.map((c, i) =>
+                          i === idx ? { ...c, nm_corretor: e.target.value } : c
+                        )
+                      )
+                    }
+                  />
+                </Campo>
+                <Campo label="Honorário">
+                  <CurrencyInput
+                    className="sm:w-36"
+                    value={corretor.vl_honorario}
+                    onChange={(v) =>
+                      setCorretores(
+                        corretores.map((c, i) => (i === idx ? { ...c, vl_honorario: v } : c))
+                      )
+                    }
+                  />
+                </Campo>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label="Remover corretor"
+                    onClick={() => setCorretores(corretores.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit gap-1.5"
+              onClick={() =>
+                setCorretores([...corretores, { nm_corretor: "", vl_honorario: "", ds_lado: "" }])
+              }
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar corretor
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div>
+        <Button type="button" onClick={salvar} disabled={pending} className="font-bold">
+          {pending ? "Criando..." : "Criar processo"}
+        </Button>
+        {erro && <p className="mt-2 text-sm text-status-reprovado">{erro}</p>}
+      </div>
+    </div>
   );
 }

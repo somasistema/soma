@@ -18,6 +18,7 @@ import {
   type Processo,
 } from "@/types/database";
 import { DocumentosSection } from "../../orcamentos/[id]/documentos-section";
+import { DadosNegocioSection } from "./dados-negocio-section";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 import { HistoricoProcesso } from "./historico-processo";
@@ -135,6 +136,7 @@ export default async function ProcessoDetalhePage({
 
       {processo.tp_processo === "contrato" && (
         <>
+          <DadosNegocioSection cdProcesso={id} />
           <DocumentosSection cdProcesso={id} />
           <MinutaSection processo={processo} />
         </>

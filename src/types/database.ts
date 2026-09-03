@@ -222,6 +222,59 @@ export interface Processo {
   ts_atualizacao: string;
 }
 
+// --- Dados do negócio capturados na abertura (migration 048) --------
+
+export type StatusDocIntake = "ok" | "falta" | "ressalva";
+
+export const STATUS_DOC_INTAKE_LABEL: Record<StatusDocIntake, string> = {
+  ok: "OK",
+  falta: "Falta",
+  ressalva: "Com ressalva",
+};
+
+export type LadoParte = "vendedor" | "comprador";
+
+export interface ProcessoNegocio {
+  cd_processo: string;
+  vl_imovel: number | null;
+  vl_entrada: number | null;
+  vl_financiamento: number | null;
+  ds_banco: string | null;
+  sn_possui_inquilino: boolean | null;
+  sn_ocupado: boolean | null;
+  ds_entrega_chaves: string | null;
+  ds_itens_imovel: string | null;
+  vl_honorarios_total: number | null;
+  ds_honorarios_quando: string | null;
+  vl_honorarios_imobiliaria: number | null;
+  ts_atualizacao: string;
+}
+
+export interface ProcessoParte {
+  cd_parte: string;
+  cd_processo: string;
+  tp_lado: LadoParte;
+  nr_ordem: number;
+  nm_parte: string;
+  ds_telefone: string | null;
+  ds_email: string | null;
+  ds_profissao: string | null;
+  ds_conta_bancaria: string | null;
+  tp_doc_identidade: StatusDocIntake | null;
+  tp_doc_estado_civil: StatusDocIntake | null;
+  tp_doc_comprovante_residencia: StatusDocIntake | null;
+  tp_doc_onus_escritura: StatusDocIntake | null;
+  ds_documentos_obs: string | null;
+}
+
+export interface ProcessoCorretor {
+  cd_processo_corretor: string;
+  cd_processo: string;
+  nm_corretor: string;
+  vl_honorario: number | null;
+  ds_lado: string | null;
+}
+
 // Etapa do fluxo de contrato — só existe (não-null) quando
 // tp_processo = "contrato". Orçamento do Despachante entra em
 // paralelo a essa esteira, sem depender dela.
