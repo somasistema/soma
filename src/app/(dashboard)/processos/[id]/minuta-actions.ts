@@ -77,6 +77,7 @@ export async function previsualizarMinutaDeModelo(
   const { data, error } = await supabase.schema("soma").rpc("fn_render_modelo_contrato", {
     p_cd_processo: cdProcesso,
     p_cd_modelo: cdModelo,
+    p_marcar: true, // marca os campos preenchidos p/ a tela pintar em vermelho
   });
 
   if (error) {

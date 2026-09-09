@@ -9,6 +9,25 @@ import { gerarMinutaDeModelo, previsualizarMinutaDeModelo } from "./minuta-actio
 
 type ModeloOpcao = { cd_modelo: string; nm_modelo: string };
 
+// fn_render_modelo_contrato(p_marcar => true) envolve cada valor
+// preenchido nos caracteres de controle STX / ETX. Aqui esses trechos
+// viram spans vermelhos e o resto vira texto normal.
+const STX = String.fromCharCode(2);
+const ETX = String.fromCharCode(3);
+const MARCA = new RegExp(STX + "([^" + ETX + "]*)" + ETX);
+
+function renderMarcado(texto: string) {
+  return texto.split(MARCA).map((parte, i) =>
+    i % 2 === 1 ? (
+      <span key={i} className="font-semibold text-status-reprovado">
+        {parte}
+      </span>
+    ) : (
+      <span key={i}>{parte}</span>
+    )
+  );
+}
+
 export function MinutaDeModeloForm({
   cdProcesso,
   modelos,
@@ -61,11 +80,7 @@ export function MinutaDeModeloForm({
     <div className="flex flex-col gap-3 rounded-radius border border-dashed border-border p-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="modelo_minuta">Gerar minuta a partir de um modelo</Label>
-        <Select
-          id="modelo_minuta"
-          value={cdModelo}
-          onChange={(e) => trocarModelo(e.target.value)}
-        >
+        <Select id="modelo_minuta" value={cdModelo} onChange={(e) => trocarModelo(e.target.value)}>
           <option value="">Selecione um modelo...</option>
           {modelos.map((modelo) => (
             <option key={modelo.cd_modelo} value={modelo.cd_modelo}>
@@ -108,8 +123,13 @@ export function MinutaDeModeloForm({
               fechar
             </button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Em <span className="font-medium text-status-reprovado">vermelho</span>: o que foi
+            preenchido a partir dos dados do processo — confira, e complete os{" "}
+            <span className="font-mono">__________</span>.
+          </p>
           <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-radius border border-border bg-card p-3 font-mono text-xs text-foreground">
-            {previa || "(modelo vazio)"}
+            {previa ? renderMarcado(previa) : "(modelo vazio)"}
           </pre>
         </div>
       )}
