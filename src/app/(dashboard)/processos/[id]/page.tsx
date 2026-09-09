@@ -22,6 +22,7 @@ import { DadosNegocioSection } from "./dados-negocio-section";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 import { HistoricoProcesso } from "./historico-processo";
+import { ChatProcesso } from "./chat-processo";
 import { MinutaSection } from "./minuta-section";
 import { TimelineProcesso } from "./timeline-processo";
 
@@ -219,6 +220,15 @@ export default async function ProcessoDetalhePage({
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma pendência registrada.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Conversa do processo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChatProcesso cdProcesso={id} cdUsuarioAtual={usuario.cd_usuario} />
         </CardContent>
       </Card>
 
