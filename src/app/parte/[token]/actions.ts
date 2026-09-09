@@ -36,6 +36,7 @@ const CATEGORIAS_VALIDAS = [
   "estado_civil",
   "comprovante_residencia",
   "onus_escritura",
+  "geral", // documento avulso (papéis sem checklist)
 ];
 
 export async function anexarMeuDocumento(

@@ -224,7 +224,28 @@ export interface Processo {
 
 // --- Dados do negócio capturados na abertura (migration 048) --------
 
-export type LadoParte = "vendedor" | "comprador";
+// Papéis possíveis de uma parte do processo (migration 051). O
+// checklist fixo de documentos só existe pra vendedor/comprador; os
+// outros papéis anexam documento avulso.
+export type LadoParte =
+  | "vendedor"
+  | "comprador"
+  | "corretor"
+  | "imobiliaria"
+  | "adm"
+  | "cliente";
+
+export const LADO_PARTE_LABEL: Record<LadoParte, string> = {
+  vendedor: "Vendedor",
+  comprador: "Comprador",
+  corretor: "Corretor",
+  imobiliaria: "Imobiliária",
+  adm: "Administrador",
+  cliente: "Cliente",
+};
+
+// Papéis que têm checklist fixo de documentos.
+export const LADOS_COM_CHECKLIST: LadoParte[] = ["vendedor", "comprador"];
 
 // Categorias do checklist de documentos do intake (migration 049). O
 // status é derivado: anexou (existe soma.documentos com essa categoria

@@ -4,6 +4,7 @@ import { Paperclip } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import type { LadoParte } from "@/types/database";
 import { uploadDocumento } from "../../orcamentos/[id]/documentos-actions";
 
 // Anexa um documento já vinculado a uma parte + categoria do checklist.
@@ -17,7 +18,7 @@ export function DocumentoAnexarButton({
 }: {
   cdProcesso: string;
   cdParte: string;
-  tpLado: "vendedor" | "comprador";
+  tpLado: LadoParte;
   tpCategoria: string;
   rotuloCategoria: string;
 }) {
@@ -38,7 +39,7 @@ export function DocumentoAnexarButton({
     const fd = new FormData();
     fd.set("cd_processo", cdProcesso);
     fd.set("cd_parte", cdParte);
-    fd.set("tp_perfil_alvo", tpLado === "vendedor" ? "vendedor" : "comprador");
+    fd.set("tp_perfil_alvo", tpLado === "vendedor" || tpLado === "comprador" ? tpLado : "outro");
     fd.set("tp_categoria_intake", tpCategoria);
     fd.set("nm_tipo_documento", rotuloCategoria);
     fd.set("arquivo", arquivo);

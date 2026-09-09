@@ -12,10 +12,74 @@ import {
   CATEGORIA_DOC_INTAKE_LABEL,
   CATEGORIAS_DOC_COMPRADOR,
   CATEGORIAS_DOC_VENDEDOR,
+  LADOS_COM_CHECKLIST,
   type CategoriaDocIntake,
   type ParteAutoatendimento,
 } from "@/types/database";
 import { anexarMeuDocumento, salvarMeusDados } from "./actions";
+
+function DocumentosAvulsos({
+  token,
+  arquivos,
+}: {
+  token: string;
+  arquivos: string[];
+}) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+
+  function aoSelecionar(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    setErro(null);
+    const fd = new FormData();
+    fd.set("arquivo", arquivo);
+    startTransition(async () => {
+      const r = await anexarMeuDocumento(token, "geral", fd);
+      if (inputRef.current) inputRef.current.value = "";
+      if (!r.sucesso) {
+        setErro(r.erro);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {arquivos.length > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {arquivos.map((nome, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2 border-t border-border py-1.5 text-sm text-foreground first:border-t-0"
+            >
+              <Check className="h-3.5 w-3.5 text-status-aceito" />
+              {nome}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">Nenhum documento anexado ainda.</p>
+      )}
+      <input ref={inputRef} type="file" className="hidden" onChange={aoSelecionar} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-fit gap-1.5"
+        disabled={pending}
+        onClick={() => inputRef.current?.click()}
+      >
+        <Paperclip className="h-3.5 w-3.5" />
+        {pending ? "Enviando..." : "Anexar documento"}
+      </Button>
+      {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
+    </div>
+  );
+}
 
 function LinhaDocumento({
   token,
@@ -98,9 +162,11 @@ export function ParteAutoatendimentoForm({
   const [profissao, setProfissao] = useState(parte.ds_profissao ?? "");
   const [conta, setConta] = useState(parte.ds_conta_bancaria ?? "");
 
+  const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
   const categorias =
     parte.tp_lado === "vendedor" ? CATEGORIAS_DOC_VENDEDOR : CATEGORIAS_DOC_COMPRADOR;
   const anexadas = new Set(parte.documentos.map((d) => d.tp_categoria_intake));
+  const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake).map((d) => d.nm_arquivo);
 
   function salvar() {
     setMsg(null);
@@ -193,16 +259,20 @@ export function ParteAutoatendimentoForm({
         </CardHeader>
         <CardContent>
           <p className="mb-2 text-sm text-muted-foreground">
-            Anexe foto ou PDF de cada documento. Pode substituir depois se precisar.
+            Anexe foto ou PDF. Pode substituir depois se precisar.
           </p>
-          {categorias.map((categoria) => (
-            <LinhaDocumento
-              key={categoria}
-              token={token}
-              categoria={categoria}
-              anexado={anexadas.has(categoria)}
-            />
-          ))}
+          {temChecklist ? (
+            categorias.map((categoria) => (
+              <LinhaDocumento
+                key={categoria}
+                token={token}
+                categoria={categoria}
+                anexado={anexadas.has(categoria)}
+              />
+            ))
+          ) : (
+            <DocumentosAvulsos token={token} arquivos={avulsos} />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -6,8 +6,11 @@ import {
   CATEGORIA_DOC_INTAKE_LABEL,
   CATEGORIAS_DOC_COMPRADOR,
   CATEGORIAS_DOC_VENDEDOR,
+  LADO_PARTE_LABEL,
+  LADOS_COM_CHECKLIST,
   type CategoriaDocIntake,
   type Documento,
+  type LadoParte,
   type ProcessoCorretor,
   type ProcessoNegocio,
   type ProcessoParte,
@@ -41,19 +44,31 @@ function ParteCard({
   numeroProcesso,
   linkPreenchimento,
   categorias,
-  docsPorCategoria,
+  docs,
 }: {
   parte: ProcessoParte;
   cdProcesso: string;
   numeroProcesso: string;
   linkPreenchimento: string | null;
   categorias: CategoriaDocIntake[];
-  docsPorCategoria: Map<string, DocDaParte>;
+  docs: DocDaParte[];
 }) {
+  const porCategoria = new Map(
+    docs.filter((d) => d.tp_categoria_intake).map((d) => [d.tp_categoria_intake as string, d])
+  );
+  const avulsos = docs.filter((d) => !d.tp_categoria_intake);
+
   return (
     <div className="rounded-radius border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{parte.nm_parte}</p>
+        <p className="text-sm font-medium text-foreground">
+          {parte.nm_parte}
+          {!LADOS_COM_CHECKLIST.includes(parte.tp_lado) && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {LADO_PARTE_LABEL[parte.tp_lado]}
+            </span>
+          )}
+        </p>
         {linkPreenchimento && (
           <LinkParteButton
             link={linkPreenchimento}
@@ -74,7 +89,7 @@ function ParteCard({
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">
         {categorias.map((categoria) => {
-          const doc = docsPorCategoria.get(categoria);
+          const doc = porCategoria.get(categoria);
           return (
             <div
               key={categoria}
@@ -116,10 +131,42 @@ function ParteCard({
             </div>
           );
         })}
+
+        {categorias.length === 0 && avulsos.length === 0 && (
+          <p className="text-xs text-muted-foreground">Nenhum documento anexado.</p>
+        )}
+
+        {avulsos.map((doc) => (
+          <div
+            key={doc.cd_documento}
+            className="flex items-center justify-between gap-3 border-t border-border py-1.5 text-sm first:border-t-0"
+          >
+            <span className="min-w-0 truncate text-muted-foreground">{doc.nm_arquivo}</span>
+            {doc.urlAssinada && (
+              <a
+                href={doc.urlAssinada}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-xs text-brand underline"
+              >
+                ver arquivo
+              </a>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+const ORDEM_LADO: LadoParte[] = [
+  "vendedor",
+  "comprador",
+  "corretor",
+  "imobiliaria",
+  "adm",
+  "cliente",
+];
 
 export async function DadosNegocioSection({
   cdProcesso,
@@ -144,7 +191,6 @@ export async function DadosNegocioSection({
         .from("processo_parte")
         .select("*")
         .eq("cd_processo", cdProcesso)
-        .order("tp_lado")
         .order("nr_ordem")
         .returns<ProcessoParte[]>(),
       supabase
@@ -159,28 +205,34 @@ export async function DadosNegocioSection({
         .select("cd_documento, cd_parte, tp_categoria_intake, nm_arquivo, ds_storage_url")
         .eq("cd_processo", cdProcesso)
         .not("cd_parte", "is", null)
-        .not("tp_categoria_intake", "is", null)
         .returns<Omit<DocDaParte, "urlAssinada">[]>(),
     ]);
 
-  // (cd_parte -> (categoria -> documento com URL assinada))
-  const docsPorParte = new Map<string, Map<string, DocDaParte>>();
+  const docsPorParte = new Map<string, DocDaParte[]>();
   await Promise.all(
     (documentos ?? []).map(async (doc) => {
       const { data } = await supabase.storage
         .from("documentos")
         .createSignedUrl(doc.ds_storage_url, 60 * 10);
       const comUrl: DocDaParte = { ...doc, urlAssinada: data?.signedUrl ?? null };
-      const porCategoria = docsPorParte.get(doc.cd_parte!) ?? new Map<string, DocDaParte>();
-      porCategoria.set(doc.tp_categoria_intake!, comUrl);
-      docsPorParte.set(doc.cd_parte!, porCategoria);
+      const lista = docsPorParte.get(doc.cd_parte!) ?? [];
+      lista.push(comUrl);
+      docsPorParte.set(doc.cd_parte!, lista);
     })
   );
 
-  const vendedores = (partes ?? []).filter((p) => p.tp_lado === "vendedor");
-  const compradores = (partes ?? []).filter((p) => p.tp_lado === "comprador");
-  const temAlgo =
-    negocio || vendedores.length > 0 || compradores.length > 0 || (corretores ?? []).length > 0;
+  const grupos = ORDEM_LADO.map((lado) => ({
+    lado,
+    partes: (partes ?? []).filter((p) => p.tp_lado === lado),
+  })).filter((g) => g.partes.length > 0);
+
+  const temAlgo = negocio || (partes ?? []).length > 0 || (corretores ?? []).length > 0;
+
+  function categoriasDoLado(lado: LadoParte): CategoriaDocIntake[] {
+    if (lado === "vendedor") return CATEGORIAS_DOC_VENDEDOR;
+    if (lado === "comprador") return CATEGORIAS_DOC_COMPRADOR;
+    return [];
+  }
 
   return (
     <Card>
@@ -194,10 +246,14 @@ export async function DadosNegocioSection({
           </p>
         )}
 
-        {vendedores.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-foreground">Vendedores</p>
-            {vendedores.map((p) => (
+        {grupos.map((grupo) => (
+          <div key={grupo.lado} className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-foreground">
+              {grupo.partes.length > 1
+                ? `${LADO_PARTE_LABEL[grupo.lado]}s`
+                : LADO_PARTE_LABEL[grupo.lado]}
+            </p>
+            {grupo.partes.map((p) => (
               <ParteCard
                 key={p.cd_parte}
                 parte={p}
@@ -206,31 +262,12 @@ export async function DadosNegocioSection({
                 linkPreenchimento={
                   linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
                 }
-                categorias={CATEGORIAS_DOC_VENDEDOR}
-                docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
+                categorias={categoriasDoLado(grupo.lado)}
+                docs={docsPorParte.get(p.cd_parte) ?? []}
               />
             ))}
           </div>
-        )}
-
-        {compradores.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-foreground">Compradores</p>
-            {compradores.map((p) => (
-              <ParteCard
-                key={p.cd_parte}
-                parte={p}
-                cdProcesso={cdProcesso}
-                numeroProcesso={numeroProcesso}
-                linkPreenchimento={
-                  linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
-                }
-                categorias={CATEGORIAS_DOC_COMPRADOR}
-                docsPorCategoria={docsPorParte.get(p.cd_parte) ?? new Map()}
-              />
-            ))}
-          </div>
-        )}
+        ))}
 
         {negocio && (
           <div className="flex flex-col gap-2">

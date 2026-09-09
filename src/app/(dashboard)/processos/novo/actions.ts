@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+import type { LadoParte } from "@/types/database";
+
 export interface ParteInput {
-  tp_lado: "vendedor" | "comprador";
+  tp_lado: LadoParte;
   nr_ordem: number;
   nm_parte: string;
   ds_telefone: string;

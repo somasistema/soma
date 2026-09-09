@@ -9,13 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { formatarTelefone } from "@/lib/utils";
-import type { Imobiliaria } from "@/types/database";
+import { LADO_PARTE_LABEL, type Imobiliaria, type LadoParte } from "@/types/database";
 import {
   criarProcesso,
   type CorretorInput,
   type NegocioInput,
   type ParteInput,
 } from "./actions";
+
+// Papéis livres além de vendedor/comprador — sem checklist de documentos.
+const OUTROS_PAPEIS: LadoParte[] = ["corretor", "imobiliaria", "adm", "cliente"];
 
 const TEXTAREA_CLASS =
   "flex min-h-[80px] w-full rounded-radius border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
@@ -57,7 +60,7 @@ function SimNao({
   );
 }
 
-const parteVazia = (tp_lado: "vendedor" | "comprador"): ParteInput => ({
+const parteVazia = (tp_lado: LadoParte): ParteInput => ({
   tp_lado,
   nr_ordem: 0,
   nm_parte: "",
@@ -67,6 +70,63 @@ const parteVazia = (tp_lado: "vendedor" | "comprador"): ParteInput => ({
   ds_conta_bancaria: "",
   ds_documentos_obs: "",
 });
+
+function OutraParteRow({
+  parte,
+  onChange,
+  onRemove,
+}: {
+  parte: ParteInput;
+  onChange: (patch: Partial<ParteInput>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 rounded-radius border border-border p-3 sm:grid-cols-2">
+      <Campo label="Papel">
+        <Select
+          value={parte.tp_lado}
+          onChange={(e) => onChange({ tp_lado: e.target.value as LadoParte })}
+        >
+          {OUTROS_PAPEIS.map((papel) => (
+            <option key={papel} value={papel}>
+              {LADO_PARTE_LABEL[papel]}
+            </option>
+          ))}
+        </Select>
+      </Campo>
+      <Campo label="Nome">
+        <Input value={parte.nm_parte} onChange={(e) => onChange({ nm_parte: e.target.value })} />
+      </Campo>
+      <Campo label="Telefone">
+        <Input
+          type="tel"
+          placeholder="(71) 99999-9999"
+          value={parte.ds_telefone}
+          onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
+        />
+      </Campo>
+      <Campo label="E-mail">
+        <Input
+          type="email"
+          value={parte.ds_email}
+          onChange={(e) => onChange({ ds_email: e.target.value })}
+        />
+      </Campo>
+      <div className="sm:col-span-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Remover
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function ParteFields({
   parte,
@@ -158,6 +218,7 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
 
   const [vendedores, setVendedores] = useState<ParteInput[]>([parteVazia("vendedor")]);
   const [compradores, setCompradores] = useState<ParteInput[]>([parteVazia("comprador")]);
+  const [outrasPartes, setOutrasPartes] = useState<ParteInput[]>([]);
   const [corretores, setCorretores] = useState<CorretorInput[]>([]);
 
   const [negocio, setNegocio] = useState<NegocioInput>({
@@ -197,6 +258,7 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
     const partes: ParteInput[] = [
       ...vendedores.map((p, i) => ({ ...p, tp_lado: "vendedor" as const, nr_ordem: i })),
       ...compradores.map((p, i) => ({ ...p, tp_lado: "comprador" as const, nr_ordem: i })),
+      ...outrasPartes.map((p, i) => ({ ...p, nr_ordem: i })),
     ].filter((p) => p.nm_parte.trim());
 
     startTransition(async () => {
@@ -303,6 +365,36 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
           >
             <Plus className="h-4 w-4" />
             Adicionar comprador
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Outras partes</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Corretor, imobiliária, administrador, cliente... Cada um recebe um link próprio pra
+            preencher os dados e anexar documentos.
+          </p>
+          {outrasPartes.map((parte, idx) => (
+            <OutraParteRow
+              key={idx}
+              parte={parte}
+              onChange={(patch) => patchParte(outrasPartes, setOutrasPartes, idx, patch)}
+              onRemove={() => setOutrasPartes(outrasPartes.filter((_, i) => i !== idx))}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit gap-1.5"
+            onClick={() => setOutrasPartes([...outrasPartes, parteVazia("corretor")])}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar parte
           </Button>
         </CardContent>
       </Card>
