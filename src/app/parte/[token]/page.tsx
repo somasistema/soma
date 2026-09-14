@@ -5,6 +5,9 @@ import { createPublicClient } from "@/lib/supabase/public";
 import type { ParteAutoatendimento } from "@/types/database";
 import { ParteAutoatendimentoForm } from "./parte-autoatendimento-form";
 
+// anexarMeuDocumento roda o OCR na mesma requisição do server action.
+export const maxDuration = 60;
+
 export default async function PartePage({
   params,
 }: {

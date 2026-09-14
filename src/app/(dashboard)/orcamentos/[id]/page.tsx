@@ -13,6 +13,13 @@ import { DocumentosSection } from "./documentos-section";
 import { GerarPdfButton } from "./gerar-pdf-button";
 import { WhatsappShareButton } from "./whatsapp-share-button";
 
+// Upload de documento roda o OCR (Tesseract) na mesma requisição do
+// server action — precisa de mais que o default da plataforma,
+// principalmente no primeiro uso (baixa o idioma da CDN). Ver
+// node_modules/next/dist/docs/.../maxDuration.md: pra Server Actions
+// isso se define no page.tsx, não no arquivo do action.
+export const maxDuration = 60;
+
 export default async function OrcamentoDetalhePage({
   params,
 }: {

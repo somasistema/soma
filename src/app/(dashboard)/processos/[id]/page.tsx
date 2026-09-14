@@ -26,6 +26,10 @@ import { ChatProcesso } from "./chat-processo";
 import { MinutaSection } from "./minuta-section";
 import { TimelineProcesso } from "./timeline-processo";
 
+// Upload de documento roda o OCR (Tesseract) na mesma requisição do
+// server action — precisa de mais que o default da plataforma.
+export const maxDuration = 60;
+
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
 const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
 
