@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   // do bundle do servidor evita que o empacotador quebre os assets.
   serverExternalPackages: ["mupdf", "tesseract.js"],
 
+  // Upload de documento (RG, comprovante, matrícula...) vai como
+  // multipart no body do Server Action — o padrão do Next (1 MB)
+  // estoura fácil com foto de celular ou PDF escaneado.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
+
   // tesseract.js resolve o próprio worker com require('..') — um
   // require dinâmico. Isso quebra a análise estática do file tracing
   // da Vercel pra essa subárvore inteira: uma vez que ele não segue
