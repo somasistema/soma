@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, RefreshCw, ScanText } from "lucide-react";
+import { AlertTriangle, Check, RefreshCw, ScanText, Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,12 @@ function CampoLinha({ campo }: { campo: DocumentoOcrCampo }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  function salvar() {
+  const iaDiscorda = campo.sn_confere_ia === false && !campo.sn_confirmado;
+
+  function confirmar(valorFinal: string) {
     setErro(null);
     startTransition(async () => {
-      const r = await confirmarCampoOcr(campo.cd_campo, valor);
+      const r = await confirmarCampoOcr(campo.cd_campo, valorFinal);
       if (!r.sucesso) {
         setErro(r.erro);
         return;
@@ -53,6 +55,14 @@ function CampoLinha({ campo }: { campo: DocumentoOcrCampo }) {
           {campo.sn_confirmado ? (
             <span className="inline-flex items-center gap-1 text-xs text-status-aceito">
               <Check className="h-3 w-3" /> conferido
+            </span>
+          ) : iaDiscorda ? (
+            <span className="inline-flex items-center gap-1 text-xs text-status-reprovado">
+              <AlertTriangle className="h-3 w-3" /> IA discorda
+            </span>
+          ) : campo.sn_confere_ia === true ? (
+            <span className="inline-flex items-center gap-1 text-xs text-status-aceito">
+              <Sparkles className="h-3 w-3" /> IA confere
             </span>
           ) : (
             typeof campo.nr_confianca === "number" && (
@@ -80,7 +90,7 @@ function CampoLinha({ campo }: { campo: DocumentoOcrCampo }) {
             onChange={(e) => setValor(e.target.value)}
             className="h-8 text-sm"
           />
-          <Button type="button" size="sm" className="h-8" disabled={pending} onClick={salvar}>
+          <Button type="button" size="sm" className="h-8" disabled={pending} onClick={() => confirmar(valor)}>
             {pending ? "..." : "Salvar"}
           </Button>
           <Button
@@ -99,6 +109,24 @@ function CampoLinha({ campo }: { campo: DocumentoOcrCampo }) {
         </div>
       ) : (
         <span className="font-mono text-sm text-foreground">{campo.ds_valor}</span>
+      )}
+
+      {iaDiscorda && campo.ds_valor_sugerido_ia && !editando && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">
+            IA sugere: <span className="font-mono text-foreground">{campo.ds_valor_sugerido_ia}</span>
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-xs"
+            disabled={pending}
+            onClick={() => confirmar(campo.ds_valor_sugerido_ia as string)}
+          >
+            usar sugestão
+          </Button>
+        </div>
       )}
       {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
     </div>
@@ -192,7 +220,21 @@ export function DocumentoOcrPainel({
               </span>
             )}
             {ocr.nr_paginas ? <span>{ocr.nr_paginas} pág.</span> : null}
+            {ocr.ts_validacao_ia && (
+              <span className="inline-flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-accent" />
+                Conferido por IA
+              </span>
+            )}
           </div>
+
+          {ocr.sn_tipo_confere_ia === false && ocr.tp_documento_sugerido_ia && (
+            <p className="flex items-center gap-1.5 text-xs text-status-reprovado">
+              <AlertTriangle className="h-3 w-3" />
+              A IA acha que o tipo real é <strong>{ocr.tp_documento_sugerido_ia}</strong>, não o
+              detectado acima — confira o documento.
+            </p>
+          )}
 
           {campos.length > 0 ? (
             <div className="rounded-radius border border-border bg-card px-3">

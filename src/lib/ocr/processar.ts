@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { classificarDocumento } from "./classificar";
 import { extrairTexto } from "./extrair";
 import { extrairCampos } from "./parsers";
+import { validarOcrComIA } from "./validar-ia";
 
 const BUCKET = "documentos";
 
@@ -54,7 +55,7 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
       throw new Error(`Não foi possível baixar o arquivo: ${erroDownload?.message ?? "sem retorno"}`);
     }
 
-    const { texto, confianca, paginas } = await extrairTexto(
+    const { texto, confianca, paginas, imagemPrincipal } = await extrairTexto(
       await blob.arrayBuffer(),
       blob.type || null,
       documento.nm_arquivo
@@ -102,6 +103,44 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
             })),
             { onConflict: "cd_documento_ocr,nm_campo", ignoreDuplicates: true }
           );
+
+        // Conferência por IA — opcional (só com ANTHROPIC_API_KEY e
+        // quando temos uma imagem da página, não em PDF de texto puro).
+        if (imagemPrincipal) {
+          const validacao = await validarOcrComIA({
+            imagem: imagemPrincipal.dados,
+            mimeType: imagemPrincipal.mimeType,
+            tipoDetectado,
+            campos,
+          });
+
+          if (validacao) {
+            await supabase
+              .schema("soma")
+              .from("documento_ocr")
+              .update({
+                sn_tipo_confere_ia: validacao.tipoConfere,
+                tp_documento_sugerido_ia: validacao.tipoSugerido,
+                ts_validacao_ia: new Date().toISOString(),
+              })
+              .eq("cd_documento", cdDocumento);
+
+            await Promise.all(
+              validacao.campos.map((c) =>
+                supabase
+                  .schema("soma")
+                  .from("documento_ocr_campos")
+                  .update({
+                    sn_confere_ia: c.confere,
+                    ds_valor_sugerido_ia: c.valorSugerido,
+                    nr_confianca_ia: c.confianca,
+                  })
+                  .eq("cd_documento_ocr", cdDocumentoOcr)
+                  .eq("nm_campo", c.nm_campo)
+              )
+            );
+          }
+        }
       }
     }
   } catch (erro) {

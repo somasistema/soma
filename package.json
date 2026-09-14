@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@hookform/resolvers": "^5.4.0",
     "@mercadopago/sdk-react": "^1.0.7",
     "@react-pdf/renderer": "^4.5.1",

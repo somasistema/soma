@@ -634,6 +634,11 @@ export interface DocumentoOcr {
   ds_motor: string;
   ts_criacao: string;
   ts_processamento: string | null;
+  // Conferência por IA (migration 054) — null enquanto não configurada
+  // ou não roda (PDF de texto puro não tem imagem pra conferir).
+  sn_tipo_confere_ia: boolean | null;
+  tp_documento_sugerido_ia: string | null;
+  ts_validacao_ia: string | null;
 }
 
 export interface DocumentoOcrCampo {
@@ -643,6 +648,9 @@ export interface DocumentoOcrCampo {
   ds_valor: string;
   nr_confianca: number | null;
   sn_confirmado: boolean;
+  sn_confere_ia: boolean | null;
+  ds_valor_sugerido_ia: string | null;
+  nr_confianca_ia: number | null;
 }
 
 export interface Andamento {
