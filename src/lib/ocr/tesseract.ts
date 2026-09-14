@@ -1,4 +1,5 @@
 import type { PaginaImagem } from "./pdf";
+import { prepararParaOcr } from "./preprocessar";
 
 export type ResultadoOcr = { texto: string; confianca: number };
 
@@ -32,7 +33,8 @@ export async function reconhecer(paginas: PaginaImagem[]): Promise<ResultadoOcr>
     const confiancas: number[] = [];
 
     for (const { pagina, imagem } of paginas) {
-      const { data } = await worker.recognize(Buffer.from(imagem));
+      const preparada = await prepararParaOcr(Buffer.from(imagem));
+      const { data } = await worker.recognize(preparada);
       partes.push(`--- Página ${pagina} ---\n${data.text.trim()}`);
       if (typeof data.confidence === "number") confiancas.push(data.confidence);
     }
