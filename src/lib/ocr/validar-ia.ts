@@ -131,3 +131,101 @@ export async function validarOcrComIA(params: {
     return null;
   }
 }
+
+// Leitura de resgate: quando o Tesseract não achou NENHUM campo (ex:
+// documento com fundo colorido/textura forte demais — certidão,
+// documento plastificado etc.), a IA lê a imagem do zero e extrai o
+// que der, no lugar de deixar o documento sem nenhum dado. Campos sem
+// nome padronizado (ver CAMPO_OCR_LABEL) aparecem na tela com o nome
+// cru que a IA deu — ainda dá pra conferir/editar normalmente.
+export type ResultadoLeituraIA = {
+  tipoDetectado: string | null;
+  campos: { nm_campo: string; ds_valor: string; confianca: number }[];
+};
+
+const FERRAMENTA_LEITURA = {
+  name: "reportar_leitura",
+  description: "Reporta o tipo do documento e os campos lidos na imagem.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      tipo_detectado: {
+        type: ["string", "null"],
+        description:
+          "Tipo do documento em snake_case (ex: 'rg', 'cpf', 'certidao_casamento', 'certidao_nascimento', 'comprovante_residencia', 'matricula_imovel'). Null se não der pra identificar.",
+      },
+      campos: {
+        type: "array",
+        description: "Cada dado relevante que aparece no documento (nome, CPF, datas, números de registro...).",
+        items: {
+          type: "object",
+          properties: {
+            nm_campo: {
+              type: "string",
+              description: "Nome curto em snake_case e português (ex: 'nome_conjuge_1', 'data_casamento').",
+            },
+            ds_valor: { type: "string" },
+            confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
+          },
+          required: ["nm_campo", "ds_valor", "confianca"],
+        },
+      },
+    },
+    required: ["tipo_detectado", "campos"],
+  },
+};
+
+export async function lerDocumentoComIA(params: {
+  imagem: Buffer;
+  mimeType: string;
+}): Promise<ResultadoLeituraIA | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+
+  const client = new Anthropic();
+
+  const mediaType = params.mimeType.includes("png")
+    ? "image/png"
+    : params.mimeType.includes("webp")
+      ? "image/webp"
+      : "image/jpeg";
+
+  try {
+    const response = await client.messages.create({
+      model: MODELO,
+      max_tokens: 1536,
+      tools: [FERRAMENTA_LEITURA],
+      tool_choice: { type: "tool", name: "reportar_leitura" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: params.imagem.toString("base64") },
+            },
+            {
+              type: "text",
+              text:
+                "Este é um documento brasileiro. A leitura automática (OCR) não conseguiu extrair nenhum " +
+                "campo dele (provavelmente por causa do fundo com padrão de segurança/textura). Leia a " +
+                "imagem e extraia o tipo do documento e os dados relevantes.",
+            },
+          ],
+        },
+      ],
+    });
+
+    const toolUse = response.content.find((b) => b.type === "tool_use");
+    if (!toolUse || toolUse.type !== "tool_use") return null;
+
+    const input = toolUse.input as {
+      tipo_detectado: string | null;
+      campos: { nm_campo: string; ds_valor: string; confianca: number }[];
+    };
+
+    return { tipoDetectado: input.tipo_detectado, campos: input.campos ?? [] };
+  } catch (erro) {
+    console.error("[ocr] falha na leitura de resgate por IA:", erro);
+    return null;
+  }
+}

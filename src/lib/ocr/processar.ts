@@ -1,8 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { classificarDocumento } from "./classificar";
 import { extrairTexto } from "./extrair";
-import { extrairCampos } from "./parsers";
-import { validarOcrComIA } from "./validar-ia";
+import { extrairCampos, type CampoLido } from "./parsers";
+import { lerDocumentoComIA, validarOcrComIA } from "./validar-ia";
 
 const BUCKET = "documentos";
 
@@ -66,7 +66,28 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
     }
 
     const tipoDetectado = classificarDocumento(documento.nm_tipo_documento, texto);
-    const campos = extrairCampos(tipoDetectado, texto);
+    let campos: CampoLido[] = extrairCampos(tipoDetectado, texto);
+
+    // Resgate por IA: o Tesseract às vezes não acha NENHUM campo (ex:
+    // documento com fundo de segurança/textura forte — certidão,
+    // plástico etc.). Em vez de deixar o documento sem nenhum dado, a
+    // IA lê a imagem do zero. Só roda quando o regex falhou de vez —
+    // se achou algo, segue pra conferência normal (mais abaixo).
+    let tipoSugeridoIA: string | null = null;
+    if (campos.length === 0 && imagemPrincipal) {
+      const leitura = await lerDocumentoComIA({
+        imagem: imagemPrincipal.dados,
+        mimeType: imagemPrincipal.mimeType,
+      });
+      if (leitura && leitura.campos.length > 0) {
+        campos = leitura.campos.map((c) => ({
+          nm_campo: c.nm_campo,
+          ds_valor: c.ds_valor,
+          nr_confianca: c.confianca,
+        }));
+        tipoSugeridoIA = leitura.tipoDetectado;
+      }
+    }
 
     await supabase
       .schema("soma")
@@ -79,6 +100,9 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
         nr_paginas: paginas,
         ds_erro: null,
         ts_processamento: new Date().toISOString(),
+        ...(tipoSugeridoIA
+          ? { sn_tipo_confere_ia: false, tp_documento_sugerido_ia: tipoSugeridoIA, ts_validacao_ia: new Date().toISOString() }
+          : {}),
       })
       .eq("cd_documento", cdDocumento);
 
@@ -106,7 +130,9 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
 
         // Conferência por IA — opcional (só com ANTHROPIC_API_KEY e
         // quando temos uma imagem da página, não em PDF de texto puro).
-        if (imagemPrincipal) {
+        // Pula quando os campos já vieram da leitura de resgate da IA —
+        // conferir a própria resposta não agrega nada.
+        if (imagemPrincipal && !tipoSugeridoIA) {
           const validacao = await validarOcrComIA({
             imagem: imagemPrincipal.dados,
             mimeType: imagemPrincipal.mimeType,
