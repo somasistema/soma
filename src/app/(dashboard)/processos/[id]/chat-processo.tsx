@@ -23,7 +23,7 @@ export function ChatProcesso({
   cdUsuarioAtual: string;
 }) {
   const [supabase] = useState(() => createClient());
-  const fimRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -67,7 +67,10 @@ export function ChatProcesso({
   }, [supabase, cdProcesso, carregar]);
 
   useEffect(() => {
-    fimRef.current?.scrollIntoView({ block: "end" });
+    // Rola só a caixinha do chat, nunca a página — scrollIntoView rolaria
+    // qualquer ancestral scrollável, inclusive a página inteira no load.
+    const container = containerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
   }, [mensagens.length]);
 
   function enviar() {
@@ -87,7 +90,10 @@ export function ChatProcesso({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex max-h-[26rem] min-h-[8rem] flex-col gap-2 overflow-y-auto rounded-radius border border-border bg-card p-3">
+      <div
+        ref={containerRef}
+        className="flex max-h-[26rem] min-h-[8rem] flex-col gap-2 overflow-y-auto rounded-radius border border-border bg-card p-3"
+      >
         {mensagens.length === 0 ? (
           <p className="m-auto text-sm text-muted-foreground">Nenhuma mensagem ainda.</p>
         ) : (
@@ -116,7 +122,6 @@ export function ChatProcesso({
             );
           })
         )}
-        <div ref={fimRef} />
       </div>
 
       <div className="flex items-end gap-2">
