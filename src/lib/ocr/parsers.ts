@@ -56,6 +56,24 @@ function fmtCep(n: string) {
   return `${d.slice(0, 5)}-${d.slice(5)}`;
 }
 
+// Documentos bilíngues (RG, CNH) costumam pôr o rótulo em inglês na
+// mesma linha do rótulo em português ("Nome / Name", "Registro Geral -
+// CPF / Personal Number") e o valor de verdade só aparece na linha de
+// baixo. Sem isso, "Name"/"Personal Number" seriam lidos como se fossem
+// o próprio valor.
+const ROTULOS_SECUNDARIOS_EN = [
+  "name",
+  "personal number",
+  "date of birth",
+  "cpf",
+  "nationality",
+  "sex",
+  "place of birth",
+  "date of expiry",
+  "cardholder's signature",
+  "social name",
+];
+
 // Pega o texto logo depois de um rótulo, na mesma linha ou na de baixo.
 function aposRotulo(texto: string, rotulos: string[], maxLen = 60): string | null {
   const linhas = texto.split(/\r?\n/);
@@ -64,8 +82,12 @@ function aposRotulo(texto: string, rotulos: string[], maxLen = 60): string | nul
     for (const rotulo of rotulos) {
       const pos = linhaNorm.indexOf(norm(rotulo));
       if (pos === -1) continue;
-      const resto = linhas[i].slice(pos + rotulo.length).replace(/^[\s:.\-—]+/, "").trim();
-      if (resto.length >= 3) return resto.slice(0, maxLen);
+      const resto = linhas[i].slice(pos + rotulo.length).replace(/^[\s:.\-—/]+/, "").trim();
+      const restoNorm = norm(resto);
+      const soRotuloEmIngles = ROTULOS_SECUNDARIOS_EN.some(
+        (r) => restoNorm === r || restoNorm.startsWith(r + " ")
+      );
+      if (resto.length >= 3 && !soRotuloEmIngles) return resto.slice(0, maxLen);
       const abaixo = (linhas[i + 1] ?? "").trim();
       if (abaixo.length >= 3) return abaixo.slice(0, maxLen);
     }
@@ -148,7 +170,7 @@ function parseRg(texto: string): CampoLido[] {
   const out: CampoLido[] = [];
   const alvo =
     aposRotulo(texto, ["registro geral", "rg no", "rg:", "identidade", "no registro"]) ?? texto;
-  const m = alvo.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dxX]/);
+  const m = alvo.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dxX]{1,2}/);
   if (m) out.push({ nm_campo: "rg", ds_valor: m[0].toUpperCase(), nr_confianca: 80 });
   const pai = aposRotulo(texto, ["nome do pai"]);
   const nomePai = pai ? soNomePessoa(pai) : null;
