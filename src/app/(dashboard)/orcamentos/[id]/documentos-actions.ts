@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { processarOcr } from "@/lib/ocr/processar";
+import { sanitizarNomeArquivo } from "@/lib/utils";
 import type { StatusDocumento } from "@/types/database";
 
 export type DocumentoActionState = { sucesso: true } | { sucesso: false; erro: string };
@@ -35,7 +36,7 @@ export async function uploadDocumento(formData: FormData): Promise<DocumentoActi
     return { sucesso: false, erro: "Sessão expirada. Faça login novamente." };
   }
 
-  const caminho = `${cdProcesso}/${randomUUID()}-${arquivo.name}`;
+  const caminho = `${cdProcesso}/${randomUUID()}-${sanitizarNomeArquivo(arquivo.name)}`;
 
   const { error: erroUpload } = await supabase.storage
     .from("documentos")

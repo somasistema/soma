@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { enviarContratoParaAssinatura } from "@/lib/assinatura/enviar";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizarNomeArquivo } from "@/lib/utils";
 import type { TipoPapelAprovacao } from "@/types/database";
 
 export type MinutaActionState = { sucesso: true } | { sucesso: false; erro: string };
@@ -18,7 +19,7 @@ export async function enviarMinuta(formData: FormData): Promise<MinutaActionStat
     return { sucesso: false, erro: "Selecione o arquivo da minuta." };
   }
 
-  const caminho = `${cdProcesso}/${randomUUID()}-${arquivo.name}`;
+  const caminho = `${cdProcesso}/${randomUUID()}-${sanitizarNomeArquivo(arquivo.name)}`;
 
   const { error: erroUpload } = await supabase.storage
     .from("minutas")

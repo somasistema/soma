@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { processarOcr } from "@/lib/ocr/processar";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { sanitizarNomeArquivo } from "@/lib/utils";
 import type { ParteAutoatendimento } from "@/types/database";
 
 export type ParteActionState = { sucesso: true } | { sucesso: false; erro: string };
@@ -65,7 +66,7 @@ export async function anexarMeuDocumento(
   // Upload + registro rodam com service_role (bucket e soma.documentos
   // são bloqueados pra anon).
   const service = createServiceRoleClient();
-  const caminho = `${parte.cd_processo}/${randomUUID()}-${arquivo.name}`;
+  const caminho = `${parte.cd_processo}/${randomUUID()}-${sanitizarNomeArquivo(arquivo.name)}`;
 
   const { error: erroUpload } = await service.storage
     .from("documentos")

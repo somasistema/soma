@@ -46,3 +46,30 @@ export function formatarTelefone(valor: string) {
 export function formatarInscricaoMunicipal(valor: string) {
   return valor.replace(/\D/g, "").slice(0, 15);
 }
+
+// Nome de arquivo pro Storage — o original pode vir com espaço,
+// acento, parênteses, "%", vários pontos (ex: nome que um app de
+// screenshot/redimensionamento gera) e o Supabase Storage rejeita a
+// chave inteira com "Invalid key" nesses casos. Só o caminho no bucket
+// passa por aqui; nm_arquivo/ds_storage_url na tela continua mostrando
+// o nome original (ver documentos-actions.ts, minuta-actions.ts,
+// parte/[token]/actions.ts).
+export function sanitizarNomeArquivo(nomeOriginal: string): string {
+  const pontoIdx = nomeOriginal.lastIndexOf(".");
+  const temExtensao = pontoIdx > 0 && pontoIdx < nomeOriginal.length - 1;
+  const base = temExtensao ? nomeOriginal.slice(0, pontoIdx) : nomeOriginal;
+  const extensao = temExtensao ? nomeOriginal.slice(pontoIdx + 1) : "";
+
+  const limpar = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // acentos
+      .replace(/[^a-zA-Z0-9-_]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const baseLimpa = limpar(base).slice(0, 80) || "arquivo";
+  const extensaoLimpa = limpar(extensao).slice(0, 10);
+
+  return extensaoLimpa ? `${baseLimpa}.${extensaoLimpa}` : baseLimpa;
+}
