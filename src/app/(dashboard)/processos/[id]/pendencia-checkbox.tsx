@@ -24,7 +24,16 @@ export function PendenciaCheckbox({
     });
   }
 
+  const rotulo = status === "concluida" ? "Reabrir pendência" : "Marcar pendência como resolvida";
+
   return (
-    <Checkbox checked={status === "concluida"} disabled={pending} onChange={alternar} />
+    <Checkbox
+      checked={status === "concluida"}
+      disabled={pending}
+      onChange={alternar}
+      title={rotulo}
+      aria-label={rotulo}
+      className="cursor-pointer"
+    />
   );
 }

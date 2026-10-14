@@ -39,11 +39,14 @@ export function MinutaUploadForm({ cdProcesso }: { cdProcesso: string }) {
     >
       <input type="hidden" name="cd_processo" value={cdProcesso} />
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="arquivo_minuta">Arquivo da minuta</Label>
+        <Label htmlFor="arquivo_minuta">Ou enviar uma minuta já pronta (arquivo)</Label>
         <Input id="arquivo_minuta" name="arquivo" type="file" required />
       </div>
       <p className="text-xs text-muted-foreground">
-        Envia pra aprovação das 5 frentes: Corretor, Comprador, Vendedor, Imobiliária e Jurídico.
+        O arquivo vai do jeito que está — os dados do processo <strong>não</strong> são
+        preenchidos nele. Pra preencher automaticamente, use &quot;Gerar minuta a partir de um
+        modelo&quot; acima. Envia pra aprovação das 5 frentes: Corretor, Comprador, Vendedor,
+        Imobiliária e Jurídico.
       </p>
       <Button type="submit" size="sm" disabled={pending} className="self-start">
         {pending ? "Enviando..." : "Enviar minuta para aprovação"}

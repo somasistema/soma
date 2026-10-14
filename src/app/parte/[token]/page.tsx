@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Logo } from "@/components/logo";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { ParteAutoatendimento } from "@/types/database";
+import { LADO_PARTE_LABEL, type ParteAutoatendimento } from "@/types/database";
 import { ParteAutoatendimentoForm } from "./parte-autoatendimento-form";
 
 // anexarMeuDocumento roda o OCR na mesma requisição do server action.
@@ -27,7 +27,7 @@ export default async function PartePage({
     notFound();
   }
 
-  const papel = parte.tp_lado === "vendedor" ? "Vendedor" : "Comprador";
+  const papel = LADO_PARTE_LABEL[parte.tp_lado] ?? parte.tp_lado;
 
   return (
     <div className="flex min-h-screen justify-center bg-muted px-4 py-12">

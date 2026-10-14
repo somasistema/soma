@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { createClient } from "@/lib/supabase/server";
-import { formatarMoeda } from "@/lib/utils";
+import { formatarMoeda, formatarPercentual } from "@/lib/utils";
 import {
   CATEGORIA_DOC_INTAKE_LABEL,
   CATEGORIAS_DOC_COMPRADOR,
@@ -38,6 +38,29 @@ function simNao(v: boolean | null) {
   return v ? "Sim" : "Não";
 }
 
+// "R$ 9.625,00 (55%)" — o que existir dos dois.
+function valorComPercentual(valor: number | null | undefined, percentual: number | null | undefined) {
+  if (valor == null && percentual == null) return null;
+  if (valor == null) return formatarPercentual(Number(percentual));
+  if (percentual == null) return formatarMoeda(Number(valor));
+  return `${formatarMoeda(Number(valor))} (${formatarPercentual(Number(percentual))})`;
+}
+
+function LinkArquivo({ doc, rotulo }: { doc: DocDaParte; rotulo: string }) {
+  if (!doc.urlAssinada) return null;
+  return (
+    <a
+      href={doc.urlAssinada}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={doc.nm_arquivo}
+      className="text-xs text-brand underline"
+    >
+      {rotulo}
+    </a>
+  );
+}
+
 function ParteCard({
   parte,
   cdProcesso,
@@ -53,9 +76,13 @@ function ParteCard({
   categorias: CategoriaDocIntake[];
   docs: DocDaParte[];
 }) {
-  const porCategoria = new Map(
-    docs.filter((d) => d.tp_categoria_intake).map((d) => [d.tp_categoria_intake as string, d])
-  );
+  const porCategoria = new Map<string, DocDaParte[]>();
+  for (const d of docs) {
+    if (!d.tp_categoria_intake) continue;
+    const lista = porCategoria.get(d.tp_categoria_intake) ?? [];
+    lista.push(d);
+    porCategoria.set(d.tp_categoria_intake, lista);
+  }
   const avulsos = docs.filter((d) => !d.tp_categoria_intake);
 
   return (
@@ -89,45 +116,42 @@ function ParteCard({
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">
         {categorias.map((categoria) => {
-          const doc = porCategoria.get(categoria);
+          const arquivos = porCategoria.get(categoria) ?? [];
           return (
             <div
               key={categoria}
-              className="flex items-center justify-between gap-3 border-t border-border py-1.5 text-sm first:border-t-0"
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border py-1.5 text-sm first:border-t-0"
             >
               <span className="text-muted-foreground">
                 {CATEGORIA_DOC_INTAKE_LABEL[categoria]}
               </span>
-              {doc ? (
-                <span className="flex items-center gap-2">
-                  {doc.urlAssinada && (
-                    <a
-                      href={doc.urlAssinada}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-brand underline"
-                    >
-                      ver arquivo
-                    </a>
-                  )}
+              <span className="flex flex-wrap items-center gap-2">
+                {arquivos.map((doc, i) => (
+                  <LinkArquivo
+                    key={doc.cd_documento}
+                    doc={doc}
+                    rotulo={arquivos.length > 1 ? `arquivo ${i + 1}` : "ver arquivo"}
+                  />
+                ))}
+                {/* Sempre dá pra anexar mais um (frente e verso, por ex.). */}
+                <DocumentoAnexarButton
+                  cdProcesso={cdProcesso}
+                  cdParte={parte.cd_parte}
+                  tpLado={parte.tp_lado}
+                  tpCategoria={categoria}
+                  rotuloCategoria={CATEGORIA_DOC_INTAKE_LABEL[categoria]}
+                  rotuloBotao={arquivos.length > 0 ? "+ arquivo" : "Anexar"}
+                />
+                {arquivos.length > 0 ? (
                   <span className="inline-flex items-center rounded-full bg-status-aceito/15 px-2.5 py-0.5 text-xs font-medium text-status-aceito">
                     OK
                   </span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <DocumentoAnexarButton
-                    cdProcesso={cdProcesso}
-                    cdParte={parte.cd_parte}
-                    tpLado={parte.tp_lado}
-                    tpCategoria={categoria}
-                    rotuloCategoria={CATEGORIA_DOC_INTAKE_LABEL[categoria]}
-                  />
+                ) : (
                   <span className="inline-flex items-center rounded-full bg-status-reprovado/15 px-2.5 py-0.5 text-xs font-medium text-status-reprovado">
                     Falta
                   </span>
-                </span>
-              )}
+                )}
+              </span>
             </div>
           );
         })}
@@ -198,6 +222,7 @@ export async function DadosNegocioSection({
         .from("processo_corretor")
         .select("*")
         .eq("cd_processo", cdProcesso)
+        .order("nr_ordem")
         .returns<ProcessoCorretor[]>(),
       supabase
         .schema("soma")
@@ -205,21 +230,24 @@ export async function DadosNegocioSection({
         .select("cd_documento, cd_parte, tp_categoria_intake, nm_arquivo, ds_storage_url")
         .eq("cd_processo", cdProcesso)
         .not("cd_parte", "is", null)
+        .order("ts_criacao")
         .returns<Omit<DocDaParte, "urlAssinada">[]>(),
     ]);
 
-  const docsPorParte = new Map<string, DocDaParte[]>();
-  await Promise.all(
-    (documentos ?? []).map(async (doc) => {
+  const docsComUrl = await Promise.all(
+    (documentos ?? []).map(async (doc): Promise<DocDaParte> => {
       const { data } = await supabase.storage
         .from("documentos")
         .createSignedUrl(doc.ds_storage_url, 60 * 10);
-      const comUrl: DocDaParte = { ...doc, urlAssinada: data?.signedUrl ?? null };
-      const lista = docsPorParte.get(doc.cd_parte!) ?? [];
-      lista.push(comUrl);
-      docsPorParte.set(doc.cd_parte!, lista);
+      return { ...doc, urlAssinada: data?.signedUrl ?? null };
     })
   );
+  const docsPorParte = new Map<string, DocDaParte[]>();
+  for (const doc of docsComUrl) {
+    const lista = docsPorParte.get(doc.cd_parte!) ?? [];
+    lista.push(doc);
+    docsPorParte.set(doc.cd_parte!, lista);
+  }
 
   const grupos = ORDEM_LADO.map((lado) => ({
     lado,
@@ -273,6 +301,9 @@ export async function DadosNegocioSection({
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-foreground">Imóvel</p>
             <div className="rounded-radius border border-border p-3">
+              <Linha rotulo="Endereço" valor={negocio.ds_imovel_endereco} />
+              <Linha rotulo="Matrícula" valor={negocio.ds_imovel_matricula} />
+              <Linha rotulo="Inscrição do IPTU" valor={negocio.ds_imovel_iptu} />
               <Linha
                 rotulo="Valor do imóvel"
                 valor={negocio.vl_imovel !== null ? formatarMoeda(negocio.vl_imovel) : null}
@@ -306,24 +337,27 @@ export async function DadosNegocioSection({
                 rotulo="Valor total"
                 valor={
                   negocio?.vl_honorarios_total != null
-                    ? formatarMoeda(negocio.vl_honorarios_total)
+                    ? `${formatarMoeda(Number(negocio.vl_honorarios_total))}${
+                        negocio.pc_honorarios_total != null
+                          ? ` (${formatarPercentual(Number(negocio.pc_honorarios_total))} do imóvel)`
+                          : ""
+                      }`
                     : null
                 }
               />
               <Linha rotulo="Quando" valor={negocio?.ds_honorarios_quando} />
               <Linha
                 rotulo="Honorários da imobiliária"
-                valor={
-                  negocio?.vl_honorarios_imobiliaria != null
-                    ? formatarMoeda(negocio.vl_honorarios_imobiliaria)
-                    : null
-                }
+                valor={valorComPercentual(
+                  negocio?.vl_honorarios_imobiliaria,
+                  negocio?.pc_honorarios_imobiliaria
+                )}
               />
               {(corretores ?? []).map((c) => (
                 <Linha
                   key={c.cd_processo_corretor}
                   rotulo={`Corretor — ${c.nm_corretor}`}
-                  valor={c.vl_honorario != null ? formatarMoeda(c.vl_honorario) : "—"}
+                  valor={valorComPercentual(c.vl_honorario, c.pc_honorario) ?? "—"}
                 />
               ))}
             </div>

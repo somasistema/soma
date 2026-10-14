@@ -90,8 +90,11 @@ export function MinutaDeModeloForm({
         </Select>
       </div>
       <p className="text-xs text-muted-foreground">
-        Os campos do modelo ({"{{comprador}}"}, {"{{vendedor}}"}...) são preenchidos com os dados
-        deste processo e a minuta vai direto pra aprovação das 5 frentes.
+        Os campos do modelo ({"{{vendedor_1}}"}, {"{{imovel_valor_extenso}}"},{" "}
+        {"{{honorarios_distribuicao}}"}...) são preenchidos com os dados deste processo — partes,
+        imóvel, honorários, CPF/RG lidos dos documentos. Pré-visualize pra conferir; ao gerar, a
+        minuta vai direto pra aprovação das 5 frentes. Os campos disponíveis estão em
+        Configurações → Modelos de contrato.
       </p>
 
       <div className="flex flex-wrap gap-2">

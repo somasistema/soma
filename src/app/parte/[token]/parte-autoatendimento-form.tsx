@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Paperclip } from "lucide-react";
+import { Check, Paperclip, X } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -16,29 +16,20 @@ import {
   type CategoriaDocIntake,
   type ParteAutoatendimento,
 } from "@/types/database";
-import { anexarMeuDocumento, salvarMeusDados } from "./actions";
+import { anexarMeuDocumento, removerMeuDocumento, salvarMeusDados } from "./actions";
 
-function DocumentosAvulsos({
-  token,
-  arquivos,
-}: {
-  token: string;
-  arquivos: string[];
-}) {
+type ArquivoEnviado = ParteAutoatendimento["documentos"][number];
+
+function ListaArquivos({ token, arquivos }: { token: string; arquivos: ArquivoEnviado[] }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, startTransition] = useTransition();
+  const [removendo, startRemover] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  function aoSelecionar(e: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = e.target.files?.[0];
-    if (!arquivo) return;
+  function remover(arquivo: ArquivoEnviado) {
+    if (!confirm(`Remover "${arquivo.nm_arquivo}"?`)) return;
     setErro(null);
-    const fd = new FormData();
-    fd.set("arquivo", arquivo);
-    startTransition(async () => {
-      const r = await anexarMeuDocumento(token, "geral", fd);
-      if (inputRef.current) inputRef.current.value = "";
+    startRemover(async () => {
+      const r = await removerMeuDocumento(token, arquivo.cd_documento);
       if (!r.sucesso) {
         setErro(r.erro);
         return;
@@ -47,48 +38,41 @@ function DocumentosAvulsos({
     });
   }
 
+  if (arquivos.length === 0) return null;
+
   return (
-    <div className="flex flex-col gap-2">
-      {arquivos.length > 0 ? (
-        <ul className="flex flex-col gap-1">
-          {arquivos.map((nome, i) => (
-            <li
-              key={i}
-              className="flex items-center gap-2 border-t border-border py-1.5 text-sm text-foreground first:border-t-0"
-            >
-              <Check className="h-3.5 w-3.5 text-status-aceito" />
-              {nome}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">Nenhum documento anexado ainda.</p>
-      )}
-      <input ref={inputRef} type="file" className="hidden" onChange={aoSelecionar} />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-fit gap-1.5"
-        disabled={pending}
-        onClick={() => inputRef.current?.click()}
-      >
-        <Paperclip className="h-3.5 w-3.5" />
-        {pending ? "Enviando..." : "Anexar documento"}
-      </Button>
-      {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
-    </div>
+    <ul className="flex flex-col gap-0.5">
+      {arquivos.map((arquivo) => (
+        <li
+          key={arquivo.cd_documento}
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <Check className="h-3 w-3 shrink-0 text-status-aceito" />
+          <span className="min-w-0 truncate">{arquivo.nm_arquivo}</span>
+          <button
+            type="button"
+            disabled={removendo}
+            onClick={() => remover(arquivo)}
+            aria-label={`Remover ${arquivo.nm_arquivo}`}
+            className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-status-reprovado disabled:opacity-50"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </li>
+      ))}
+      {erro && <li className="text-xs text-status-reprovado">{erro}</li>}
+    </ul>
   );
 }
 
-function LinhaDocumento({
+function BotaoAnexar({
   token,
   categoria,
-  anexado,
+  rotulo,
 }: {
   token: string;
-  categoria: CategoriaDocIntake;
-  anexado: boolean;
+  categoria: CategoriaDocIntake | "geral";
+  rotulo: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,22 +97,60 @@ function LinhaDocumento({
   }
 
   return (
-    <div className="flex flex-col gap-1 border-t border-border py-2.5 first:border-t-0">
+    <span className="inline-flex flex-col items-end gap-1">
+      <input ref={inputRef} type="file" className="hidden" onChange={aoSelecionar} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5"
+        disabled={pending}
+        onClick={() => inputRef.current?.click()}
+      >
+        <Paperclip className="h-3.5 w-3.5" />
+        {pending ? "Enviando..." : rotulo}
+      </Button>
+      {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
+    </span>
+  );
+}
+
+function DocumentosAvulsos({ token, arquivos }: { token: string; arquivos: ArquivoEnviado[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {arquivos.length > 0 ? (
+        <ListaArquivos token={token} arquivos={arquivos} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Nenhum documento anexado ainda.</p>
+      )}
+      <div>
+        <BotaoAnexar token={token} categoria="geral" rotulo="Anexar documento" />
+      </div>
+    </div>
+  );
+}
+
+function LinhaDocumento({
+  token,
+  categoria,
+  arquivos,
+}: {
+  token: string;
+  categoria: CategoriaDocIntake;
+  arquivos: ArquivoEnviado[];
+}) {
+  const anexado = arquivos.length > 0;
+
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-border py-2.5 first:border-t-0">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-foreground">{CATEGORIA_DOC_INTAKE_LABEL[categoria]}</span>
         <div className="flex items-center gap-2">
-          <input ref={inputRef} type="file" className="hidden" onChange={aoSelecionar} />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
-            disabled={pending}
-            onClick={() => inputRef.current?.click()}
-          >
-            <Paperclip className="h-3.5 w-3.5" />
-            {pending ? "Enviando..." : anexado ? "Substituir" : "Anexar"}
-          </Button>
+          <BotaoAnexar
+            token={token}
+            categoria={categoria}
+            rotulo={anexado ? "Mais um (ex: verso)" : "Anexar"}
+          />
           {anexado ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-status-aceito/15 px-2.5 py-0.5 text-xs font-medium text-status-aceito">
               <Check className="h-3 w-3" /> Anexado
@@ -140,7 +162,7 @@ function LinhaDocumento({
           )}
         </div>
       </div>
-      {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
+      <ListaArquivos token={token} arquivos={arquivos} />
     </div>
   );
 }
@@ -165,8 +187,7 @@ export function ParteAutoatendimentoForm({
   const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
   const categorias =
     parte.tp_lado === "vendedor" ? CATEGORIAS_DOC_VENDEDOR : CATEGORIAS_DOC_COMPRADOR;
-  const anexadas = new Set(parte.documentos.map((d) => d.tp_categoria_intake));
-  const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake).map((d) => d.nm_arquivo);
+  const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake);
 
   function salvar() {
     setMsg(null);
@@ -259,7 +280,8 @@ export function ParteAutoatendimentoForm({
         </CardHeader>
         <CardContent>
           <p className="mb-2 text-sm text-muted-foreground">
-            Anexe foto ou PDF. Pode substituir depois se precisar.
+            Anexe foto ou PDF. Se o documento tiver frente e verso, mande os dois. Mandou errado?
+            Remova no X e anexe de novo.
           </p>
           {temChecklist ? (
             categorias.map((categoria) => (
@@ -267,7 +289,7 @@ export function ParteAutoatendimentoForm({
                 key={categoria}
                 token={token}
                 categoria={categoria}
-                anexado={anexadas.has(categoria)}
+                arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === categoria)}
               />
             ))
           ) : (

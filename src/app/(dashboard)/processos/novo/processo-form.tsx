@@ -7,9 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PercentInput } from "@/components/ui/percent-input";
 import { Select } from "@/components/ui/select";
-import { formatarTelefone } from "@/lib/utils";
-import { LADO_PARTE_LABEL, type Imobiliaria, type LadoParte } from "@/types/database";
+import { formatarMoeda, formatarTelefone } from "@/lib/utils";
+import {
+  LADO_PARTE_LABEL,
+  type Corretor,
+  type Imobiliaria,
+  type LadoParte,
+} from "@/types/database";
 import {
   criarProcesso,
   type CorretorInput,
@@ -18,10 +24,35 @@ import {
 } from "./actions";
 
 // Papéis livres além de vendedor/comprador — sem checklist de documentos.
-const OUTROS_PAPEIS: LadoParte[] = ["corretor", "imobiliaria", "adm", "cliente"];
+// Corretor não entra aqui: quem está nos Honorários já vira parte sozinho.
+const OUTROS_PAPEIS: LadoParte[] = ["imobiliaria", "adm", "cliente"];
 
 const TEXTAREA_CLASS =
   "flex min-h-[80px] w-full rounded-radius border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
+
+// Qual dos dois campos (R$ ou %) o usuário digitou por último — o outro
+// é calculado a partir dele.
+type Base = "valor" | "percentual";
+
+type CorretorLinha = CorretorInput & { base: Base };
+
+const num = (s: string) => (s.trim() === "" ? null : Number(s));
+const arred = (n: number) => String(Math.round(n * 100) / 100);
+
+function derivar(base: Base, valor: string, percentual: string, referencia: number | null) {
+  if (base === "valor") {
+    const v = num(valor);
+    return {
+      valor,
+      percentual: v !== null && referencia ? arred((v / referencia) * 100) : "",
+    };
+  }
+  const p = num(percentual);
+  return {
+    valor: p !== null && referencia !== null ? arred((referencia * p) / 100) : "",
+    percentual,
+  };
+}
 
 function Campo({
   label,
@@ -69,6 +100,20 @@ const parteVazia = (tp_lado: LadoParte): ParteInput => ({
   ds_profissao: "",
   ds_conta_bancaria: "",
   ds_documentos_obs: "",
+});
+
+const corretorVazio = (): CorretorLinha => ({
+  base: "valor",
+  cd_corretor: "",
+  nm_corretor: "",
+  vl_honorario: "",
+  pc_honorario: "",
+  ds_lado: "",
+  ds_cpf: "",
+  ds_creci: "",
+  ds_pix: "",
+  ds_telefone: "",
+  ds_email: "",
 });
 
 function OutraParteRow({
@@ -208,7 +253,136 @@ function ParteFields({
   );
 }
 
-export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) {
+function CorretorRow({
+  corretor,
+  exibido,
+  cadastro,
+  onChange,
+  onRemove,
+}: {
+  corretor: CorretorLinha;
+  exibido: { valor: string; percentual: string };
+  cadastro: Corretor[];
+  onChange: (patch: Partial<CorretorLinha>) => void;
+  onRemove: () => void;
+}) {
+  const doCadastro = corretor.cd_corretor
+    ? cadastro.find((c) => c.cd_corretor === corretor.cd_corretor) ?? null
+    : null;
+
+  function trocarNome(nome: string) {
+    const achado = cadastro.find(
+      (c) => c.nm_corretor.trim().toLowerCase() === nome.trim().toLowerCase()
+    );
+    onChange({ nm_corretor: nome, cd_corretor: achado?.cd_corretor ?? "" });
+  }
+
+  const resumoCadastro = doCadastro
+    ? [
+        doCadastro.ds_cpf && `CPF ${doCadastro.ds_cpf}`,
+        doCadastro.ds_creci && `CRECI ${doCadastro.ds_creci}`,
+        doCadastro.ds_pix && `PIX ${doCadastro.ds_pix}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-radius border border-border p-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_9rem_6.5rem_auto]">
+        <Campo label="Corretor">
+          <Input
+            list="corretores-cadastro"
+            placeholder="Digite ou escolha do cadastro"
+            value={corretor.nm_corretor}
+            onChange={(e) => trocarNome(e.target.value)}
+          />
+        </Campo>
+        <Campo label="Honorário (R$)">
+          <CurrencyInput
+            value={exibido.valor}
+            onChange={(v) => onChange({ vl_honorario: v, base: "valor" })}
+          />
+        </Campo>
+        <Campo label="% dos honorários">
+          <PercentInput
+            value={exibido.percentual}
+            onChange={(v) => onChange({ pc_honorario: v, base: "percentual" })}
+          />
+        </Campo>
+        <div className="flex items-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            aria-label="Remover corretor"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {doCadastro ? (
+        <p className="text-xs text-muted-foreground">
+          Do cadastro de corretores{resumoCadastro ? `: ${resumoCadastro}` : ""}.
+        </p>
+      ) : (
+        corretor.nm_corretor.trim() && (
+          <details className="rounded-radius border border-dashed border-border px-3 py-2">
+            <summary className="cursor-pointer text-xs text-foreground">
+              Corretor novo — dados pro cadastro (opcional)
+            </summary>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Campo label="CPF">
+                <Input
+                  value={corretor.ds_cpf}
+                  onChange={(e) => onChange({ ds_cpf: e.target.value })}
+                />
+              </Campo>
+              <Campo label="CRECI">
+                <Input
+                  value={corretor.ds_creci}
+                  onChange={(e) => onChange({ ds_creci: e.target.value })}
+                />
+              </Campo>
+              <Campo label="Chave PIX">
+                <Input
+                  value={corretor.ds_pix}
+                  onChange={(e) => onChange({ ds_pix: e.target.value })}
+                />
+              </Campo>
+              <Campo label="Telefone">
+                <Input
+                  type="tel"
+                  placeholder="(71) 99999-9999"
+                  value={corretor.ds_telefone}
+                  onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
+                />
+              </Campo>
+              <Campo label="E-mail" className="sm:col-span-2">
+                <Input
+                  type="email"
+                  value={corretor.ds_email}
+                  onChange={(e) => onChange({ ds_email: e.target.value })}
+                />
+              </Campo>
+            </div>
+          </details>
+        )
+      )}
+    </div>
+  );
+}
+
+export function ProcessoForm({
+  imobiliarias,
+  corretoresCadastro,
+}: {
+  imobiliarias: Imobiliaria[];
+  corretoresCadastro: Corretor[];
+}) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
@@ -219,7 +393,9 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
   const [vendedores, setVendedores] = useState<ParteInput[]>([parteVazia("vendedor")]);
   const [compradores, setCompradores] = useState<ParteInput[]>([parteVazia("comprador")]);
   const [outrasPartes, setOutrasPartes] = useState<ParteInput[]>([]);
-  const [corretores, setCorretores] = useState<CorretorInput[]>([]);
+  const [corretores, setCorretores] = useState<CorretorLinha[]>([]);
+  const [baseTotal, setBaseTotal] = useState<Base>("valor");
+  const [baseImobiliaria, setBaseImobiliaria] = useState<Base>("valor");
 
   const [negocio, setNegocio] = useState<NegocioInput>({
     vl_imovel: "",
@@ -230,9 +406,14 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
     sn_ocupado: "",
     ds_entrega_chaves: "",
     ds_itens_imovel: "",
+    ds_imovel_endereco: "",
+    ds_imovel_matricula: "",
+    ds_imovel_iptu: "",
     vl_honorarios_total: "",
+    pc_honorarios_total: "",
     ds_honorarios_quando: "",
     vl_honorarios_imobiliaria: "",
+    pc_honorarios_imobiliaria: "",
   });
 
   function patchNegocio(patch: Partial<NegocioInput>) {
@@ -248,6 +429,38 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
     setLista(lista.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   }
 
+  function patchCorretor(idx: number, patch: Partial<CorretorLinha>) {
+    setCorretores((lista) => lista.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  }
+
+  // Honorários: total em R$ ou % do imóvel; imobiliária e corretores em
+  // R$ ou % do total. O campo digitado por último manda, o outro é
+  // calculado — mudar o total recalcula quem foi lançado em %.
+  const total = derivar(
+    baseTotal,
+    negocio.vl_honorarios_total,
+    negocio.pc_honorarios_total,
+    num(negocio.vl_imovel)
+  );
+  const totalNum = num(total.valor);
+  const imobiliaria = derivar(
+    baseImobiliaria,
+    negocio.vl_honorarios_imobiliaria,
+    negocio.pc_honorarios_imobiliaria,
+    totalNum
+  );
+  const corretoresExibidos = corretores.map((c) =>
+    derivar(c.base, c.vl_honorario, c.pc_honorario, totalNum)
+  );
+
+  const temDistribuicao =
+    imobiliaria.valor !== "" || corretoresExibidos.some((c) => c.valor !== "");
+  const distribuido =
+    (num(imobiliaria.valor) ?? 0) +
+    corretoresExibidos.reduce((soma, c) => soma + (num(c.valor) ?? 0), 0);
+  const diferenca =
+    totalNum !== null && temDistribuicao ? Math.round((totalNum - distribuido) * 100) / 100 : 0;
+
   function salvar() {
     setErro(null);
     if (!cdImobiliaria || !nmCliente.trim()) {
@@ -261,14 +474,35 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
       ...outrasPartes.map((p, i) => ({ ...p, nr_ordem: i })),
     ].filter((p) => p.nm_parte.trim());
 
+    const corretoresFinal: CorretorInput[] = corretores
+      .map((c, i) => ({
+        cd_corretor: c.cd_corretor,
+        nm_corretor: c.nm_corretor,
+        vl_honorario: corretoresExibidos[i].valor,
+        pc_honorario: corretoresExibidos[i].percentual,
+        ds_lado: c.ds_lado,
+        ds_cpf: c.ds_cpf,
+        ds_creci: c.ds_creci,
+        ds_pix: c.ds_pix,
+        ds_telefone: c.ds_telefone,
+        ds_email: c.ds_email,
+      }))
+      .filter((c) => c.nm_corretor.trim());
+
     startTransition(async () => {
       const resultado = await criarProcesso({
         cd_imobiliaria: cdImobiliaria,
         nm_comprador_convidado: nmCliente.trim(),
         ds_telefone_comprador_convidado: dsTelefone,
-        negocio,
+        negocio: {
+          ...negocio,
+          vl_honorarios_total: total.valor,
+          pc_honorarios_total: total.percentual,
+          vl_honorarios_imobiliaria: imobiliaria.valor,
+          pc_honorarios_imobiliaria: imobiliaria.percentual,
+        },
         partes,
-        corretores: corretores.filter((c) => c.nm_corretor.trim()),
+        corretores: corretoresFinal,
       });
       if (resultado?.erro) setErro(resultado.erro);
     });
@@ -375,8 +609,9 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-xs text-muted-foreground">
-            Corretor, imobiliária, administrador, cliente... Cada um recebe um link próprio pra
-            preencher os dados e anexar documentos.
+            Imobiliária, administrador, cliente... Cada um recebe um link próprio pra preencher os
+            dados e anexar documentos. Corretores não precisam ser lançados aqui — quem está nos
+            Honorários entra como parte automaticamente.
           </p>
           {outrasPartes.map((parte, idx) => (
             <OutraParteRow
@@ -391,7 +626,7 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
             variant="outline"
             size="sm"
             className="w-fit gap-1.5"
-            onClick={() => setOutrasPartes([...outrasPartes, parteVazia("corretor")])}
+            onClick={() => setOutrasPartes([...outrasPartes, parteVazia("imobiliaria")])}
           >
             <Plus className="h-4 w-4" />
             Adicionar parte
@@ -404,6 +639,25 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
           <CardTitle>Imóvel</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo label="Endereço do imóvel" className="sm:col-span-2">
+            <Input
+              placeholder="Rua, número, complemento, bairro, cidade/UF"
+              value={negocio.ds_imovel_endereco}
+              onChange={(e) => patchNegocio({ ds_imovel_endereco: e.target.value })}
+            />
+          </Campo>
+          <Campo label="Matrícula">
+            <Input
+              value={negocio.ds_imovel_matricula}
+              onChange={(e) => patchNegocio({ ds_imovel_matricula: e.target.value })}
+            />
+          </Campo>
+          <Campo label="Inscrição do IPTU">
+            <Input
+              value={negocio.ds_imovel_iptu}
+              onChange={(e) => patchNegocio({ ds_imovel_iptu: e.target.value })}
+            />
+          </Campo>
           <Campo label="Valor do imóvel">
             <CurrencyInput
               value={negocio.vl_imovel}
@@ -460,81 +714,105 @@ export function ProcessoForm({ imobiliarias }: { imobiliarias: Imobiliaria[] }) 
           <CardTitle>Honorários</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Campo label="Valor total">
+          <p className="text-xs text-muted-foreground">
+            Preencha em R$ ou em % — o outro campo é calculado. O total em % é sobre o valor do
+            imóvel; imobiliária e corretores em % são sobre o total dos honorários.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
+            <Campo label="Valor total (R$)">
               <CurrencyInput
-                value={negocio.vl_honorarios_total}
-                onChange={(v) => patchNegocio({ vl_honorarios_total: v })}
+                value={total.valor}
+                onChange={(v) => {
+                  patchNegocio({ vl_honorarios_total: v });
+                  setBaseTotal("valor");
+                }}
               />
             </Campo>
-            <Campo label="Quando">
-              <Input
-                placeholder="Ex: na quitação total"
-                value={negocio.ds_honorarios_quando}
-                onChange={(e) => patchNegocio({ ds_honorarios_quando: e.target.value })}
+            <Campo label="% do imóvel">
+              <PercentInput
+                value={total.percentual}
+                onChange={(v) => {
+                  patchNegocio({ pc_honorarios_total: v });
+                  setBaseTotal("percentual");
+                }}
               />
             </Campo>
-            <Campo label="Honorários da imobiliária">
+          </div>
+          {baseTotal === "percentual" && num(negocio.vl_imovel) === null && (
+            <p className="-mt-2 text-xs text-status-reprovado">
+              Informe o valor do imóvel pra calcular o total a partir do percentual.
+            </p>
+          )}
+
+          <Campo label="Quando">
+            <Input
+              placeholder="Ex: na assinatura do contrato de financiamento"
+              value={negocio.ds_honorarios_quando}
+              onChange={(e) => patchNegocio({ ds_honorarios_quando: e.target.value })}
+            />
+          </Campo>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
+            <Campo label="Honorários da imobiliária (R$)">
               <CurrencyInput
-                value={negocio.vl_honorarios_imobiliaria}
-                onChange={(v) => patchNegocio({ vl_honorarios_imobiliaria: v })}
+                value={imobiliaria.valor}
+                onChange={(v) => {
+                  patchNegocio({ vl_honorarios_imobiliaria: v });
+                  setBaseImobiliaria("valor");
+                }}
+              />
+            </Campo>
+            <Campo label="% dos honorários">
+              <PercentInput
+                value={imobiliaria.percentual}
+                onChange={(v) => {
+                  patchNegocio({ pc_honorarios_imobiliaria: v });
+                  setBaseImobiliaria("percentual");
+                }}
               />
             </Campo>
           </div>
 
           <div className="flex flex-col gap-3">
+            <datalist id="corretores-cadastro">
+              {corretoresCadastro.map((c) => (
+                <option key={c.cd_corretor} value={c.nm_corretor} />
+              ))}
+            </datalist>
             {corretores.map((corretor, idx) => (
-              <div key={idx} className="grid grid-cols-1 gap-3 rounded-radius border border-border p-3 sm:grid-cols-[1fr_auto_auto]">
-                <Campo label="Corretor">
-                  <Input
-                    value={corretor.nm_corretor}
-                    onChange={(e) =>
-                      setCorretores(
-                        corretores.map((c, i) =>
-                          i === idx ? { ...c, nm_corretor: e.target.value } : c
-                        )
-                      )
-                    }
-                  />
-                </Campo>
-                <Campo label="Honorário">
-                  <CurrencyInput
-                    className="sm:w-36"
-                    value={corretor.vl_honorario}
-                    onChange={(v) =>
-                      setCorretores(
-                        corretores.map((c, i) => (i === idx ? { ...c, vl_honorario: v } : c))
-                      )
-                    }
-                  />
-                </Campo>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9"
-                    aria-label="Remover corretor"
-                    onClick={() => setCorretores(corretores.filter((_, i) => i !== idx))}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              <CorretorRow
+                key={idx}
+                corretor={corretor}
+                exibido={corretoresExibidos[idx]}
+                cadastro={corretoresCadastro}
+                onChange={(patch) => patchCorretor(idx, patch)}
+                onRemove={() => setCorretores(corretores.filter((_, i) => i !== idx))}
+              />
             ))}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="w-fit gap-1.5"
-              onClick={() =>
-                setCorretores([...corretores, { nm_corretor: "", vl_honorario: "", ds_lado: "" }])
-              }
+              onClick={() => setCorretores([...corretores, corretorVazio()])}
             >
               <Plus className="h-4 w-4" />
               Adicionar corretor
             </Button>
           </div>
+
+          {temDistribuicao && totalNum !== null && (
+            <p
+              className={`text-xs ${
+                diferenca === 0 ? "text-muted-foreground" : "text-status-reprovado"
+              }`}
+            >
+              Distribuído: {formatarMoeda(distribuido)} de {formatarMoeda(totalNum)}
+              {diferenca > 0 && ` — faltam ${formatarMoeda(diferenca)}`}
+              {diferenca < 0 && ` — passou ${formatarMoeda(-diferenca)} do total`}
+            </p>
+          )}
         </CardContent>
       </Card>
 

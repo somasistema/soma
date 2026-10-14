@@ -16,10 +16,20 @@ export interface ParteInput {
   ds_documentos_obs: string;
 }
 
+// cd_corretor vazio = corretor novo, entra no cadastro ao salvar
+// (fn_salvar_dados_negocio). Os dados de CPF/CRECI/PIX/contato só são
+// usados pra cadastrar — corretor já cadastrado não é sobrescrito.
 export interface CorretorInput {
+  cd_corretor: string;
   nm_corretor: string;
   vl_honorario: string;
+  pc_honorario: string; // % do total dos honorários
   ds_lado: string;
+  ds_cpf: string;
+  ds_creci: string;
+  ds_pix: string;
+  ds_telefone: string;
+  ds_email: string;
 }
 
 export interface NegocioInput {
@@ -31,9 +41,14 @@ export interface NegocioInput {
   sn_ocupado: string;
   ds_entrega_chaves: string;
   ds_itens_imovel: string;
+  ds_imovel_endereco: string;
+  ds_imovel_matricula: string;
+  ds_imovel_iptu: string;
   vl_honorarios_total: string;
+  pc_honorarios_total: string; // % do valor do imóvel
   ds_honorarios_quando: string;
   vl_honorarios_imobiliaria: string;
+  pc_honorarios_imobiliaria: string; // % do total dos honorários
 }
 
 export interface CriarProcessoInput {

@@ -9,18 +9,21 @@ import { uploadDocumento } from "../../orcamentos/[id]/documentos-actions";
 
 // Anexa um documento já vinculado a uma parte + categoria do checklist.
 // Ao subir, o status daquele item passa a ser "OK" automaticamente.
+// Pode anexar mais de um arquivo no mesmo item (frente e verso).
 export function DocumentoAnexarButton({
   cdProcesso,
   cdParte,
   tpLado,
   tpCategoria,
   rotuloCategoria,
+  rotuloBotao = "Anexar",
 }: {
   cdProcesso: string;
   cdParte: string;
   tpLado: LadoParte;
   tpCategoria: string;
   rotuloCategoria: string;
+  rotuloBotao?: string;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +70,7 @@ export function DocumentoAnexarButton({
         onClick={escolher}
       >
         <Paperclip className="h-3 w-3" />
-        {pending ? "Anexando..." : "Anexar"}
+        {pending ? "Anexando..." : rotuloBotao}
       </Button>
       {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
     </span>

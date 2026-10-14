@@ -186,6 +186,13 @@ export default async function ProcessoDetalhePage({
         <CardContent className="flex flex-col gap-4">
           {PODE_CRIAR_PENDENCIA.has(usuario.tp_role) && <PendenciaForm cdProcesso={id} />}
 
+          {pendencias && pendencias.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Marque a caixinha quando a pendência for resolvida — ela fica riscada como
+              Concluída. Desmarcar reabre.
+            </p>
+          )}
+
           {pendencias && pendencias.length > 0 ? (
             <StaggerList className="flex flex-col gap-2">
               {pendencias.map((pendencia) => (

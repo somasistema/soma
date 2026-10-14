@@ -37,8 +37,28 @@ const CATEGORIAS_VALIDAS = [
   "estado_civil",
   "comprovante_residencia",
   "onus_escritura",
+  "iptu",
   "geral", // documento avulso (papéis sem checklist)
 ];
+
+// A parte apaga um arquivo que ela mesma mandou (errado, repetido...).
+// fn_remover_documento_parte só apaga se o documento for dessa parte.
+export async function removerMeuDocumento(
+  token: string,
+  cdDocumento: string
+): Promise<ParteActionState> {
+  const service = createServiceRoleClient();
+  const { data: caminho, error } = await service
+    .schema("soma")
+    .rpc("fn_remover_documento_parte", { p_token: token, p_cd_documento: cdDocumento });
+
+  if (error || !caminho) {
+    return { sucesso: false, erro: error?.message ?? "Não foi possível remover." };
+  }
+
+  await service.storage.from("documentos").remove([caminho as string]);
+  return { sucesso: true };
+}
 
 export async function anexarMeuDocumento(
   token: string,

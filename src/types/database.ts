@@ -250,17 +250,20 @@ export const LADOS_COM_CHECKLIST: LadoParte[] = ["vendedor", "comprador"];
 // Categorias do checklist de documentos do intake (migration 049). O
 // status é derivado: anexou (existe soma.documentos com essa categoria
 // para a parte) = OK; não anexou = Falta.
+// Cada item aceita mais de um arquivo (ex: frente e verso).
 export type CategoriaDocIntake =
   | "identidade"
   | "estado_civil"
   | "comprovante_residencia"
-  | "onus_escritura";
+  | "onus_escritura"
+  | "iptu";
 
 export const CATEGORIA_DOC_INTAKE_LABEL: Record<CategoriaDocIntake, string> = {
   identidade: "Identidade ou CNH",
   estado_civil: "Certidão de estado civil",
   comprovante_residencia: "Comprovante de residência",
   onus_escritura: "Certidão de ônus ou Escritura",
+  iptu: "IPTU do imóvel",
 };
 
 export const CATEGORIAS_DOC_VENDEDOR: CategoriaDocIntake[] = [
@@ -268,6 +271,7 @@ export const CATEGORIAS_DOC_VENDEDOR: CategoriaDocIntake[] = [
   "estado_civil",
   "comprovante_residencia",
   "onus_escritura",
+  "iptu",
 ];
 
 export const CATEGORIAS_DOC_COMPRADOR: CategoriaDocIntake[] = [
@@ -286,9 +290,16 @@ export interface ProcessoNegocio {
   sn_ocupado: boolean | null;
   ds_entrega_chaves: string | null;
   ds_itens_imovel: string | null;
+  ds_imovel_endereco: string | null;
+  ds_imovel_matricula: string | null;
+  ds_imovel_iptu: string | null;
   vl_honorarios_total: number | null;
+  // % do valor do imóvel
+  pc_honorarios_total: number | null;
   ds_honorarios_quando: string | null;
   vl_honorarios_imobiliaria: number | null;
+  // % do total dos honorários
+  pc_honorarios_imobiliaria: number | null;
   ts_atualizacao: string;
 }
 
@@ -318,15 +329,38 @@ export interface ParteAutoatendimento {
   ds_profissao: string | null;
   ds_conta_bancaria: string | null;
   ds_numero_processo: string;
-  documentos: { tp_categoria_intake: CategoriaDocIntake; nm_arquivo: string }[];
+  documentos: {
+    cd_documento: string;
+    tp_categoria_intake: CategoriaDocIntake | null;
+    nm_arquivo: string;
+  }[];
 }
 
 export interface ProcessoCorretor {
   cd_processo_corretor: string;
   cd_processo: string;
+  cd_corretor: string | null;
   nm_corretor: string;
   vl_honorario: number | null;
+  // % do total dos honorários
+  pc_honorario: number | null;
   ds_lado: string | null;
+  nr_ordem: number;
+}
+
+// Cadastro de corretores (migration 056) — corretor digitado nos
+// honorários de um processo entra aqui automaticamente.
+export interface Corretor {
+  cd_corretor: string;
+  nm_corretor: string;
+  ds_cpf: string | null;
+  ds_creci: string | null;
+  ds_telefone: string | null;
+  ds_email: string | null;
+  ds_pix: string | null;
+  ds_conta_bancaria: string | null;
+  sn_ativo: boolean;
+  ts_criacao: string;
 }
 
 // Etapa do fluxo de contrato — só existe (não-null) quando
@@ -460,16 +494,71 @@ export interface ModeloContratoVersao {
   ts_criacao: string;
 }
 
-// Campos que fn_gerar_minuta_de_modelo troca pelos dados do processo.
-// A tela de edição mostra essa lista como ajuda.
-export const CAMPOS_MODELO_CONTRATO: { token: string; descricao: string }[] = [
-  { token: "{{numero_processo}}", descricao: "Número do processo (ex: SOMA-2026-0007)" },
-  { token: "{{comprador}}", descricao: "Nome do comprador" },
-  { token: "{{vendedor}}", descricao: "Nome do vendedor" },
-  { token: "{{corretor}}", descricao: "Nome do corretor" },
-  { token: "{{imobiliaria}}", descricao: "Nome da imobiliária" },
-  { token: "{{data_hoje}}", descricao: "Data de hoje (dd/mm/aaaa)" },
-  { token: "{{data_extenso}}", descricao: "Data de hoje por extenso" },
+// Campos que fn_render_modelo_contrato (migration 056) troca pelos
+// dados do processo. A tela de edição mostra essa lista como ajuda.
+// Os campos com _1 valem pra qualquer posição: _2 é o segundo
+// vendedor/comprador/corretor, _3 o terceiro... Se não existir, vira
+// "__________" pra preencher à mão.
+export const CAMPOS_MODELO_CONTRATO: {
+  grupo: string;
+  campos: { token: string; descricao: string }[];
+}[] = [
+  {
+    grupo: "Geral",
+    campos: [
+      { token: "{{numero_processo}}", descricao: "Número do processo (ex: SOMA-2026-0007)" },
+      { token: "{{data_hoje}}", descricao: "Data de hoje (dd/mm/aaaa)" },
+      { token: "{{data_extenso}}", descricao: "Data de hoje por extenso" },
+      { token: "{{imobiliaria}}", descricao: "Nome da imobiliária" },
+      { token: "{{imobiliaria_cnpj}}", descricao: "CNPJ da imobiliária" },
+    ],
+  },
+  {
+    grupo: "Vendedores e compradores",
+    campos: [
+      { token: "{{vendedor}}", descricao: "Todos os vendedores (\"A e B\")" },
+      { token: "{{comprador}}", descricao: "Todos os compradores" },
+      { token: "{{vendedor_1}}", descricao: "Nome do 1º vendedor (troque o 1 por 2, 3...)" },
+      { token: "{{vendedor_1_cpf}}", descricao: "CPF — lido dos documentos anexados" },
+      { token: "{{vendedor_1_rg}}", descricao: "RG — lido dos documentos anexados" },
+      { token: "{{vendedor_1_nascimento}}", descricao: "Data de nascimento — lida dos documentos" },
+      { token: "{{vendedor_1_profissao}}", descricao: "Profissão" },
+      { token: "{{vendedor_1_telefone}}", descricao: "Telefone" },
+      { token: "{{vendedor_1_email}}", descricao: "E-mail" },
+      { token: "{{vendedor_1_conta}}", descricao: "Conta bancária" },
+      { token: "{{comprador_1}}", descricao: "Comprador: mesmos campos do vendedor (_cpf, _rg...)" },
+    ],
+  },
+  {
+    grupo: "Imóvel",
+    campos: [
+      { token: "{{imovel_endereco}}", descricao: "Endereço do imóvel" },
+      { token: "{{imovel_matricula}}", descricao: "Matrícula" },
+      { token: "{{imovel_iptu}}", descricao: "Inscrição do IPTU" },
+      { token: "{{imovel_valor}}", descricao: "Valor do imóvel (R$)" },
+      { token: "{{imovel_valor_extenso}}", descricao: "Valor do imóvel por extenso" },
+      { token: "{{imovel_entrada}}", descricao: "Entrada (também _extenso)" },
+      { token: "{{imovel_financiamento}}", descricao: "Financiamento (também _extenso)" },
+      { token: "{{imovel_banco}}", descricao: "Banco do financiamento" },
+      { token: "{{imovel_entrega_chaves}}", descricao: "Entrega das chaves" },
+      { token: "{{imovel_itens}}", descricao: "O que fica no imóvel" },
+    ],
+  },
+  {
+    grupo: "Honorários",
+    campos: [
+      { token: "{{honorarios_total}}", descricao: "Total (R$) — também _extenso" },
+      { token: "{{honorarios_percentual}}", descricao: "Total em % do valor do imóvel" },
+      { token: "{{honorarios_quando}}", descricao: "Quando são pagos" },
+      { token: "{{honorarios_imobiliaria}}", descricao: "Parte da imobiliária (R$) — também _extenso e _percentual" },
+      { token: "{{honorarios_distribuicao}}", descricao: "Lista pronta: a) imobiliária, b) c) corretores, com valor, extenso, CPF e PIX" },
+      { token: "{{corretor}}", descricao: "Todos os corretores" },
+      { token: "{{corretor_1}}", descricao: "Nome do 1º corretor (troque o 1 por 2, 3...)" },
+      { token: "{{corretor_1_honorario}}", descricao: "Honorário (R$) — também _honorario_extenso" },
+      { token: "{{corretor_1_percentual}}", descricao: "% dos honorários" },
+      { token: "{{corretor_1_cpf}}", descricao: "CPF (do cadastro de corretores) — também _creci, _pix, _telefone, _email, _conta" },
+    ],
+  },
 ];
 
 // Onde cada item entra no PDF/tela — Custos Iniciais x Custos Finais,

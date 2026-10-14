@@ -9,6 +9,10 @@ export function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+export function formatarPercentual(valor: number) {
+  return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+}
+
 // Fuso fixo da operação (Bahia = America/Sao_Paulo, sem horário de
 // verão hoje) — sem isso, formatação de data/hora no servidor (Vercel
 // roda em UTC) mostra hora errada e pode até virar o dia (uma

@@ -151,8 +151,8 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
 
         {podeEnviarMinuta && (
           <>
-            <MinutaUploadForm cdProcesso={processo.cd_processo} />
             <MinutaDeModeloForm cdProcesso={processo.cd_processo} modelos={modelos} />
+            <MinutaUploadForm cdProcesso={processo.cd_processo} />
           </>
         )}
 

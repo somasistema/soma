@@ -80,18 +80,29 @@ export function ModeloEditor({
           onChange={(e) => setConteudo(e.target.value)}
           placeholder="Cole aqui o texto-base do contrato, usando os campos abaixo onde os dados do processo devem entrar."
         />
-        <div className="rounded-radius border border-dashed border-border p-3">
-          <p className="mb-1.5 text-xs font-medium text-foreground">
-            Campos preenchidos ao gerar a minuta:
+        <details className="rounded-radius border border-dashed border-border p-3">
+          <summary className="cursor-pointer text-xs font-medium text-foreground">
+            Campos preenchidos automaticamente ao gerar a minuta
+          </summary>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Escreva o campo no texto onde o dado deve entrar. O que não estiver preenchido no
+            processo vira <code>__________</code> pra completar à mão.
           </p>
-          <ul className="flex flex-col gap-0.5">
-            {CAMPOS_MODELO_CONTRATO.map((campo) => (
-              <li key={campo.token} className="text-xs text-muted-foreground">
-                <code className="text-foreground">{campo.token}</code> — {campo.descricao}
-              </li>
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {CAMPOS_MODELO_CONTRATO.map((grupo) => (
+              <div key={grupo.grupo}>
+                <p className="mb-1 text-xs font-medium text-foreground">{grupo.grupo}</p>
+                <ul className="flex flex-col gap-0.5">
+                  {grupo.campos.map((campo) => (
+                    <li key={campo.token} className="text-xs text-muted-foreground">
+                      <code className="text-foreground">{campo.token}</code> — {campo.descricao}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+        </details>
       </div>
 
       {erro && <p className="text-sm text-status-reprovado">{erro}</p>}
