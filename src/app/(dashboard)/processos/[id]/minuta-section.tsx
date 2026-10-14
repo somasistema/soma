@@ -98,7 +98,6 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
 
   const podeEnviarMinuta =
     (usuario.tp_role === "master" || usuario.tp_role === "juridico") &&
-    (!minutaAtual || minutaAtual.tp_status === "reprovada") &&
     !contrato;
 
   let signatarios: ContratoSignatario[] = [];
