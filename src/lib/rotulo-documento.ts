@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CATEGORIA_DOC_INTAKE_LABEL,
   LADO_PARTE_LABEL,
@@ -29,7 +30,7 @@ export function rotuloDocumento(
 }
 
 export async function carregarPartesResumo(
-  supabase: { schema: (s: string) => any },
+  supabase: SupabaseClient,
   cdProcesso: string
 ): Promise<Map<string, ParteResumo>> {
   const { data } = await supabase
