@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { carregarPartesResumo, rotuloDocumento } from "@/lib/rotulo-documento";
 import { formatarData } from "@/lib/utils";
 import {
   PERFIL_DOCUMENTO_LABEL,
@@ -39,6 +40,8 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
     .eq("cd_processo", cdProcesso)
     .order("ts_criacao", { ascending: false })
     .returns<Documento[]>();
+
+  const partes = await carregarPartesResumo(supabase, cdProcesso);
 
   const documentosComUrl = await Promise.all(
     (documentos ?? []).map(async (documento) => {
@@ -89,10 +92,10 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
                         rel="noopener noreferrer"
                         className="text-brand underline"
                       >
-                        {documento.nm_tipo_documento}
+                        {rotuloDocumento(documento, partes)}
                       </a>
                     ) : (
-                      documento.nm_tipo_documento
+                      rotuloDocumento(documento, partes)
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">

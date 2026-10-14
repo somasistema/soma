@@ -4,6 +4,7 @@ import { ArrowLeft, Sparkles } from "lucide-react";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { carregarPartesResumo, rotuloDocumento } from "@/lib/rotulo-documento";
 import { cn } from "@/lib/utils";
 import {
   STATUS_OCR_LABEL,
@@ -52,6 +53,7 @@ export default async function LeituraDocumentosPage({
     .order("ts_criacao")
     .returns<Documento[]>();
 
+  const partes = await carregarPartesResumo(supabase, id);
   const ids = (documentos ?? []).map((d) => d.cd_documento);
 
   const { data: ocrs } = ids.length
@@ -135,7 +137,7 @@ export default async function LeituraDocumentosPage({
                     <tr key={doc.cd_documento} className="border-b border-border last:border-b-0">
                       <td className="px-4 py-2">
                         <a href={`#doc-${doc.cd_documento}`} className="text-foreground hover:underline">
-                          {doc.nm_tipo_documento}
+                          {rotuloDocumento(doc, partes)}
                         </a>
                         <p className="max-w-[260px] truncate text-xs text-muted-foreground">
                           {doc.nm_arquivo}
@@ -176,8 +178,7 @@ export default async function LeituraDocumentosPage({
               {linhas.map(({ doc, ocr, campos: camposDoc }) => (
                 <div key={doc.cd_documento} id={`doc-${doc.cd_documento}`} className="flex flex-col gap-1.5">
                   <p className="text-sm font-medium text-foreground">
-                    {doc.nm_tipo_documento}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">— {doc.nm_arquivo}</span>
+                    {rotuloDocumento(doc, partes)}
                   </p>
                   <DocumentoOcrPainel cdDocumento={doc.cd_documento} ocr={ocr} campos={camposDoc} />
                 </div>
