@@ -24,6 +24,7 @@ export default async function OrcamentoComplementarPage({
     { data: custas },
     { data: cidadesDb },
     { data: pacoteItens },
+    { count: qtdOrcamentos },
   ] = await Promise.all([
       supabase.schema("soma").from("processos").select("*").eq("cd_processo", id).single<Processo>(),
       supabase
@@ -49,6 +50,11 @@ export default async function OrcamentoComplementarPage({
         .order("nr_ordem")
         .returns<Cidade[]>(),
       supabase.schema("soma").from("pacote_itens").select("*").returns<PacoteItem[]>(),
+      supabase
+        .schema("soma")
+        .from("orcamentos")
+        .select("cd_orcamento", { count: "exact", head: true })
+        .eq("cd_processo", id),
     ]);
 
   if (!processo) {
@@ -61,7 +67,8 @@ export default async function OrcamentoComplementarPage({
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
-        Orçamento complementar — Processo {processo.ds_numero_processo}
+        {qtdOrcamentos ? "Orçamento complementar" : "Novo orçamento"} — Processo{" "}
+        {processo.ds_numero_processo}
       </h1>
       <OrcamentoComplementarForm
         cdProcesso={id}

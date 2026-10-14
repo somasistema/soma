@@ -213,7 +213,7 @@ export function OrcamentoComplementarForm({
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Dados do orçamento complementar</CardTitle>
+          <CardTitle>Dados do orçamento</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
