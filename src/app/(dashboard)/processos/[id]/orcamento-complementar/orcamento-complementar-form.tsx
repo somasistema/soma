@@ -27,6 +27,7 @@ export function OrcamentoComplementarForm({
   servicos,
   custas,
   cidades,
+  dadosContrato,
   pacoteItens,
 }: {
   cdProcesso: string;
@@ -34,15 +35,31 @@ export function OrcamentoComplementarForm({
   servicos: ServicoComPrecos[];
   custas: TabelaCustaItem[];
   cidades: string[];
+  // Dados do contrato do mesmo processo — pré-preenchem o orçamento.
+  dadosContrato?: {
+    valorImovel: string;
+    inscricaoMunicipal: string;
+    cidade: string;
+    resumo: {
+      vendedores: string[];
+      compradores: string[];
+      endereco: string | null;
+      matricula: string | null;
+      formaPagamento: "financiado" | "a_vista" | null;
+      banco: string | null;
+    };
+  } | null;
   pacoteItens: PacoteItem[];
 }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  const [nmCidade, setNmCidade] = useState<string>(cidades[0] ?? "");
+  const [nmCidade, setNmCidade] = useState<string>(dadosContrato?.cidade || cidades[0] || "");
   const [dtValidade, setDtValidade] = useState("");
-  const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState("");
-  const [valorTransacao, setValorTransacao] = useState("");
+  const [dsInscricaoMunicipal, setDsInscricaoMunicipal] = useState(
+    dadosContrato?.inscricaoMunicipal ? formatarInscricaoMunicipal(dadosContrato.inscricaoMunicipal) : ""
+  );
+  const [valorTransacao, setValorTransacao] = useState(dadosContrato?.valorImovel ?? "");
   const [valorVenal, setValorVenal] = useState("");
   const baseCalculo = Math.max(Number(valorTransacao) || 0, Number(valorVenal) || 0);
   const [itens, setItens] = useState<ItemLinha[]>([]);
@@ -211,6 +228,42 @@ export function OrcamentoComplementarForm({
 
   return (
     <div className="flex flex-col gap-6">
+      {dadosContrato && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados do contrato</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 text-sm">
+            <p>
+              <span className="text-muted-foreground">Vendedores: </span>
+              {dadosContrato.resumo.vendedores.join(", ") || "—"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Compradores: </span>
+              {dadosContrato.resumo.compradores.join(", ") || "—"}
+            </p>
+            {dadosContrato.resumo.endereco && (
+              <p>
+                <span className="text-muted-foreground">Imóvel: </span>
+                {dadosContrato.resumo.endereco}
+                {dadosContrato.resumo.matricula ? ` — matrícula ${dadosContrato.resumo.matricula}` : ""}
+              </p>
+            )}
+            {dadosContrato.resumo.formaPagamento && (
+              <p>
+                <span className="text-muted-foreground">Pagamento: </span>
+                {dadosContrato.resumo.formaPagamento === "financiado" ? "Financiado" : "À vista"}
+                {dadosContrato.resumo.banco ? ` — ${dadosContrato.resumo.banco}` : ""}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Valor da transação, inscrição municipal e cidade já vieram preenchidos do contrato —
+              confira e ajuste se precisar.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Dados do orçamento</CardTitle>
