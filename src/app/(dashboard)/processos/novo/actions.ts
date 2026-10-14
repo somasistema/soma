@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-import type { LadoParte } from "@/types/database";
+import type { LadoParte, VinculoParte } from "@/types/database";
 
 export interface ParteInput {
   tp_lado: LadoParte;
@@ -14,6 +14,12 @@ export interface ParteInput {
   ds_profissao: string;
   ds_conta_bancaria: string;
   ds_documentos_obs: string;
+  ds_cpf: string;
+  ds_rg: string;
+  dt_nascimento: string; // yyyy-mm-dd
+  ds_endereco: string;
+  // 2ª pessoa em diante: vínculo com a anterior do mesmo lado
+  tp_vinculo: VinculoParte | "";
 }
 
 // cd_corretor vazio = corretor novo, entra no cadastro ao salvar
@@ -30,6 +36,7 @@ export interface CorretorInput {
   ds_pix: string;
   ds_telefone: string;
   ds_email: string;
+  dt_nascimento: string; // yyyy-mm-dd
 }
 
 export interface NegocioInput {
@@ -44,6 +51,12 @@ export interface NegocioInput {
   ds_imovel_endereco: string;
   ds_imovel_matricula: string;
   ds_imovel_iptu: string;
+  ds_imovel_cartorio: string;
+  tp_pagamento: "financiado" | "a_vista" | "";
+  vl_sinal: string;
+  sn_usa_fgts: string; // "true" | "false" | ""
+  vl_fgts: string;
+  vl_saldo_quitacao: string; // calculado na tela (à vista)
   vl_honorarios_total: string;
   pc_honorarios_total: string; // % do valor do imóvel
   ds_honorarios_quando: string;
@@ -72,7 +85,8 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
   const { data: cd_processo, error } = await supabase
     .schema("soma")
     .rpc("fn_criar_processo_contrato", {
-      p_cd_imobiliaria: input.cd_imobiliaria,
+      // Imobiliária é opcional (venda sem imobiliária).
+      p_cd_imobiliaria: input.cd_imobiliaria || null,
       p_nm_comprador_convidado: input.nm_comprador_convidado,
       p_ds_telefone_comprador_convidado: input.ds_telefone_comprador_convidado,
       p_negocio: input.negocio,

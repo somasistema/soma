@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { assinaturaConfigurada } from "@/lib/assinatura";
+import { renderMarcado, semMarcacao } from "@/lib/minuta-marcacao";
 import { cn, formatarDataHora } from "@/lib/utils";
 import {
   ETAPA_CONTRATO_LABEL,
@@ -178,12 +179,16 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
             </div>
 
             {minutaAtual.ds_conteudo && (
-              <details className="rounded-radius border border-border p-3">
+              <details className="rounded-radius border border-border p-3" open>
                 <summary className="cursor-pointer text-sm text-foreground">
                   Ver texto da minuta
                 </summary>
-                <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
-                  {minutaAtual.ds_conteudo}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Em <span className="font-medium text-status-reprovado">vermelho</span>: o que veio
+                  dos dados do processo. O PDF enviado pra assinatura sai sem as cores.
+                </p>
+                <pre className="mt-2 max-h-[500px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
+                  {renderMarcado(minutaAtual.ds_conteudo)}
                 </pre>
               </details>
             )}
@@ -247,7 +252,7 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
               <details className="rounded-radius border border-border bg-card p-3">
                 <summary className="cursor-pointer text-sm text-foreground">Ver contrato</summary>
                 <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
-                  {minutaAtual.ds_conteudo}
+                  {semMarcacao(minutaAtual.ds_conteudo)}
                 </pre>
               </details>
             )}

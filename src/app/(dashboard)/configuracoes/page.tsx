@@ -1,4 +1,5 @@
 import {
+  Building2,
   History,
   MapPin,
   PackageOpen,
@@ -65,6 +66,20 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">
               Textos-base de contrato que o Jurídico monta e versiona — a minuta de cada processo
               é gerada a partir de um deles.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/imobiliarias">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <Building2 className="h-5 w-5 text-accent" />
+            <CardTitle>Imobiliárias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Cadastro das imobiliárias (CNPJ, CRECI-PJ, endereço) — entram na qualificação do
+              contrato. Desative as que não devem aparecer.
             </p>
           </CardContent>
         </Card>

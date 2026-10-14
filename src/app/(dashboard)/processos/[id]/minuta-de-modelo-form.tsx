@@ -5,28 +5,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { renderMarcado } from "@/lib/minuta-marcacao";
 import { gerarMinutaDeModelo, previsualizarMinutaDeModelo } from "./minuta-actions";
 
 type ModeloOpcao = { cd_modelo: string; nm_modelo: string };
-
-// fn_render_modelo_contrato(p_marcar => true) envolve cada valor
-// preenchido nos caracteres de controle STX / ETX. Aqui esses trechos
-// viram spans vermelhos e o resto vira texto normal.
-const STX = String.fromCharCode(2);
-const ETX = String.fromCharCode(3);
-const MARCA = new RegExp(STX + "([^" + ETX + "]*)" + ETX);
-
-function renderMarcado(texto: string) {
-  return texto.split(MARCA).map((parte, i) =>
-    i % 2 === 1 ? (
-      <span key={i} className="font-semibold text-status-reprovado">
-        {parte}
-      </span>
-    ) : (
-      <span key={i}>{parte}</span>
-    )
-  );
-}
 
 export function MinutaDeModeloForm({
   cdProcesso,

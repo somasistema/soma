@@ -12,6 +12,7 @@ export interface CorretorDados {
   ds_email: string;
   ds_pix: string;
   ds_conta_bancaria: string;
+  dt_nascimento: string; // yyyy-mm-dd
 }
 
 const vazioParaNull = (s: string) => (s.trim() === "" ? null : s.trim());
@@ -37,6 +38,7 @@ export async function salvarCorretor(dados: CorretorDados): Promise<{ erro?: str
     ds_email: vazioParaNull(dados.ds_email),
     ds_pix: vazioParaNull(dados.ds_pix),
     ds_conta_bancaria: vazioParaNull(dados.ds_conta_bancaria),
+    dt_nascimento: vazioParaNull(dados.dt_nascimento),
   };
 
   const { error } = dados.cd_corretor

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getUsuarioAtual } from "@/lib/auth";
+import { getUsuarioAtual, temPermissao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatarData, formatarMoeda } from "@/lib/utils";
 import { FadeIn } from "@/components/motion/fade-in";
@@ -19,6 +19,7 @@ import {
 } from "@/types/database";
 import { DocumentosSection } from "../../orcamentos/[id]/documentos-section";
 import { DadosNegocioSection } from "./dados-negocio-section";
+import { ExcluirProcessoButton } from "./excluir-processo-button";
 import { PendenciaForm } from "./pendencia-form";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
 import { HistoricoProcesso } from "./historico-processo";
@@ -52,6 +53,8 @@ export default async function ProcessoDetalhePage({
   if (!processo) {
     notFound();
   }
+
+  const podeExcluir = await temPermissao(usuario, "processos", "excluir");
 
   const [{ data: andamentos }, { data: pendencias }, { data: orcamentos }] = await Promise.all([
     supabase
@@ -129,14 +132,22 @@ export default async function ProcessoDetalhePage({
 
   return (
     <FadeIn className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
-          Processo {processo.ds_numero_processo}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {TIPO_PROCESSO_LABEL[processo.tp_processo]}
-          {processo.nm_comprador_convidado ? ` — ${processo.nm_comprador_convidado}` : ""}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
+            Processo {processo.ds_numero_processo}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {TIPO_PROCESSO_LABEL[processo.tp_processo]}
+            {processo.nm_comprador_convidado ? ` — ${processo.nm_comprador_convidado}` : ""}
+          </p>
+        </div>
+        {podeExcluir && (
+          <ExcluirProcessoButton
+            cdProcesso={id}
+            numeroProcesso={processo.ds_numero_processo}
+          />
+        )}
       </div>
 
       {processo.tp_processo === "contrato" && (

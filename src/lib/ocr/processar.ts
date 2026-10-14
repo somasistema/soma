@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { classificarDocumento } from "./classificar";
+import { aplicarDadosImovel, lerDadosImovelComIA } from "./dados-imovel";
 import { extrairTexto } from "./extrair";
 import { extrairCampos, type CampoLido } from "./parsers";
 import { lerDocumentoComIA, validarOcrComIA } from "./validar-ia";
@@ -15,7 +16,9 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
   const { data: documento, error: erroDoc } = await supabase
     .schema("soma")
     .from("documentos")
-    .select("cd_documento, ds_storage_url, nm_arquivo, nm_tipo_documento")
+    .select(
+      "cd_documento, cd_processo, ds_storage_url, nm_arquivo, nm_tipo_documento, tp_categoria_intake, tp_perfil_alvo"
+    )
     .eq("cd_documento", cdDocumento)
     .maybeSingle();
 
@@ -105,6 +108,26 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
           : {}),
       })
       .eq("cd_documento", cdDocumento);
+
+    // Documento do imóvel (ônus/escritura, IPTU): completa endereço,
+    // matrícula, inscrição municipal e cartório do processo que ainda
+    // estiverem vazios. Falha aqui não atrapalha o resto do OCR.
+    const ehDoImovel =
+      documento.tp_perfil_alvo === "imovel" ||
+      documento.tp_categoria_intake === "iptu" ||
+      documento.tp_categoria_intake === "onus_escritura";
+    if (ehDoImovel) {
+      const dadosImovel = (await lerDadosImovelComIA({ texto, imagem: imagemPrincipal })) ?? {
+        // Sem IA: pelo menos a matrícula que o regex achou.
+        endereco: null,
+        matricula: campos.find((c) => c.nm_campo === "matricula")?.ds_valor ?? null,
+        inscricaoMunicipal: null,
+        cartorioCodigo: null,
+      };
+      await aplicarDadosImovel(supabase, documento.cd_processo, dadosImovel).catch((e) =>
+        console.error("[ocr] falha ao preencher dados do imóvel:", e)
+      );
+    }
 
     if (cdDocumentoOcr) {
       await supabase

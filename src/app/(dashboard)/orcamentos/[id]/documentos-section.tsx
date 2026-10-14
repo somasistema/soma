@@ -64,6 +64,11 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <p className="text-xs text-muted-foreground">
+          Lista de tudo que foi anexado no processo (inclusive pelo checklist das partes e do
+          imóvel). Use o envio abaixo pra documentos que não estão no checklist. Documento ilegível:
+          rejeite-o aqui e anexe de novo no item do checklist (botão &quot;+ arquivo&quot;).
+        </p>
         <DocumentoUploadForm cdProcesso={cdProcesso} />
 
         {documentosComUrl.length === 0 ? (

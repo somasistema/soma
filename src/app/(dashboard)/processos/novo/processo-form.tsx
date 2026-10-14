@@ -11,10 +11,14 @@ import { PercentInput } from "@/components/ui/percent-input";
 import { Select } from "@/components/ui/select";
 import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
+  CARTORIOS_IMOVEIS,
   LADO_PARTE_LABEL,
+  VINCULO_PARTE_LABEL,
   type Corretor,
   type Imobiliaria,
   type LadoParte,
+  type ProcessoParte,
+  type VinculoParte,
 } from "@/types/database";
 import {
   criarProcesso,
@@ -22,6 +26,21 @@ import {
   type NegocioInput,
   type ParteInput,
 } from "./actions";
+
+// Parte de um processo anterior — sugestão pra não redigitar quem já
+// apareceu em outro negócio (ex: o mesmo vendedor com dois imóveis).
+export type ParteAnterior = Pick<
+  ProcessoParte,
+  | "nm_parte"
+  | "ds_telefone"
+  | "ds_email"
+  | "ds_profissao"
+  | "ds_conta_bancaria"
+  | "ds_cpf"
+  | "ds_rg"
+  | "dt_nascimento"
+  | "ds_endereco"
+>;
 
 // Papéis livres além de vendedor/comprador — sem checklist de documentos.
 // Corretor não entra aqui: quem está nos Honorários já vira parte sozinho.
@@ -91,7 +110,16 @@ function SimNao({
   );
 }
 
-const parteVazia = (tp_lado: LadoParte): ParteInput => ({
+// Valor calculado (só leitura), com a mesma cara de um campo.
+function Calculado({ valor }: { valor: number | null }) {
+  return (
+    <div className="flex h-9 items-center rounded-radius border border-dashed border-border bg-muted/30 px-3 text-sm text-foreground">
+      {valor === null ? <span className="text-muted-foreground">—</span> : formatarMoeda(valor)}
+    </div>
+  );
+}
+
+const parteVazia = (tp_lado: LadoParte, tp_vinculo: VinculoParte | "" = ""): ParteInput => ({
   tp_lado,
   nr_ordem: 0,
   nm_parte: "",
@@ -100,6 +128,11 @@ const parteVazia = (tp_lado: LadoParte): ParteInput => ({
   ds_profissao: "",
   ds_conta_bancaria: "",
   ds_documentos_obs: "",
+  ds_cpf: "",
+  ds_rg: "",
+  dt_nascimento: "",
+  ds_endereco: "",
+  tp_vinculo,
 });
 
 const corretorVazio = (): CorretorLinha => ({
@@ -114,14 +147,44 @@ const corretorVazio = (): CorretorLinha => ({
   ds_pix: "",
   ds_telefone: "",
   ds_email: "",
+  dt_nascimento: "",
 });
+
+// Preenche só o que ainda está vazio — nunca apaga o que já foi digitado.
+function completarComAnterior(parte: ParteInput, anterior: ParteAnterior): Partial<ParteInput> {
+  const patch: Partial<ParteInput> = {};
+  const campos = [
+    "ds_telefone",
+    "ds_email",
+    "ds_profissao",
+    "ds_conta_bancaria",
+    "ds_cpf",
+    "ds_rg",
+    "ds_endereco",
+  ] as const;
+  for (const campo of campos) {
+    if (!parte[campo] && anterior[campo]) patch[campo] = anterior[campo] as string;
+  }
+  if (!parte.dt_nascimento && anterior.dt_nascimento) {
+    patch.dt_nascimento = anterior.dt_nascimento.slice(0, 10);
+  }
+  return patch;
+}
+
+function acharAnterior(nome: string, anteriores: ParteAnterior[]) {
+  const alvo = nome.trim().toLowerCase();
+  if (!alvo) return null;
+  return anteriores.find((p) => p.nm_parte.trim().toLowerCase() === alvo) ?? null;
+}
 
 function OutraParteRow({
   parte,
+  anteriores,
   onChange,
   onRemove,
 }: {
   parte: ParteInput;
+  anteriores: ParteAnterior[];
   onChange: (patch: Partial<ParteInput>) => void;
   onRemove: () => void;
 }) {
@@ -140,7 +203,17 @@ function OutraParteRow({
         </Select>
       </Campo>
       <Campo label="Nome">
-        <Input value={parte.nm_parte} onChange={(e) => onChange({ nm_parte: e.target.value })} />
+        <Input
+          list="partes-anteriores"
+          value={parte.nm_parte}
+          onChange={(e) => {
+            const anterior = acharAnterior(e.target.value, anteriores);
+            onChange({
+              nm_parte: e.target.value,
+              ...(anterior ? completarComAnterior(parte, anterior) : {}),
+            });
+          }}
+        />
       </Campo>
       <Campo label="Telefone">
         <Input
@@ -176,16 +249,30 @@ function OutraParteRow({
 function ParteFields({
   parte,
   titulo,
+  anteriorNome,
+  anteriores,
   onChange,
   onRemove,
   podeRemover,
 }: {
   parte: ParteInput;
   titulo: string;
+  // nome da pessoa anterior do mesmo lado (pro seletor de vínculo)
+  anteriorNome: string | null;
+  anteriores: ParteAnterior[];
   onChange: (patch: Partial<ParteInput>) => void;
   onRemove: () => void;
   podeRemover: boolean;
 }) {
+  const [aproveitado, setAproveitado] = useState(false);
+
+  function trocarNome(nome: string) {
+    const anterior = acharAnterior(nome, anteriores);
+    const patch = anterior ? completarComAnterior(parte, anterior) : {};
+    setAproveitado(Object.keys(patch).length > 0);
+    onChange({ nm_parte: nome, ...patch });
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-radius border border-border p-4">
       <div className="flex items-center justify-between">
@@ -204,9 +291,60 @@ function ParteFields({
         )}
       </div>
 
+      {anteriorNome !== null && (
+        <Campo label={`Vínculo com ${anteriorNome.trim() || "a pessoa anterior"}`}>
+          <Select
+            value={parte.tp_vinculo || "conjuge"}
+            onChange={(e) => onChange({ tp_vinculo: e.target.value as VinculoParte })}
+          >
+            {(Object.keys(VINCULO_PARTE_LABEL) as VinculoParte[]).map((v) => (
+              <option key={v} value={v}>
+                {VINCULO_PARTE_LABEL[v]}
+              </option>
+            ))}
+          </Select>
+          <span className="text-xs text-muted-foreground">
+            {(parte.tp_vinculo || "conjuge") === "conjuge"
+              ? "Certidão de casamento e comprovante de endereço valem pros dois — não precisa anexar duas vezes."
+              : parte.tp_vinculo === "companheiro"
+                ? "Cada um manda a própria certidão de estado civil; comprovante de endereço e declaração de união estável valem pros dois."
+                : "Pessoa independente: manda todos os documentos dela."}
+          </span>
+        </Campo>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Campo label="Nome">
-          <Input value={parte.nm_parte} onChange={(e) => onChange({ nm_parte: e.target.value })} />
+        <Campo label="Nome" className="sm:col-span-2">
+          <Input
+            list="partes-anteriores"
+            placeholder="Digite o nome completo — se já participou de outro processo, os dados vêm sozinhos"
+            value={parte.nm_parte}
+            onChange={(e) => trocarNome(e.target.value)}
+          />
+          {aproveitado && (
+            <span className="text-xs text-status-aceito">
+              Dados preenchidos a partir de um processo anterior — confira.
+            </span>
+          )}
+        </Campo>
+        <Campo label="CPF">
+          <Input value={parte.ds_cpf} onChange={(e) => onChange({ ds_cpf: e.target.value })} />
+        </Campo>
+        <Campo label="RG">
+          <Input value={parte.ds_rg} onChange={(e) => onChange({ ds_rg: e.target.value })} />
+        </Campo>
+        <Campo label="Data de nascimento">
+          <Input
+            type="date"
+            value={parte.dt_nascimento}
+            onChange={(e) => onChange({ dt_nascimento: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Profissão">
+          <Input
+            value={parte.ds_profissao}
+            onChange={(e) => onChange({ ds_profissao: e.target.value })}
+          />
         </Campo>
         <Campo label="Telefone">
           <Input
@@ -223,10 +361,11 @@ function ParteFields({
             onChange={(e) => onChange({ ds_email: e.target.value })}
           />
         </Campo>
-        <Campo label="Profissão">
+        <Campo label="Endereço" className="sm:col-span-2">
           <Input
-            value={parte.ds_profissao}
-            onChange={(e) => onChange({ ds_profissao: e.target.value })}
+            placeholder="Rua, número, bairro, cidade/UF"
+            value={parte.ds_endereco}
+            onChange={(e) => onChange({ ds_endereco: e.target.value })}
           />
         </Campo>
         <Campo label="Conta bancária" className="sm:col-span-2">
@@ -246,8 +385,9 @@ function ParteFields({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Os documentos (identidade, certidões, comprovante...) são anexados na tela do processo
-        depois de criado — quem anexa fica como OK, quem não anexa fica como Falta.
+        CPF, RG e nascimento em branco são completados pela leitura dos documentos anexados. Os
+        documentos são anexados na tela do processo depois de criado (ou pela própria pessoa,
+        pelo link).
       </p>
     </div>
   );
@@ -282,6 +422,8 @@ function CorretorRow({
         doCadastro.ds_cpf && `CPF ${doCadastro.ds_cpf}`,
         doCadastro.ds_creci && `CRECI ${doCadastro.ds_creci}`,
         doCadastro.ds_pix && `PIX ${doCadastro.ds_pix}`,
+        doCadastro.dt_nascimento &&
+          `nascimento ${doCadastro.dt_nascimento.slice(0, 10).split("-").reverse().join("/")}`,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -326,13 +468,14 @@ function CorretorRow({
 
       {doCadastro ? (
         <p className="text-xs text-muted-foreground">
-          Do cadastro de corretores{resumoCadastro ? `: ${resumoCadastro}` : ""}.
+          Do cadastro de corretores{resumoCadastro ? `: ${resumoCadastro}` : ""}. Pra corrigir,
+          edite em Configurações → Corretores.
         </p>
       ) : (
         corretor.nm_corretor.trim() && (
-          <details className="rounded-radius border border-dashed border-border px-3 py-2">
+          <details className="rounded-radius border border-dashed border-border px-3 py-2" open>
             <summary className="cursor-pointer text-xs text-foreground">
-              Corretor novo — dados pro cadastro (opcional)
+              Corretor novo — dados pro cadastro
             </summary>
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Campo label="CPF">
@@ -341,7 +484,14 @@ function CorretorRow({
                   onChange={(e) => onChange({ ds_cpf: e.target.value })}
                 />
               </Campo>
-              <Campo label="CRECI">
+              <Campo label="Data de nascimento">
+                <Input
+                  type="date"
+                  value={corretor.dt_nascimento}
+                  onChange={(e) => onChange({ dt_nascimento: e.target.value })}
+                />
+              </Campo>
+              <Campo label="CRECI (só o número)">
                 <Input
                   value={corretor.ds_creci}
                   onChange={(e) => onChange({ ds_creci: e.target.value })}
@@ -361,7 +511,7 @@ function CorretorRow({
                   onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
                 />
               </Campo>
-              <Campo label="E-mail" className="sm:col-span-2">
+              <Campo label="E-mail">
                 <Input
                   type="email"
                   value={corretor.ds_email}
@@ -379,15 +529,18 @@ function CorretorRow({
 export function ProcessoForm({
   imobiliarias,
   corretoresCadastro,
+  partesAnteriores,
 }: {
   imobiliarias: Imobiliaria[];
   corretoresCadastro: Corretor[];
+  partesAnteriores: ParteAnterior[];
 }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
-  const [cdImobiliaria, setCdImobiliaria] = useState(imobiliarias[0]?.cd_imobiliaria ?? "");
-  const [nmCliente, setNmCliente] = useState("");
+  // Imobiliária é opcional — venda sem imobiliária (só corretores).
+  const [cdImobiliaria, setCdImobiliaria] = useState("");
+  const [nmSolicitante, setNmSolicitante] = useState("");
   const [dsTelefone, setDsTelefone] = useState("");
 
   const [vendedores, setVendedores] = useState<ParteInput[]>([parteVazia("vendedor")]);
@@ -396,6 +549,7 @@ export function ProcessoForm({
   const [corretores, setCorretores] = useState<CorretorLinha[]>([]);
   const [baseTotal, setBaseTotal] = useState<Base>("valor");
   const [baseImobiliaria, setBaseImobiliaria] = useState<Base>("valor");
+  const [imobiliariaParticipa, setImobiliariaParticipa] = useState(false);
 
   const [negocio, setNegocio] = useState<NegocioInput>({
     vl_imovel: "",
@@ -409,6 +563,12 @@ export function ProcessoForm({
     ds_imovel_endereco: "",
     ds_imovel_matricula: "",
     ds_imovel_iptu: "",
+    ds_imovel_cartorio: "",
+    tp_pagamento: "",
+    vl_sinal: "",
+    sn_usa_fgts: "",
+    vl_fgts: "",
+    vl_saldo_quitacao: "",
     vl_honorarios_total: "",
     pc_honorarios_total: "",
     ds_honorarios_quando: "",
@@ -433,22 +593,31 @@ export function ProcessoForm({
     setCorretores((lista) => lista.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   }
 
+  // Pagamento: saldo = valor − sinal − entrada. Financiado: é o saldo
+  // financiado (inclui o FGTS, se usar). À vista: saldo pra quitação.
+  const vlImovel = num(negocio.vl_imovel);
+  const saldo =
+    vlImovel === null
+      ? null
+      : Math.max(0, Math.round((vlImovel - (num(negocio.vl_sinal) ?? 0) - (num(negocio.vl_entrada) ?? 0)) * 100) / 100);
+
   // Honorários: total em R$ ou % do imóvel; imobiliária e corretores em
-  // R$ ou % do total. O campo digitado por último manda, o outro é
-  // calculado — mudar o total recalcula quem foi lançado em %.
+  // R$ ou % do total. O campo digitado por último manda.
   const total = derivar(
     baseTotal,
     negocio.vl_honorarios_total,
     negocio.pc_honorarios_total,
-    num(negocio.vl_imovel)
+    vlImovel
   );
   const totalNum = num(total.valor);
-  const imobiliaria = derivar(
-    baseImobiliaria,
-    negocio.vl_honorarios_imobiliaria,
-    negocio.pc_honorarios_imobiliaria,
-    totalNum
-  );
+  const imobiliaria = imobiliariaParticipa
+    ? derivar(
+        baseImobiliaria,
+        negocio.vl_honorarios_imobiliaria,
+        negocio.pc_honorarios_imobiliaria,
+        totalNum
+      )
+    : { valor: "", percentual: "" };
   const corretoresExibidos = corretores.map((c) =>
     derivar(c.base, c.vl_honorario, c.pc_honorario, totalNum)
   );
@@ -463,15 +632,25 @@ export function ProcessoForm({
 
   function salvar() {
     setErro(null);
-    if (!cdImobiliaria || !nmCliente.trim()) {
-      setErro("Preencha a imobiliária e o nome do cliente.");
+    if (!nmSolicitante.trim()) {
+      setErro("Informe quem solicitou o contrato.");
       return;
     }
 
     const partes: ParteInput[] = [
-      ...vendedores.map((p, i) => ({ ...p, tp_lado: "vendedor" as const, nr_ordem: i })),
-      ...compradores.map((p, i) => ({ ...p, tp_lado: "comprador" as const, nr_ordem: i })),
-      ...outrasPartes.map((p, i) => ({ ...p, nr_ordem: i })),
+      ...vendedores.map((p, i) => ({
+        ...p,
+        tp_lado: "vendedor" as const,
+        nr_ordem: i,
+        tp_vinculo: i === 0 ? ("" as const) : p.tp_vinculo || ("conjuge" as const),
+      })),
+      ...compradores.map((p, i) => ({
+        ...p,
+        tp_lado: "comprador" as const,
+        nr_ordem: i,
+        tp_vinculo: i === 0 ? ("" as const) : p.tp_vinculo || ("conjuge" as const),
+      })),
+      ...outrasPartes.map((p, i) => ({ ...p, nr_ordem: i, tp_vinculo: "" as const })),
     ].filter((p) => p.nm_parte.trim());
 
     const corretoresFinal: CorretorInput[] = corretores
@@ -486,16 +665,25 @@ export function ProcessoForm({
         ds_pix: c.ds_pix,
         ds_telefone: c.ds_telefone,
         ds_email: c.ds_email,
+        dt_nascimento: c.dt_nascimento,
       }))
       .filter((c) => c.nm_corretor.trim());
+
+    const financiado = negocio.tp_pagamento === "financiado";
+    const aVista = negocio.tp_pagamento === "a_vista";
 
     startTransition(async () => {
       const resultado = await criarProcesso({
         cd_imobiliaria: cdImobiliaria,
-        nm_comprador_convidado: nmCliente.trim(),
+        nm_comprador_convidado: nmSolicitante.trim(),
         ds_telefone_comprador_convidado: dsTelefone,
         negocio: {
           ...negocio,
+          vl_financiamento: financiado && saldo !== null ? String(saldo) : "",
+          vl_saldo_quitacao: aVista && saldo !== null ? String(saldo) : "",
+          sn_usa_fgts: financiado ? negocio.sn_usa_fgts : "",
+          vl_fgts: financiado && negocio.sn_usa_fgts === "true" ? negocio.vl_fgts : "",
+          ds_banco: financiado ? negocio.ds_banco : "",
           vl_honorarios_total: total.valor,
           pc_honorarios_total: total.percentual,
           vl_honorarios_imobiliaria: imobiliaria.valor,
@@ -508,19 +696,70 @@ export function ProcessoForm({
     });
   }
 
+  function cardPartes(
+    titulo: string,
+    lado: "vendedor" | "comprador",
+    lista: ParteInput[],
+    setLista: (v: ParteInput[]) => void
+  ) {
+    const rotulo = lado === "vendedor" ? "Vendedor" : "Comprador";
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{titulo}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {lista.map((parte, idx) => (
+            <ParteFields
+              key={idx}
+              parte={parte}
+              titulo={idx === 0 ? rotulo : `${rotulo} ${idx + 1}`}
+              anteriorNome={idx === 0 ? null : lista[idx - 1].nm_parte}
+              anteriores={partesAnteriores}
+              podeRemover={lista.length > 1}
+              onChange={(patch) => patchParte(lista, setLista, idx, patch)}
+              onRemove={() => setLista(lista.filter((_, i) => i !== idx))}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit gap-1.5"
+            onClick={() => setLista([...lista, parteVazia(lado, "conjuge")])}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar {lado === "vendedor" ? "vendedor" : "comprador"} (cônjuge, companheiro ou outra
+            pessoa)
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      <datalist id="partes-anteriores">
+        {partesAnteriores.map((p) => (
+          <option key={p.nm_parte} value={p.nm_parte} />
+        ))}
+      </datalist>
+
       <Card>
         <CardHeader>
           <CardTitle>Dados do processo</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Campo label="Imobiliária" htmlFor="cd_imobiliaria">
+          <Campo label="Imobiliária (se houver)" htmlFor="cd_imobiliaria">
             <Select
               id="cd_imobiliaria"
               value={cdImobiliaria}
-              onChange={(e) => setCdImobiliaria(e.target.value)}
+              onChange={(e) => {
+                setCdImobiliaria(e.target.value);
+                if (!e.target.value) setImobiliariaParticipa(false);
+              }}
             >
+              <option value="">— Sem imobiliária —</option>
               {imobiliarias.map((imob) => (
                 <option key={imob.cd_imobiliaria} value={imob.cd_imobiliaria}>
                   {imob.nm_imobiliaria}
@@ -528,14 +767,16 @@ export function ProcessoForm({
               ))}
             </Select>
           </Campo>
-          <Campo label="Nome do cliente" htmlFor="nm_cliente">
+          <div className="hidden sm:block" />
+          <Campo label="Quem solicitou o contrato" htmlFor="nm_solicitante">
             <Input
-              id="nm_cliente"
-              value={nmCliente}
-              onChange={(e) => setNmCliente(e.target.value)}
+              id="nm_solicitante"
+              placeholder="Corretor, imobiliária ou cliente que pediu"
+              value={nmSolicitante}
+              onChange={(e) => setNmSolicitante(e.target.value)}
             />
           </Campo>
-          <Campo label="Telefone do cliente" htmlFor="ds_telefone">
+          <Campo label="Telefone de quem solicitou" htmlFor="ds_telefone">
             <Input
               id="ds_telefone"
               type="tel"
@@ -544,64 +785,15 @@ export function ProcessoForm({
               onChange={(e) => setDsTelefone(formatarTelefone(e.target.value))}
             />
           </Campo>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            O solicitante só identifica o processo na lista — não entra no contrato. Vendedores e
+            compradores são cadastrados abaixo.
+          </p>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vendedores</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {vendedores.map((parte, idx) => (
-            <ParteFields
-              key={idx}
-              parte={parte}
-              titulo={idx === 0 ? "Vendedor" : `Vendedor / cônjuge ${idx + 1}`}
-              podeRemover={vendedores.length > 1}
-              onChange={(patch) => patchParte(vendedores, setVendedores, idx, patch)}
-              onRemove={() => setVendedores(vendedores.filter((_, i) => i !== idx))}
-            />
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit gap-1.5"
-            onClick={() => setVendedores([...vendedores, parteVazia("vendedor")])}
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar vendedor
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Compradores</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {compradores.map((parte, idx) => (
-            <ParteFields
-              key={idx}
-              parte={parte}
-              titulo={idx === 0 ? "Comprador" : `Comprador / cônjuge ${idx + 1}`}
-              podeRemover={compradores.length > 1}
-              onChange={(patch) => patchParte(compradores, setCompradores, idx, patch)}
-              onRemove={() => setCompradores(compradores.filter((_, i) => i !== idx))}
-            />
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit gap-1.5"
-            onClick={() => setCompradores([...compradores, parteVazia("comprador")])}
-          >
-            <Plus className="h-4 w-4" />
-            Adicionar comprador
-          </Button>
-        </CardContent>
-      </Card>
+      {cardPartes("Vendedores", "vendedor", vendedores, setVendedores)}
+      {cardPartes("Compradores", "comprador", compradores, setCompradores)}
 
       <Card>
         <CardHeader>
@@ -617,6 +809,7 @@ export function ProcessoForm({
             <OutraParteRow
               key={idx}
               parte={parte}
+              anteriores={partesAnteriores}
               onChange={(patch) => patchParte(outrasPartes, setOutrasPartes, idx, patch)}
               onRemove={() => setOutrasPartes(outrasPartes.filter((_, i) => i !== idx))}
             />
@@ -639,6 +832,11 @@ export function ProcessoForm({
           <CardTitle>Imóvel</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Endereço, matrícula, inscrição municipal e cartório podem ficar em branco: quando a
+            certidão de ônus ou o IPTU forem anexados, a leitura automática preenche o que estiver
+            vazio.
+          </p>
           <Campo label="Endereço do imóvel" className="sm:col-span-2">
             <Input
               placeholder="Rua, número, complemento, bairro, cidade/UF"
@@ -652,35 +850,24 @@ export function ProcessoForm({
               onChange={(e) => patchNegocio({ ds_imovel_matricula: e.target.value })}
             />
           </Campo>
-          <Campo label="Inscrição do IPTU">
+          <Campo label="Inscrição municipal (IPTU)">
             <Input
               value={negocio.ds_imovel_iptu}
               onChange={(e) => patchNegocio({ ds_imovel_iptu: e.target.value })}
             />
           </Campo>
-          <Campo label="Valor do imóvel">
-            <CurrencyInput
-              value={negocio.vl_imovel}
-              onChange={(v) => patchNegocio({ vl_imovel: v })}
-            />
-          </Campo>
-          <Campo label="Valor de entrada (se houver)">
-            <CurrencyInput
-              value={negocio.vl_entrada}
-              onChange={(v) => patchNegocio({ vl_entrada: v })}
-            />
-          </Campo>
-          <Campo label="Valor do financiamento">
-            <CurrencyInput
-              value={negocio.vl_financiamento}
-              onChange={(v) => patchNegocio({ vl_financiamento: v })}
-            />
-          </Campo>
-          <Campo label="Qual banco">
-            <Input
-              value={negocio.ds_banco}
-              onChange={(e) => patchNegocio({ ds_banco: e.target.value })}
-            />
+          <Campo label="Cartório de registro de imóveis" className="sm:col-span-2">
+            <Select
+              value={negocio.ds_imovel_cartorio}
+              onChange={(e) => patchNegocio({ ds_imovel_cartorio: e.target.value })}
+            >
+              <option value="">—</option>
+              {CARTORIOS_IMOVEIS.map((c) => (
+                <option key={c.codigo} value={c.codigo}>
+                  {c.rotulo}
+                </option>
+              ))}
+            </Select>
           </Campo>
           <Campo label="Possui inquilino?">
             <SimNao
@@ -701,11 +888,89 @@ export function ProcessoForm({
           <Campo label="O que fica no imóvel (por cômodo)" className="sm:col-span-2">
             <textarea
               className={TEXTAREA_CLASS}
-              placeholder="Ex: armários embutidos nos 2 quartos"
+              placeholder="Ex: armários embutidos nos 2 quartos. Em branco = entregue vazio."
               value={negocio.ds_itens_imovel}
               onChange={(e) => patchNegocio({ ds_itens_imovel: e.target.value })}
             />
           </Campo>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Valores e pagamento</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo label="Valor do imóvel">
+            <CurrencyInput
+              value={negocio.vl_imovel}
+              onChange={(v) => patchNegocio({ vl_imovel: v })}
+            />
+          </Campo>
+          <Campo label="Forma de pagamento">
+            <Select
+              value={negocio.tp_pagamento}
+              onChange={(e) =>
+                patchNegocio({ tp_pagamento: e.target.value as NegocioInput["tp_pagamento"] })
+              }
+            >
+              <option value="">—</option>
+              <option value="financiado">Financiado</option>
+              <option value="a_vista">À vista</option>
+            </Select>
+          </Campo>
+          <Campo label="Sinal">
+            <CurrencyInput value={negocio.vl_sinal} onChange={(v) => patchNegocio({ vl_sinal: v })} />
+          </Campo>
+          <Campo label="Entrada">
+            <CurrencyInput
+              value={negocio.vl_entrada}
+              onChange={(v) => patchNegocio({ vl_entrada: v })}
+            />
+          </Campo>
+
+          {negocio.tp_pagamento === "financiado" && (
+            <>
+              <Campo label="Saldo financiado (calculado)">
+                <Calculado valor={saldo} />
+              </Campo>
+              <Campo label="Qual banco">
+                <Input
+                  value={negocio.ds_banco}
+                  onChange={(e) => patchNegocio({ ds_banco: e.target.value })}
+                />
+              </Campo>
+              <Campo label="O comprador vai usar FGTS?">
+                <SimNao
+                  value={negocio.sn_usa_fgts}
+                  onChange={(v) => patchNegocio({ sn_usa_fgts: v })}
+                />
+              </Campo>
+              {negocio.sn_usa_fgts === "true" && (
+                <Campo label="Valor do FGTS (se souber)">
+                  <CurrencyInput
+                    value={negocio.vl_fgts}
+                    onChange={(v) => patchNegocio({ vl_fgts: v })}
+                  />
+                </Campo>
+              )}
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Saldo financiado = valor do imóvel − sinal − entrada (o FGTS, se usado, entra junto
+                com o financiamento).
+              </p>
+            </>
+          )}
+
+          {negocio.tp_pagamento === "a_vista" && (
+            <>
+              <Campo label="Saldo para quitação (calculado)">
+                <Calculado valor={saldo} />
+              </Campo>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Saldo para quitação = valor do imóvel − sinal − entrada, pago na escritura.
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -739,7 +1004,7 @@ export function ProcessoForm({
               />
             </Campo>
           </div>
-          {baseTotal === "percentual" && num(negocio.vl_imovel) === null && (
+          {baseTotal === "percentual" && vlImovel === null && (
             <p className="-mt-2 text-xs text-status-reprovado">
               Informe o valor do imóvel pra calcular o total a partir do percentual.
             </p>
@@ -747,32 +1012,48 @@ export function ProcessoForm({
 
           <Campo label="Quando">
             <Input
-              placeholder="Ex: na assinatura do contrato de financiamento"
+              placeholder="Ex: no ato da assinatura do contrato de financiamento"
               value={negocio.ds_honorarios_quando}
               onChange={(e) => patchNegocio({ ds_honorarios_quando: e.target.value })}
             />
           </Campo>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
-            <Campo label="Honorários da imobiliária (R$)">
-              <CurrencyInput
-                value={imobiliaria.valor}
-                onChange={(v) => {
-                  patchNegocio({ vl_honorarios_imobiliaria: v });
-                  setBaseImobiliaria("valor");
-                }}
-              />
-            </Campo>
-            <Campo label="% dos honorários">
-              <PercentInput
-                value={imobiliaria.percentual}
-                onChange={(v) => {
-                  patchNegocio({ pc_honorarios_imobiliaria: v });
-                  setBaseImobiliaria("percentual");
-                }}
-              />
-            </Campo>
-          </div>
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={imobiliariaParticipa}
+              disabled={!cdImobiliaria}
+              onChange={(e) => setImobiliariaParticipa(e.target.checked)}
+            />
+            A imobiliária participa dos honorários
+            {!cdImobiliaria && (
+              <span className="text-xs text-muted-foreground">(escolha a imobiliária acima)</span>
+            )}
+          </label>
+
+          {imobiliariaParticipa && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_8rem]">
+              <Campo label="Honorários da imobiliária (R$)">
+                <CurrencyInput
+                  value={imobiliaria.valor}
+                  onChange={(v) => {
+                    patchNegocio({ vl_honorarios_imobiliaria: v });
+                    setBaseImobiliaria("valor");
+                  }}
+                />
+              </Campo>
+              <Campo label="% dos honorários">
+                <PercentInput
+                  value={imobiliaria.percentual}
+                  onChange={(v) => {
+                    patchNegocio({ pc_honorarios_imobiliaria: v });
+                    setBaseImobiliaria("percentual");
+                  }}
+                />
+              </Campo>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             <datalist id="corretores-cadastro">

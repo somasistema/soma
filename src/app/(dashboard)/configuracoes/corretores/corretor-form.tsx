@@ -18,6 +18,7 @@ function dadosIniciais(corretor?: Corretor): CorretorDados {
     ds_email: corretor?.ds_email ?? "",
     ds_pix: corretor?.ds_pix ?? "",
     ds_conta_bancaria: corretor?.ds_conta_bancaria ?? "",
+    dt_nascimento: corretor?.dt_nascimento?.slice(0, 10) ?? "",
   };
 }
 
@@ -74,7 +75,8 @@ export function CorretorForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {campo("nm_corretor", "Nome", { className: "sm:col-span-2" })}
         {campo("ds_cpf", "CPF")}
-        {campo("ds_creci", "CRECI", { placeholder: "Ex: CRECI-PF/BA 12345" })}
+        {campo("dt_nascimento", "Data de nascimento", { tipo: "date" })}
+        {campo("ds_creci", "CRECI (só o número)", { placeholder: "Ex: 12345" })}
         {campo("ds_telefone", "Telefone", { tipo: "tel", placeholder: "(71) 99999-9999", telefone: true })}
         {campo("ds_email", "E-mail", { tipo: "email" })}
         {campo("ds_pix", "Chave PIX")}

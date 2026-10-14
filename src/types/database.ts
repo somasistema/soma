@@ -116,6 +116,9 @@ export interface Imobiliaria {
   ds_cnpj: string | null;
   ds_telefone: string | null;
   ds_email: string | null;
+  // Qualificação no contrato (migration 057).
+  ds_creci: string | null;
+  ds_endereco: string | null;
   sn_ativo: boolean;
   ts_criacao: string;
 }
@@ -255,6 +258,7 @@ export type CategoriaDocIntake =
   | "identidade"
   | "estado_civil"
   | "comprovante_residencia"
+  | "uniao_estavel"
   | "onus_escritura"
   | "iptu";
 
@@ -262,23 +266,41 @@ export const CATEGORIA_DOC_INTAKE_LABEL: Record<CategoriaDocIntake, string> = {
   identidade: "Identidade ou CNH",
   estado_civil: "Certidão de estado civil",
   comprovante_residencia: "Comprovante de residência",
+  uniao_estavel: "Declaração de união estável",
   onus_escritura: "Certidão de ônus ou Escritura",
   iptu: "IPTU do imóvel",
 };
 
-export const CATEGORIAS_DOC_VENDEDOR: CategoriaDocIntake[] = [
+// Documentos pessoais de vendedor e comprador. O checklist exato de
+// cada pessoa depende do vínculo com o par (ver lib/checklist-partes).
+export const CATEGORIAS_DOC_PESSOAIS: CategoriaDocIntake[] = [
   "identidade",
   "estado_civil",
   "comprovante_residencia",
-  "onus_escritura",
-  "iptu",
 ];
 
-export const CATEGORIAS_DOC_COMPRADOR: CategoriaDocIntake[] = [
-  "identidade",
-  "estado_civil",
-  "comprovante_residencia",
+// Documentos do imóvel — um conjunto por processo (migration 057),
+// não um por vendedor.
+export const CATEGORIAS_DOC_IMOVEL: CategoriaDocIntake[] = ["onus_escritura", "iptu"];
+
+// Vínculo da 2ª pessoa em diante com a pessoa anterior do mesmo lado.
+export type VinculoParte = "conjuge" | "companheiro" | "outro";
+
+export const VINCULO_PARTE_LABEL: Record<VinculoParte, string> = {
+  conjuge: "Cônjuge (casados)",
+  companheiro: "Companheiro(a) — união estável",
+  outro: "Outra pessoa",
+};
+
+// Cartórios de registro de imóveis atendidos (código salvo no banco).
+export const CARTORIOS_IMOVEIS: { codigo: string; rotulo: string }[] = [
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ codigo: `salvador-${n}`, rotulo: `Salvador — ${n}º Ofício` })),
+  { codigo: "lauro-de-freitas-1", rotulo: "Lauro de Freitas — 1º Ofício" },
+  { codigo: "camacari-1", rotulo: "Camaçari — 1º Ofício" },
+  { codigo: "camacari-2", rotulo: "Camaçari — 2º Ofício" },
 ];
+
+export type FormaPagamento = "financiado" | "a_vista";
 
 export interface ProcessoNegocio {
   cd_processo: string;
@@ -293,6 +315,12 @@ export interface ProcessoNegocio {
   ds_imovel_endereco: string | null;
   ds_imovel_matricula: string | null;
   ds_imovel_iptu: string | null;
+  ds_imovel_cartorio: string | null;
+  tp_pagamento: FormaPagamento | null;
+  vl_sinal: number | null;
+  sn_usa_fgts: boolean | null;
+  vl_fgts: number | null;
+  vl_saldo_quitacao: number | null;
   vl_honorarios_total: number | null;
   // % do valor do imóvel
   pc_honorarios_total: number | null;
@@ -314,6 +342,11 @@ export interface ProcessoParte {
   ds_profissao: string | null;
   ds_conta_bancaria: string | null;
   ds_documentos_obs: string | null;
+  ds_cpf: string | null;
+  ds_rg: string | null;
+  dt_nascimento: string | null;
+  ds_endereco: string | null;
+  tp_vinculo: VinculoParte | null;
   // Link público de autoatendimento da parte (migration 050).
   cd_token_parte: string | null;
 }
@@ -328,12 +361,31 @@ export interface ParteAutoatendimento {
   ds_email: string | null;
   ds_profissao: string | null;
   ds_conta_bancaria: string | null;
+  ds_cpf: string | null;
+  ds_rg: string | null;
+  dt_nascimento: string | null;
+  ds_endereco: string | null;
   ds_numero_processo: string;
   documentos: {
     cd_documento: string;
     tp_categoria_intake: CategoriaDocIntake | null;
     nm_arquivo: string;
   }[];
+  // Cônjuge/companheiro(a) — documentos compartilhados do casal.
+  parceiro: {
+    nm_parte: string;
+    tp_vinculo: "conjuge" | "companheiro";
+    documentos: { tp_categoria_intake: CategoriaDocIntake; nm_arquivo: string }[];
+  } | null;
+  // Só pro vendedor: documentos do imóvel (um conjunto por processo).
+  documentos_imovel:
+    | {
+        cd_documento: string;
+        tp_categoria_intake: CategoriaDocIntake;
+        nm_arquivo: string;
+        sn_meu: boolean;
+      }[]
+    | null;
 }
 
 export interface ProcessoCorretor {
@@ -359,6 +411,7 @@ export interface Corretor {
   ds_email: string | null;
   ds_pix: string | null;
   ds_conta_bancaria: string | null;
+  dt_nascimento: string | null;
   sn_ativo: boolean;
   ts_criacao: string;
 }
@@ -510,7 +563,18 @@ export const CAMPOS_MODELO_CONTRATO: {
       { token: "{{data_hoje}}", descricao: "Data de hoje (dd/mm/aaaa)" },
       { token: "{{data_extenso}}", descricao: "Data de hoje por extenso" },
       { token: "{{imobiliaria}}", descricao: "Nome da imobiliária" },
-      { token: "{{imobiliaria_cnpj}}", descricao: "CNPJ da imobiliária" },
+      { token: "{{imobiliaria_cnpj}}", descricao: "CNPJ — também _creci e _endereco" },
+    ],
+  },
+  {
+    grupo: "Blocos condicionais",
+    campos: [
+      { token: "{{#campo}}...{{/campo}}", descricao: "O trecho só entra se o campo tiver valor (ex: {{#vendedor_2}}...{{/vendedor_2}})" },
+      { token: "{{^campo}}...{{/campo}}", descricao: "O trecho só entra se o campo estiver vazio" },
+      { token: "{{#honorarios_imobiliaria}}", descricao: "Imobiliária participa dos honorários" },
+      { token: "{{#vendedor_2_conjuge}}", descricao: "2ª pessoa é cônjuge — também _companheiro e _outro" },
+      { token: "{{#pagamento_financiado}}", descricao: "Venda financiada — também {{#pagamento_a_vista}}" },
+      { token: "{{#imovel_usa_fgts}}", descricao: "Comprador usa FGTS" },
     ],
   },
   {
@@ -519,9 +583,11 @@ export const CAMPOS_MODELO_CONTRATO: {
       { token: "{{vendedor}}", descricao: "Todos os vendedores (\"A e B\")" },
       { token: "{{comprador}}", descricao: "Todos os compradores" },
       { token: "{{vendedor_1}}", descricao: "Nome do 1º vendedor (troque o 1 por 2, 3...)" },
-      { token: "{{vendedor_1_cpf}}", descricao: "CPF — lido dos documentos anexados" },
-      { token: "{{vendedor_1_rg}}", descricao: "RG — lido dos documentos anexados" },
-      { token: "{{vendedor_1_nascimento}}", descricao: "Data de nascimento — lida dos documentos" },
+      { token: "{{vendedor_1_cpf}}", descricao: "CPF — o digitado, senão o lido dos documentos" },
+      { token: "{{vendedor_1_rg}}", descricao: "RG — o digitado, senão o lido dos documentos" },
+      { token: "{{vendedor_1_nascimento}}", descricao: "Data de nascimento" },
+      { token: "{{vendedor_1_endereco}}", descricao: "Endereço" },
+      { token: "{{vendedor_2_vinculo}}", descricao: "Vínculo com a pessoa anterior (cônjuge, companheiro(a)...)" },
       { token: "{{vendedor_1_profissao}}", descricao: "Profissão" },
       { token: "{{vendedor_1_telefone}}", descricao: "Telefone" },
       { token: "{{vendedor_1_email}}", descricao: "E-mail" },
@@ -534,11 +600,16 @@ export const CAMPOS_MODELO_CONTRATO: {
     campos: [
       { token: "{{imovel_endereco}}", descricao: "Endereço do imóvel" },
       { token: "{{imovel_matricula}}", descricao: "Matrícula" },
-      { token: "{{imovel_iptu}}", descricao: "Inscrição do IPTU" },
+      { token: "{{imovel_iptu}}", descricao: "Inscrição municipal (IPTU)" },
+      { token: "{{imovel_cartorio}}", descricao: "Ex: 3º Ofício de Registro de Imóveis de Salvador/BA — também _numero e _cidade" },
       { token: "{{imovel_valor}}", descricao: "Valor do imóvel (R$)" },
       { token: "{{imovel_valor_extenso}}", descricao: "Valor do imóvel por extenso" },
+      { token: "{{imovel_forma_pagamento}}", descricao: "financiamento bancário / à vista" },
+      { token: "{{imovel_sinal}}", descricao: "Sinal (também _extenso)" },
       { token: "{{imovel_entrada}}", descricao: "Entrada (também _extenso)" },
-      { token: "{{imovel_financiamento}}", descricao: "Financiamento (também _extenso)" },
+      { token: "{{imovel_financiamento}}", descricao: "Saldo financiado (também _extenso)" },
+      { token: "{{imovel_saldo_quitacao}}", descricao: "Saldo pra quitação na venda à vista (também _extenso)" },
+      { token: "{{imovel_fgts}}", descricao: "Valor do FGTS, se informado (também _extenso)" },
       { token: "{{imovel_banco}}", descricao: "Banco do financiamento" },
       { token: "{{imovel_entrega_chaves}}", descricao: "Entrega das chaves" },
       { token: "{{imovel_itens}}", descricao: "O que fica no imóvel" },
@@ -556,7 +627,7 @@ export const CAMPOS_MODELO_CONTRATO: {
       { token: "{{corretor_1}}", descricao: "Nome do 1º corretor (troque o 1 por 2, 3...)" },
       { token: "{{corretor_1_honorario}}", descricao: "Honorário (R$) — também _honorario_extenso" },
       { token: "{{corretor_1_percentual}}", descricao: "% dos honorários" },
-      { token: "{{corretor_1_cpf}}", descricao: "CPF (do cadastro de corretores) — também _creci, _pix, _telefone, _email, _conta" },
+      { token: "{{corretor_1_cpf}}", descricao: "CPF (do cadastro de corretores) — também _creci, _pix, _nascimento, _telefone, _email, _conta" },
     ],
   },
 ];

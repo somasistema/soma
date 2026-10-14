@@ -19,6 +19,10 @@ export async function salvarMeusDados(
     ds_email: string;
     ds_profissao: string;
     ds_conta_bancaria: string;
+    ds_cpf: string;
+    ds_rg: string;
+    dt_nascimento: string;
+    ds_endereco: string;
   }
 ): Promise<ParteActionState> {
   const supabase = createPublicClient();
@@ -38,6 +42,7 @@ const CATEGORIAS_VALIDAS = [
   "comprovante_residencia",
   "onus_escritura",
   "iptu",
+  "uniao_estavel",
   "geral", // documento avulso (papéis sem checklist)
 ];
 

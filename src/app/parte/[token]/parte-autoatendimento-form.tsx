@@ -8,17 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatarTelefone } from "@/lib/utils";
+import { checklistDaPessoa } from "@/lib/checklist-partes";
 import {
   CATEGORIA_DOC_INTAKE_LABEL,
-  CATEGORIAS_DOC_COMPRADOR,
-  CATEGORIAS_DOC_VENDEDOR,
+  CATEGORIAS_DOC_IMOVEL,
   LADOS_COM_CHECKLIST,
   type CategoriaDocIntake,
   type ParteAutoatendimento,
 } from "@/types/database";
 import { anexarMeuDocumento, removerMeuDocumento, salvarMeusDados } from "./actions";
 
-type ArquivoEnviado = ParteAutoatendimento["documentos"][number];
+// Arquivo listado na tela. sn_meu = false: mandado por outra pessoa
+// (ex: o outro vendedor), só aparece — não dá pra remover daqui.
+type ArquivoEnviado = { cd_documento: string; nm_arquivo: string; sn_meu?: boolean };
 
 function ListaArquivos({ token, arquivos }: { token: string; arquivos: ArquivoEnviado[] }) {
   const router = useRouter();
@@ -49,15 +51,17 @@ function ListaArquivos({ token, arquivos }: { token: string; arquivos: ArquivoEn
         >
           <Check className="h-3 w-3 shrink-0 text-status-aceito" />
           <span className="min-w-0 truncate">{arquivo.nm_arquivo}</span>
-          <button
-            type="button"
-            disabled={removendo}
-            onClick={() => remover(arquivo)}
-            aria-label={`Remover ${arquivo.nm_arquivo}`}
-            className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-status-reprovado disabled:opacity-50"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          {arquivo.sn_meu !== false && (
+            <button
+              type="button"
+              disabled={removendo}
+              onClick={() => remover(arquivo)}
+              aria-label={`Remover ${arquivo.nm_arquivo}`}
+              className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-status-reprovado disabled:opacity-50"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </li>
       ))}
       {erro && <li className="text-xs text-status-reprovado">{erro}</li>}
@@ -134,17 +138,27 @@ function LinhaDocumento({
   token,
   categoria,
   arquivos,
+  parceiro,
 }: {
   token: string;
   categoria: CategoriaDocIntake;
   arquivos: ArquivoEnviado[];
+  // item que vale pro casal: o que o cônjuge/companheiro(a) já mandou
+  parceiro?: { nome: string; arquivos: string[] } | null;
 }) {
-  const anexado = arquivos.length > 0;
+  const anexado = arquivos.length > 0 || (parceiro?.arquivos.length ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-border py-2.5 first:border-t-0">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-foreground">{CATEGORIA_DOC_INTAKE_LABEL[categoria]}</span>
+        <span className="text-sm text-foreground">
+          {CATEGORIA_DOC_INTAKE_LABEL[categoria]}
+          {parceiro && (
+            <span className="block text-xs text-muted-foreground">
+              Vale pro casal — basta um de vocês mandar.
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-2">
           <BotaoAnexar
             token={token}
@@ -163,6 +177,42 @@ function LinhaDocumento({
         </div>
       </div>
       <ListaArquivos token={token} arquivos={arquivos} />
+      {parceiro && parceiro.arquivos.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Já enviado por {parceiro.nome}: {parceiro.arquivos.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CampoTexto({
+  id,
+  label,
+  value,
+  onChange,
+  tipo,
+  placeholder,
+  className,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  tipo?: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type={tipo}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
@@ -183,10 +233,14 @@ export function ParteAutoatendimentoForm({
   const [email, setEmail] = useState(parte.ds_email ?? "");
   const [profissao, setProfissao] = useState(parte.ds_profissao ?? "");
   const [conta, setConta] = useState(parte.ds_conta_bancaria ?? "");
+  const [cpf, setCpf] = useState(parte.ds_cpf ?? "");
+  const [rg, setRg] = useState(parte.ds_rg ?? "");
+  const [nascimento, setNascimento] = useState((parte.dt_nascimento ?? "").slice(0, 10));
+  const [endereco, setEndereco] = useState(parte.ds_endereco ?? "");
 
   const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
-  const categorias =
-    parte.tp_lado === "vendedor" ? CATEGORIAS_DOC_VENDEDOR : CATEGORIAS_DOC_COMPRADOR;
+  const parceiro = parte.parceiro ?? null;
+  const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null);
   const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake);
 
   function salvar() {
@@ -202,6 +256,10 @@ export function ParteAutoatendimentoForm({
         ds_email: email,
         ds_profissao: profissao,
         ds_conta_bancaria: conta,
+        ds_cpf: cpf,
+        ds_rg: rg,
+        dt_nascimento: nascimento,
+        ds_endereco: endereco,
       });
       if (!r.sucesso) {
         setMsg({ ok: false, texto: r.erro });
@@ -219,46 +277,36 @@ export function ParteAutoatendimentoForm({
           <CardTitle>Meus dados</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="nm">Nome completo</Label>
-            <Input id="nm" value={nm} onChange={(e) => setNm(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tel">Telefone</Label>
-            <Input
-              id="tel"
-              type="tel"
-              placeholder="(71) 99999-9999"
-              value={tel}
-              onChange={(e) => setTel(formatarTelefone(e.target.value))}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">E-mail</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="profissao">Profissão</Label>
-            <Input
-              id="profissao"
-              value={profissao}
-              onChange={(e) => setProfissao(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="conta">Conta bancária</Label>
-            <Input
-              id="conta"
-              placeholder="Banco, agência e conta"
-              value={conta}
-              onChange={(e) => setConta(e.target.value)}
-            />
-          </div>
+          <CampoTexto id="nm" label="Nome completo" value={nm} onChange={setNm} className="sm:col-span-2" />
+          <CampoTexto id="cpf" label="CPF" value={cpf} onChange={setCpf} />
+          <CampoTexto id="rg" label="RG" value={rg} onChange={setRg} />
+          <CampoTexto id="nasc" label="Data de nascimento" tipo="date" value={nascimento} onChange={setNascimento} />
+          <CampoTexto id="profissao" label="Profissão" value={profissao} onChange={setProfissao} />
+          <CampoTexto
+            id="tel"
+            label="Telefone"
+            tipo="tel"
+            placeholder="(71) 99999-9999"
+            value={tel}
+            onChange={(v) => setTel(formatarTelefone(v))}
+          />
+          <CampoTexto id="email" label="E-mail" tipo="email" value={email} onChange={setEmail} />
+          <CampoTexto
+            id="endereco"
+            label="Endereço"
+            placeholder="Rua, número, bairro, cidade/UF"
+            value={endereco}
+            onChange={setEndereco}
+            className="sm:col-span-2"
+          />
+          <CampoTexto
+            id="conta"
+            label="Conta bancária"
+            placeholder="Banco, agência e conta"
+            value={conta}
+            onChange={setConta}
+            className="sm:col-span-2"
+          />
           <div className="sm:col-span-2">
             <Button type="button" onClick={salvar} disabled={pending}>
               {pending ? "Salvando..." : "Salvar meus dados"}
@@ -284,12 +332,22 @@ export function ParteAutoatendimentoForm({
             Remova no X e anexe de novo.
           </p>
           {temChecklist ? (
-            categorias.map((categoria) => (
+            itens.map((item) => (
               <LinhaDocumento
-                key={categoria}
+                key={item.categoria}
                 token={token}
-                categoria={categoria}
-                arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === categoria)}
+                categoria={item.categoria}
+                arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === item.categoria)}
+                parceiro={
+                  item.compartilhado && parceiro
+                    ? {
+                        nome: parceiro.nm_parte,
+                        arquivos: parceiro.documentos
+                          .filter((d) => d.tp_categoria_intake === item.categoria)
+                          .map((d) => d.nm_arquivo),
+                      }
+                    : null
+                }
               />
             ))
           ) : (
@@ -297,6 +355,29 @@ export function ParteAutoatendimentoForm({
           )}
         </CardContent>
       </Card>
+
+      {parte.documentos_imovel && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Documentos do imóvel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Um conjunto só pro imóvel — se outro vendedor já mandou, não precisa repetir.
+            </p>
+            {CATEGORIAS_DOC_IMOVEL.map((categoria) => (
+              <LinhaDocumento
+                key={categoria}
+                token={token}
+                categoria={categoria}
+                arquivos={(parte.documentos_imovel ?? []).filter(
+                  (d) => d.tp_categoria_intake === categoria
+                )}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

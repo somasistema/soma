@@ -34,7 +34,9 @@ function CorretorRow({ corretor, editavel }: { corretor: Corretor; editavel: boo
 
   const detalhes = [
     corretor.ds_cpf && `CPF ${corretor.ds_cpf}`,
-    corretor.ds_creci,
+    corretor.dt_nascimento &&
+      `nasc. ${corretor.dt_nascimento.slice(0, 10).split("-").reverse().join("/")}`,
+    corretor.ds_creci && `CRECI ${corretor.ds_creci}`,
     corretor.ds_telefone,
     corretor.ds_email,
     corretor.ds_pix && `PIX ${corretor.ds_pix}`,
