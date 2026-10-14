@@ -133,7 +133,9 @@ function ParteCard({
         ? `cônjuge de ${ladoDaParte[posicao - 1].nm_parte}`
         : parte.tp_vinculo === "companheiro"
           ? `companheiro(a) de ${ladoDaParte[posicao - 1].nm_parte}`
-          : "outra pessoa"
+          : parte.tp_vinculo === "anuente"
+            ? `anuente em ${ladoDaParte[posicao - 1].nm_parte}`
+            : "outra pessoa"
       : null;
 
   return (

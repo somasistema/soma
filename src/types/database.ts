@@ -284,11 +284,12 @@ export const CATEGORIAS_DOC_PESSOAIS: CategoriaDocIntake[] = [
 export const CATEGORIAS_DOC_IMOVEL: CategoriaDocIntake[] = ["onus_escritura", "iptu"];
 
 // Vínculo da 2ª pessoa em diante com a pessoa anterior do mesmo lado.
-export type VinculoParte = "conjuge" | "companheiro" | "outro";
+export type VinculoParte = "conjuge" | "companheiro" | "anuente" | "outro";
 
 export const VINCULO_PARTE_LABEL: Record<VinculoParte, string> = {
   conjuge: "Cônjuge (casados)",
   companheiro: "Companheiro(a) — união estável",
+  anuente: "Anuente (consente no negócio)",
   outro: "Outra pessoa",
 };
 
@@ -572,7 +573,7 @@ export const CAMPOS_MODELO_CONTRATO: {
       { token: "{{#campo}}...{{/campo}}", descricao: "O trecho só entra se o campo tiver valor (ex: {{#vendedor_2}}...{{/vendedor_2}})" },
       { token: "{{^campo}}...{{/campo}}", descricao: "O trecho só entra se o campo estiver vazio" },
       { token: "{{#honorarios_imobiliaria}}", descricao: "Imobiliária participa dos honorários" },
-      { token: "{{#vendedor_2_conjuge}}", descricao: "2ª pessoa é cônjuge — também _companheiro e _outro" },
+      { token: "{{#vendedor_2_conjuge}}", descricao: "2ª pessoa é cônjuge — também _companheiro, _anuente e _outro" },
       { token: "{{#pagamento_financiado}}", descricao: "Venda financiada — também {{#pagamento_a_vista}}" },
       { token: "{{#imovel_usa_fgts}}", descricao: "Comprador usa FGTS" },
     ],

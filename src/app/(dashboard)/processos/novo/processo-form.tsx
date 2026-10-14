@@ -308,7 +308,9 @@ function ParteFields({
               ? "Certidão de casamento e comprovante de endereço valem pros dois — não precisa anexar duas vezes."
               : parte.tp_vinculo === "companheiro"
                 ? "Cada um manda a própria certidão de estado civil; comprovante de endereço e declaração de união estável valem pros dois."
-                : "Pessoa independente: manda todos os documentos dela."}
+                : parte.tp_vinculo === "anuente"
+                  ? "Anuente: consente no negócio (ex: cônjuge que não é parte, herdeiro). Entra no contrato como anuente e manda os próprios documentos."
+                  : "Pessoa independente: manda todos os documentos dela."}
           </span>
         </Campo>
       )}

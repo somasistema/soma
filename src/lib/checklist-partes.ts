@@ -8,6 +8,10 @@ type ParteBase = {
   tp_vinculo: VinculoParte | null;
 };
 
+// Só cônjuge e companheiro(a) formam par (documentos compartilhados);
+// anuente e "outra pessoa" mandam os próprios documentos.
+const FORMA_PAR: string[] = ["conjuge", "companheiro"];
+
 export type ParDaParte<P extends ParteBase> = {
   parceiro: P;
   vinculo: "conjuge" | "companheiro";
@@ -26,11 +30,11 @@ export function parDaParte<P extends ParteBase>(parte: P, todas: P[]): ParDaPart
   const i = lado.findIndex((p) => p.cd_parte === parte.cd_parte);
   const vinculo = (p: P) => p.tp_vinculo ?? "conjuge";
 
-  if (i > 0 && vinculo(lado[i]) !== "outro") {
+  if (i > 0 && FORMA_PAR.includes(vinculo(lado[i]))) {
     return { parceiro: lado[i - 1], vinculo: vinculo(lado[i]) as "conjuge" | "companheiro" };
   }
   const proxima = lado[i + 1];
-  if (proxima && vinculo(proxima) !== "outro") {
+  if (proxima && FORMA_PAR.includes(vinculo(proxima))) {
     return { parceiro: proxima, vinculo: vinculo(proxima) as "conjuge" | "companheiro" };
   }
   return null;
