@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { Corretor, Imobiliaria } from "@/types/database";
 import { ProcessoForm, type ParteAnterior } from "./processo-form";
 
+// A leitura dos documentos anexados (OCR + IA) roda em server action.
+export const maxDuration = 60;
+
 const PODE_CRIAR_PROCESSO = new Set(["master", "juridico"]);
 
 const CAMPOS_PARTE_ANTERIOR =

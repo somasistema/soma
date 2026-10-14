@@ -1,7 +1,7 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { Paperclip, Plus, Trash2, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -12,9 +12,13 @@ import { Select } from "@/components/ui/select";
 import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
   CARTORIOS_IMOVEIS,
+  CATEGORIA_DOC_INTAKE_LABEL,
+  CATEGORIAS_DOC_IMOVEL,
+  CATEGORIAS_DOC_PESSOAIS,
   LADO_PARTE_LABEL,
   VINCULO_PARTE_LABEL,
   type Corretor,
+  type CategoriaDocIntake,
   type Imobiliaria,
   type LadoParte,
   type ProcessoParte,
@@ -23,9 +27,11 @@ import {
 import {
   criarProcesso,
   type CorretorInput,
+  type DocumentoDaParte,
   type NegocioInput,
   type ParteInput,
 } from "./actions";
+import { lerDocumentoRascunho } from "./documentos-rascunho";
 
 // Parte de um processo anterior — sugestão pra não redigitar quem já
 // apareceu em outro negócio (ex: o mesmo vendedor com dois imóveis).
@@ -133,6 +139,7 @@ const parteVazia = (tp_lado: LadoParte, tp_vinculo: VinculoParte | "" = ""): Par
   dt_nascimento: "",
   ds_endereco: "",
   tp_vinculo,
+  docs: [],
 });
 
 const corretorVazio = (): CorretorLinha => ({
@@ -175,6 +182,162 @@ function acharAnterior(nome: string, anteriores: ParteAnterior[]) {
   const alvo = nome.trim().toLowerCase();
   if (!alvo) return null;
   return anteriores.find((p) => p.nm_parte.trim().toLowerCase() === alvo) ?? null;
+}
+
+// dd/mm/aaaa -> aaaa-mm-dd (campo date)
+function dataParaInput(valor: string | undefined) {
+  const m = valor?.match(/(\d{2})[/.-](\d{2})[/.-](\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+
+// O que a leitura do documento preenche na pessoa — só campo vazio.
+function aplicarLeituraNaParte(
+  parte: ParteInput,
+  categoria: CategoriaDocIntake,
+  campos: DocumentoDaParte["campos"]
+): { patch: Partial<ParteInput>; preenchidos: string[] } {
+  const get = (nome: string) => campos.find((c) => c.nm_campo === nome)?.ds_valor?.trim();
+  const patch: Partial<ParteInput> = {};
+  const preenchidos: string[] = [];
+  const usar = (campo: keyof ParteInput, valor: string | undefined, rotulo: string) => {
+    if (valor && !parte[campo]) {
+      (patch as Record<string, unknown>)[campo] = valor;
+      preenchidos.push(rotulo);
+    }
+  };
+
+  if (categoria === "identidade") {
+    usar("nm_parte", get("nome"), "nome");
+    usar("ds_cpf", get("cpf"), "CPF");
+    usar("ds_rg", get("rg"), "RG");
+    usar("dt_nascimento", dataParaInput(get("data_nascimento")), "nascimento");
+  }
+  if (categoria === "comprovante_residencia") {
+    usar("ds_endereco", get("endereco"), "endereço");
+  }
+  return { patch, preenchidos };
+}
+
+type DadosImovelLido = {
+  endereco: string | null;
+  matricula: string | null;
+  inscricaoMunicipal: string | null;
+  cartorioCodigo: string | null;
+} | null;
+
+// Botões de anexo: cada arquivo é lido na hora (OCR + IA) e o resultado
+// volta pra tela preencher os campos vazios.
+function AnexarDocumentos({
+  categorias,
+  docs,
+  onLido,
+  onRemover,
+}: {
+  categorias: CategoriaDocIntake[];
+  docs: DocumentoDaParte[];
+  // devolve os nomes dos campos que foram preenchidos
+  onLido: (doc: DocumentoDaParte, dadosImovel: DadosImovelLido) => string[];
+  onRemover: (caminho: string) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [lendo, setLendo] = useState<CategoriaDocIntake | null>(null);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const refs = useRef<Partial<Record<CategoriaDocIntake, HTMLInputElement | null>>>({});
+
+  function aoSelecionar(categoria: CategoriaDocIntake, e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!arquivo) return;
+    setAviso(null);
+    setLendo(categoria);
+    const fd = new FormData();
+    fd.set("arquivo", arquivo);
+    fd.set("categoria", categoria);
+
+    startTransition(async () => {
+      const r = await lerDocumentoRascunho(fd);
+      setLendo(null);
+      if (!r.sucesso) {
+        setAviso({ ok: false, texto: r.erro });
+        return;
+      }
+      const preenchidos = onLido(
+        {
+          categoria,
+          caminho: r.caminho,
+          nome: r.nome,
+          tipo: r.tipo,
+          confianca: r.confianca,
+          campos: r.campos,
+        },
+        r.dadosImovel
+      );
+      setAviso({
+        ok: true,
+        texto:
+          preenchidos.length > 0
+            ? `Lido — preencheu: ${preenchidos.join(", ")}.`
+            : r.campos.length > 0 || r.dadosImovel
+              ? "Lido — nenhum campo vazio pra preencher (o que já estava digitado foi mantido)."
+              : "Anexado, mas a leitura não achou dados — preencha à mão.",
+      });
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        {categorias.map((categoria) => (
+          <span key={categoria}>
+            <input
+              ref={(el) => {
+                refs.current[categoria] = el;
+              }}
+              type="file"
+              className="hidden"
+              onChange={(e) => aoSelecionar(categoria, e)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              disabled={pending}
+              onClick={() => refs.current[categoria]?.click()}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              {lendo === categoria ? "Lendo o documento..." : CATEGORIA_DOC_INTAKE_LABEL[categoria]}
+            </Button>
+          </span>
+        ))}
+      </div>
+      {docs.length > 0 && (
+        <ul className="flex flex-col gap-0.5">
+          {docs.map((d) => (
+            <li key={d.caminho} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {CATEGORIA_DOC_INTAKE_LABEL[d.categoria]}
+              </span>
+              <span className="min-w-0 truncate">{d.nome}</span>
+              <button
+                type="button"
+                onClick={() => onRemover(d.caminho)}
+                aria-label={`Remover ${d.nome}`}
+                className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-status-reprovado"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {aviso && (
+        <p className={`text-xs ${aviso.ok ? "text-status-aceito" : "text-status-reprovado"}`}>
+          {aviso.texto}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function OutraParteRow({
@@ -315,6 +478,25 @@ function ParteFields({
         </Campo>
       )}
 
+      <div className="rounded-radius border border-dashed border-border p-3">
+        <p className="mb-2 text-xs text-muted-foreground">
+          Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e
+          endereço que estiverem em branco. Os arquivos já ficam no processo.
+        </p>
+        <AnexarDocumentos
+          categorias={CATEGORIAS_DOC_PESSOAIS}
+          docs={parte.docs ?? []}
+          onLido={(doc) => {
+            const { patch, preenchidos } = aplicarLeituraNaParte(parte, doc.categoria, doc.campos);
+            onChange({ ...patch, docs: [...(parte.docs ?? []), doc] });
+            return preenchidos;
+          }}
+          onRemover={(caminho) =>
+            onChange({ docs: (parte.docs ?? []).filter((d) => d.caminho !== caminho) })
+          }
+        />
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo label="Nome" className="sm:col-span-2">
           <Input
@@ -387,9 +569,9 @@ function ParteFields({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        CPF, RG e nascimento em branco são completados pela leitura dos documentos anexados. Os
-        documentos são anexados na tela do processo depois de criado (ou pela própria pessoa,
-        pelo link).
+        Os documentos anexados acima já vão pro processo, no item certo do checklist. Em casal,
+        anexe a certidão de casamento e o comprovante de endereço só uma vez (na primeira pessoa).
+        Também dá pra anexar depois, na tela do processo, ou a própria pessoa pelo link.
       </p>
     </div>
   );
@@ -549,6 +731,7 @@ export function ProcessoForm({
   const [compradores, setCompradores] = useState<ParteInput[]>([parteVazia("comprador")]);
   const [outrasPartes, setOutrasPartes] = useState<ParteInput[]>([]);
   const [corretores, setCorretores] = useState<CorretorLinha[]>([]);
+  const [docsImovel, setDocsImovel] = useState<DocumentoDaParte[]>([]);
   const [baseTotal, setBaseTotal] = useState<Base>("valor");
   const [baseImobiliaria, setBaseImobiliaria] = useState<Base>("valor");
   const [imobiliariaParticipa, setImobiliariaParticipa] = useState(false);
@@ -693,6 +876,7 @@ export function ProcessoForm({
         },
         partes,
         corretores: corretoresFinal,
+        documentos_imovel: docsImovel,
       });
       if (resultado?.erro) setErro(resultado.erro);
     });
@@ -834,11 +1018,43 @@ export function ProcessoForm({
           <CardTitle>Imóvel</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <p className="text-xs text-muted-foreground sm:col-span-2">
-            Endereço, matrícula, inscrição municipal e cartório podem ficar em branco: quando a
-            certidão de ônus ou o IPTU forem anexados, a leitura automática preenche o que estiver
-            vazio.
-          </p>
+          <div className="rounded-radius border border-dashed border-border p-3 sm:col-span-2">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Anexe a certidão de ônus/escritura e o IPTU — o sistema lê e preenche endereço,
+              matrícula, inscrição municipal e cartório que estiverem em branco. Um conjunto só pro
+              imóvel, não um por vendedor.
+            </p>
+            <AnexarDocumentos
+              categorias={CATEGORIAS_DOC_IMOVEL}
+              docs={docsImovel}
+              onLido={(doc, dados) => {
+                setDocsImovel((lista) => [...lista, doc]);
+                const preenchidos: string[] = [];
+                const patch: Partial<NegocioInput> = {};
+                if (dados?.endereco && !negocio.ds_imovel_endereco) {
+                  patch.ds_imovel_endereco = dados.endereco;
+                  preenchidos.push("endereço");
+                }
+                if (dados?.matricula && !negocio.ds_imovel_matricula) {
+                  patch.ds_imovel_matricula = dados.matricula;
+                  preenchidos.push("matrícula");
+                }
+                if (dados?.inscricaoMunicipal && !negocio.ds_imovel_iptu) {
+                  patch.ds_imovel_iptu = dados.inscricaoMunicipal;
+                  preenchidos.push("inscrição municipal");
+                }
+                if (dados?.cartorioCodigo && !negocio.ds_imovel_cartorio) {
+                  patch.ds_imovel_cartorio = dados.cartorioCodigo;
+                  preenchidos.push("cartório");
+                }
+                if (preenchidos.length > 0) patchNegocio(patch);
+                return preenchidos;
+              }}
+              onRemover={(caminho) =>
+                setDocsImovel((lista) => lista.filter((d) => d.caminho !== caminho))
+              }
+            />
+          </div>
           <Campo label="Endereço do imóvel" className="sm:col-span-2">
             <Input
               placeholder="Rua, número, complemento, bairro, cidade/UF"

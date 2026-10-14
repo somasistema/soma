@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+import { anexarDocumentosRascunho, type DocumentoRascunho } from "@/lib/documentos-rascunho";
 import type { LadoParte, VinculoParte } from "@/types/database";
+
+// Documento já lido no cadastro; lado e posição vêm da parte que o carrega.
+export type DocumentoDaParte = Omit<DocumentoRascunho, "lado" | "nr_ordem">;
 
 export interface ParteInput {
   tp_lado: LadoParte;
@@ -20,6 +24,7 @@ export interface ParteInput {
   ds_endereco: string;
   // 2ª pessoa em diante: vínculo com a anterior do mesmo lado
   tp_vinculo: VinculoParte | "";
+  docs?: DocumentoDaParte[];
 }
 
 // cd_corretor vazio = corretor novo, entra no cadastro ao salvar
@@ -71,6 +76,8 @@ export interface CriarProcessoInput {
   negocio: NegocioInput;
   partes: ParteInput[];
   corretores: CorretorInput[];
+  // Documentos do imóvel anexados no cadastro (os das pessoas vão em partes[].docs)
+  documentos_imovel?: DocumentoDaParte[];
 }
 
 export type CriarProcessoState = { erro: string } | undefined;
@@ -90,13 +97,46 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
       p_nm_comprador_convidado: input.nm_comprador_convidado,
       p_ds_telefone_comprador_convidado: input.ds_telefone_comprador_convidado,
       p_negocio: input.negocio,
-      p_partes: input.partes,
+      p_partes: input.partes.map((p) => {
+        const resto = { ...p };
+        delete resto.docs;
+        return resto;
+      }),
       p_corretores: input.corretores,
     });
 
   if (error || !cd_processo) {
     console.error("Erro ao criar processo:", error);
     return { erro: error?.message ?? "Não foi possível criar o processo." };
+  }
+
+  const documentos: DocumentoRascunho[] = [
+    ...input.partes.flatMap((p) =>
+      p.tp_lado === "vendedor" || p.tp_lado === "comprador"
+        ? (p.docs ?? []).map((d) => ({
+            ...d,
+            lado: p.tp_lado as "vendedor" | "comprador",
+            nr_ordem: p.nr_ordem,
+          }))
+        : []
+    ),
+    ...(input.documentos_imovel ?? []).map((d) => ({ ...d, lado: "imovel" as const, nr_ordem: 0 })),
+  ];
+
+  if (documentos.length > 0) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { falhas } = await anexarDocumentosRascunho(
+        cd_processo as string,
+        user.id,
+        documentos
+      );
+      // O processo já existe; falha em anexar não desfaz — fica no log
+      // e a pessoa anexa de novo pela tela do processo.
+      if (falhas.length > 0) console.error("[processo] anexos com falha:", falhas);
+    }
   }
 
   redirect(`/processos/${cd_processo}`);

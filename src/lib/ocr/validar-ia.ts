@@ -163,7 +163,7 @@ const FERRAMENTA_LEITURA = {
             nm_campo: {
               type: "string",
               description:
-                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
+                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
             },
             ds_valor: { type: "string" },
             confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
