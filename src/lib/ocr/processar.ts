@@ -77,18 +77,37 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
     // IA lê a imagem do zero. Só roda quando o regex falhou de vez —
     // se achou algo, segue pra conferência normal (mais abaixo).
     let tipoSugeridoIA: string | null = null;
-    if (campos.length === 0 && imagemPrincipal) {
+    let leituraCompletaPorIA = false;
+
+    // Identidade e certidão alimentam a minuta (CPF, RG, naturalidade,
+    // filiação, regime de bens) — o regex do Tesseract não extrai tudo
+    // isso, então a IA lê a imagem inteira e os dados dela têm
+    // preferência; o que só o regex achou é mantido.
+    const alimentaMinuta =
+      documento.tp_categoria_intake === "identidade" ||
+      documento.tp_categoria_intake === "estado_civil" ||
+      documento.tp_categoria_intake === "uniao_estavel";
+
+    if ((campos.length === 0 || alimentaMinuta) && imagemPrincipal) {
       const leitura = await lerDocumentoComIA({
         imagem: imagemPrincipal.dados,
         mimeType: imagemPrincipal.mimeType,
+        complemento: campos.length > 0,
       });
       if (leitura && leitura.campos.length > 0) {
-        campos = leitura.campos.map((c) => ({
-          nm_campo: c.nm_campo,
-          ds_valor: c.ds_valor,
-          nr_confianca: c.confianca,
-        }));
-        tipoSugeridoIA = leitura.tipoDetectado;
+        const daIA: CampoLido[] = leitura.campos
+          .filter((c) => c.nm_campo && c.ds_valor?.trim())
+          .map((c) => ({
+            nm_campo: c.nm_campo,
+            ds_valor: c.ds_valor.trim(),
+            nr_confianca: c.confianca,
+          }));
+        const nomesIA = new Set(daIA.map((c) => c.nm_campo));
+        const doRegex = campos.filter((c) => !nomesIA.has(c.nm_campo));
+        const eraRescue = campos.length === 0;
+        campos = [...daIA, ...doRegex];
+        leituraCompletaPorIA = true;
+        if (eraRescue) tipoSugeridoIA = leitura.tipoDetectado;
       }
     }
 
@@ -105,7 +124,9 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
         ts_processamento: new Date().toISOString(),
         ...(tipoSugeridoIA
           ? { sn_tipo_confere_ia: false, tp_documento_sugerido_ia: tipoSugeridoIA, ts_validacao_ia: new Date().toISOString() }
-          : {}),
+          : leituraCompletaPorIA
+            ? { ts_validacao_ia: new Date().toISOString() }
+            : {}),
       })
       .eq("cd_documento", cdDocumento);
 
@@ -155,7 +176,7 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
         // quando temos uma imagem da página, não em PDF de texto puro).
         // Pula quando os campos já vieram da leitura de resgate da IA —
         // conferir a própria resposta não agrega nada.
-        if (imagemPrincipal && !tipoSugeridoIA) {
+        if (imagemPrincipal && !leituraCompletaPorIA) {
           const validacao = await validarOcrComIA({
             imagem: imagemPrincipal.dados,
             mimeType: imagemPrincipal.mimeType,

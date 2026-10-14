@@ -162,7 +162,8 @@ const FERRAMENTA_LEITURA = {
           properties: {
             nm_campo: {
               type: "string",
-              description: "Nome curto em snake_case e português (ex: 'nome_conjuge_1', 'data_casamento').",
+              description:
+                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
             },
             ds_valor: { type: "string" },
             confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
@@ -178,6 +179,8 @@ const FERRAMENTA_LEITURA = {
 export async function lerDocumentoComIA(params: {
   imagem: Buffer;
   mimeType: string;
+  // Leitura completa quando o OCR já achou campos (identidade/certidão).
+  complemento?: boolean;
 }): Promise<ResultadoLeituraIA | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
@@ -206,9 +209,11 @@ export async function lerDocumentoComIA(params: {
             {
               type: "text",
               text:
-                "Este é um documento brasileiro. A leitura automática (OCR) não conseguiu extrair nenhum " +
-                "campo dele (provavelmente por causa do fundo com padrão de segurança/textura). Leia a " +
-                "imagem e extraia o tipo do documento e os dados relevantes.",
+                params.complemento
+                  ? "Este é um documento brasileiro de identificação ou de estado civil. Leia a imagem e extraia o tipo do documento e todos os dados relevantes, com os nomes de campo pedidos."
+                  : "Este é um documento brasileiro. A leitura automática (OCR) não conseguiu extrair nenhum " +
+                    "campo dele (provavelmente por causa do fundo com padrão de segurança/textura). Leia a " +
+                    "imagem e extraia o tipo do documento e os dados relevantes.",
             },
           ],
         },
