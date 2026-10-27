@@ -3,12 +3,27 @@
 import { randomUUID } from "node:crypto";
 import { enviarContratoParaAssinatura } from "@/lib/assinatura/enviar";
 import { getUsuarioAtual } from "@/lib/auth";
+import { enviarConvitesMinuta } from "@/lib/minuta-convites";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizarNomeArquivo } from "@/lib/utils";
 import { docParaTexto, docValido, type DocMinuta } from "@/lib/minuta-doc";
 import type { TipoPapelAprovacao } from "@/types/database";
 
 export type MinutaActionState = { sucesso: true } | { sucesso: false; erro: string };
+
+// "TypeError: fetch failed" sozinho não diz nada; a causa de verdade (conexão
+// recusada/derrubada, certificado, DNS...) vem em error.details.
+function mensagemDoErro(error: { message: string; details?: string | null }): string {
+  if (!/fetch failed/i.test(error.message)) return error.message;
+  console.error("[minuta] falha de rede ao falar com o banco:", error);
+  const causa = (error.details ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => /ECONN|ETIMEDOUT|ENOTFOUND|UND_ERR|certificate|socket|closed/i.test(l));
+  return causa
+    ? `${error.message} — ${causa}`
+    : `${error.message} (não foi possível falar com o banco; veja o terminal do servidor)`;
+}
 
 export async function enviarMinuta(formData: FormData): Promise<MinutaActionState> {
   const supabase = await createClient();
@@ -36,7 +51,7 @@ export async function enviarMinuta(formData: FormData): Promise<MinutaActionStat
   });
 
   if (error) {
-    return { sucesso: false, erro: error.message };
+    return { sucesso: false, erro: mensagemDoErro(error) };
   }
 
   return { sucesso: true };
@@ -58,7 +73,7 @@ export async function gerarMinutaDeModelo(
   });
 
   if (error) {
-    return { sucesso: false, erro: error.message };
+    return { sucesso: false, erro: mensagemDoErro(error) };
   }
 
   return { sucesso: true };
@@ -85,7 +100,7 @@ export async function editarMinuta(
   });
 
   if (error) {
-    return { sucesso: false, erro: error.message };
+    return { sucesso: false, erro: mensagemDoErro(error) };
   }
 
   return { sucesso: true };
@@ -110,10 +125,31 @@ export async function previsualizarMinutaDeModelo(
   });
 
   if (error) {
-    return { sucesso: false, erro: error.message };
+    return { sucesso: false, erro: mensagemDoErro(error) };
   }
 
   return { sucesso: true, texto: (data as string | null) ?? "" };
+}
+
+export type ConvitesActionState =
+  | { sucesso: true; enviados: number; jaResponderam: number; jaRecebiam: number; falhas: string[] }
+  | { sucesso: false; erro: string };
+
+// Manda por e-mail o link pra cada pessoa das frentes (corretor, comprador,
+// vendedor, imobiliária) ler o PDF da minuta e aceitar/recusar. Só Master ou
+// Jurídico. Também serve pra reenviar a quem ainda não respondeu.
+export async function enviarMinutaPorEmail(cdMinuta: string): Promise<ConvitesActionState> {
+  const usuario = await getUsuarioAtual();
+  if (usuario.tp_role !== "master" && usuario.tp_role !== "juridico") {
+    return { sucesso: false, erro: "Só Master ou Jurídico pode enviar a minuta para aprovação." };
+  }
+
+  const resultado = await enviarConvitesMinuta(cdMinuta);
+  if (resultado.erro) return { sucesso: false, erro: resultado.erro };
+  if (resultado.enviados === 0 && resultado.falhas.length > 0) {
+    return { sucesso: false, erro: resultado.falhas.join(" | ") };
+  }
+  return { sucesso: true, ...resultado };
 }
 
 export async function decidirMinuta(
@@ -132,7 +168,7 @@ export async function decidirMinuta(
   });
 
   if (error) {
-    return { sucesso: false, erro: error.message };
+    return { sucesso: false, erro: mensagemDoErro(error) };
   }
 
   // Se esta foi a 5ª aprovação, fn_decidir_minuta já criou o contrato

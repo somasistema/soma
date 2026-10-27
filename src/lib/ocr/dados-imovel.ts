@@ -147,7 +147,7 @@ export async function lerDadosImovelComIA(params: {
       matricula: limpar(input.matricula),
       inscricaoMunicipal: limpar(input.inscricao_municipal),
       cartorioCodigo: codigoCartorio(input.cartorio_numero, limpar(input.cartorio_cidade)),
-      descricao: limpar(input.descricao)?.replace(/^im[óo]vel:\s*/i, "").replace(/\s+/g, " ") ?? null,
+      descricao: limpar(input.descricao)?.replace(/^im[óo]vel:\s*/i, "").replace(/\s+/g, " ").replace(/[\s.,;]+$/, "") ?? null,
     };
   } catch (erro) {
     console.error("[ocr] falha na leitura dos dados do imóvel:", erro);

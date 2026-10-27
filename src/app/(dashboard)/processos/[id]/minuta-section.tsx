@@ -13,6 +13,7 @@ import {
   type ContratoSignatario,
   type Minuta,
   type MinutaAprovacao,
+  type MinutaConvite,
   type Processo,
   type TipoPapelAprovacao,
 } from "@/types/database";
@@ -20,6 +21,7 @@ import { ContratoAssinatura } from "./contrato-assinatura";
 import { MinutaDecisaoBotoes } from "./minuta-decisao-botoes";
 import { MinutaDeModeloForm } from "./minuta-de-modelo-form";
 import { MinutaEditor } from "./minuta-editor";
+import { MinutaEnviarEmail } from "./minuta-enviar-email";
 import { MinutaUploadForm } from "./minuta-upload-form";
 
 const PAPEIS: TipoPapelAprovacao[] = ["corretor", "comprador", "vendedor", "imobiliaria", "juridico"];
@@ -72,7 +74,7 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
 
   const minutaAtual = minutas?.[0] ?? null;
 
-  const [{ data: aprovacoes }, { data: contrato }] = await Promise.all([
+  const [{ data: aprovacoes }, { data: contrato }, { data: convites }] = await Promise.all([
     minutaAtual
       ? supabase
           .schema("soma")
@@ -88,6 +90,15 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
           .select("*")
           .eq("cd_minuta", minutaAtual.cd_minuta)
           .maybeSingle<Contrato>()
+      : Promise.resolve({ data: null }),
+    minutaAtual
+      ? supabase
+          .schema("soma")
+          .from("minuta_convites")
+          .select("*")
+          .eq("cd_minuta", minutaAtual.cd_minuta)
+          .order("ts_envio")
+          .returns<MinutaConvite[]>()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -199,6 +210,14 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
               </div>
             )}
 
+            {podeEnviarMinuta && minutaAtual.tp_status === "em_aprovacao" && (
+              <MinutaEnviarEmail
+                cdMinuta={minutaAtual.cd_minuta}
+                jaEnviada={(convites ?? []).length > 0}
+                faltamEnviar={(convites ?? []).some((c) => c.tp_status === "pendente" && !c.ts_envio)}
+              />
+            )}
+
             {minutaAtual.ds_conteudo && podeEnviarMinuta && (
               <MinutaEditor
                 cdMinuta={minutaAtual.cd_minuta}
@@ -261,7 +280,40 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
                     {aprovacao.ds_comentario && (
                       <p className="text-xs text-status-reprovado">{aprovacao.ds_comentario}</p>
                     )}
+                    {(convites ?? [])
+                      .filter((c) => c.tp_papel === papel)
+                      .map((c) => (
+                        <div
+                          key={c.cd_convite}
+                          className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
+                        >
+                          <span>
+                            {c.nm_destinatario} · {c.ds_email}
+                            {c.ds_comentario && (
+                              <span className="ml-1 text-status-reprovado">— {c.ds_comentario}</span>
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 font-medium",
+                              STATUS_APROVACAO_CLASS[c.tp_status]
+                            )}
+                          >
+                            {c.tp_status === "pendente"
+                              ? c.ts_envio
+                                ? `E-mail enviado em ${formatarDataHora(c.ts_envio)}`
+                                : "E-mail ainda não enviado"
+                              : `${STATUS_APROVACAO_LABEL[c.tp_status]}${c.ts_decisao ? ` em ${formatarDataHora(c.ts_decisao)}` : ""}`}
+                          </span>
+                        </div>
+                      ))}
+                    {/* As frentes de fora respondem pelo link do e-mail. Aqui só decide
+                        quem não recebe e-mail (Jurídico) ou uma frente que ficou sem
+                        ninguém pra receber (ex: processo sem imobiliária). */}
                     {aprovacao.tp_status === "pendente" &&
+                      (papel === "juridico" ||
+                        ((convites ?? []).length > 0 &&
+                          !(convites ?? []).some((c) => c.tp_papel === papel))) &&
                       podeDecidirPapel(papel, usuario, processo) && (
                         <MinutaDecisaoBotoes cdMinuta={minutaAtual.cd_minuta} tpPapel={papel} />
                       )}

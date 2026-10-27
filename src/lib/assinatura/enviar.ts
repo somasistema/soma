@@ -1,8 +1,7 @@
-import { semMarcacao } from "@/lib/minuta-marcacao";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Minuta, Processo } from "@/types/database";
 import { getProvedorAssinatura } from "./index";
-import { minutaDocParaPdf, minutaTextoParaPdf } from "./minuta-pdf";
+import { minutaParaPdf } from "./minuta-pdf";
 import { resolverSignatarios } from "./signatarios";
 import type { ArquivoParaAssinar } from "./tipos";
 
@@ -76,14 +75,14 @@ export async function enviarContratoParaAssinatura(cdContrato: string): Promise<
         conteudo: Buffer.from(await blob.arrayBuffer()),
         tipo: blob.type || tipoPorNome(nome),
       };
-    } else if (minuta.ds_conteudo) {
+    } else if (minuta.ds_conteudo || minuta.ds_conteudo_json) {
+      // A minuta guarda a marcação dos campos (vermelho na tela) — o
+      // contrato pra assinatura vai limpo (sem destacar).
+      const pdf = await minutaParaPdf(minuta);
+      if (!pdf) throw new Error("Minuta sem conteúdo.");
       arquivo = {
         nome: `contrato-${processo.ds_numero_processo}.pdf`,
-        // A minuta guarda a marcação dos campos (vermelho na tela) — o
-        // contrato pra assinatura vai limpo.
-        conteudo: minuta.ds_conteudo_json
-          ? await minutaDocParaPdf(minuta.ds_conteudo_json)
-          : await minutaTextoParaPdf(titulo, semMarcacao(minuta.ds_conteudo)),
+        conteudo: pdf,
         tipo: "application/pdf",
       };
     } else {
@@ -93,8 +92,10 @@ export async function enviarContratoParaAssinatura(cdContrato: string): Promise<
     const signatarios = await resolverSignatarios(supabase, processo, minuta);
     const criado = await provedor.criarDocumento({ titulo, arquivo, signatarios });
 
-    const linhas = signatarios.map((s) => {
-      const ref = criado.signatarios.find((c) => c.tp_papel === s.tp_papel);
+    // O provedor devolve os signatários na mesma ordem em que foram enviados
+    // (vários podem ter o mesmo papel, então não dá pra casar pelo papel).
+    const linhas = signatarios.map((s, i) => {
+      const ref = criado.signatarios[i];
       return {
         cd_contrato: cdContrato,
         tp_papel: s.tp_papel,
@@ -124,7 +125,7 @@ export async function enviarContratoParaAssinatura(cdContrato: string): Promise<
     await supabase.schema("soma").rpc("fn_registrar_andamento", {
       p_cd_processo: contrato.cd_processo,
       p_nm_etapa: "Contrato enviado para assinatura",
-      p_ds_andamento: `Contrato enviado para assinatura digital das 5 frentes via ${provedor.nome}.`,
+      p_ds_andamento: `Contrato enviado para assinatura digital de ${signatarios.length} signatários via ${provedor.nome}.`,
     });
 
     return { enviado: true };

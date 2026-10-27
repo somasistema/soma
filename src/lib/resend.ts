@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Resend } from "resend";
 
 // Toda a aplicação manda e-mail transacional por aqui (convite de
@@ -36,12 +37,25 @@ export async function enviarEmail({
     return { erro: "Envio de e-mail não configurado (RESEND_API_KEY ausente)." };
   }
 
-  const { error } = await client.emails.send({ from: FROM, to, subject, html });
+  // Falha de rede ao falar com o Resend (statusCode nulo, "Unable to fetch
+  // data") é passageira: tenta de novo. A chave de idempotência é a mesma nas
+  // tentativas, então se o primeiro envio tiver chegado a sair, o Resend não
+  // manda o e-mail duas vezes.
+  const idempotencyKey = randomUUID();
+  const TENTATIVAS = 3;
+  let ultimoErro: { message: string } | null = null;
 
-  if (error) {
-    console.error("Erro ao enviar e-mail via Resend:", error);
-    return { erro: error.message };
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    const { error } = await client.emails.send({ from: FROM, to, subject, html }, { idempotencyKey });
+    if (!error) return {};
+
+    ultimoErro = error;
+    const falhaDeRede = error.statusCode === null;
+    if (!falhaDeRede || tentativa === TENTATIVAS) break;
+    console.warn(`[resend] falha de rede (tentativa ${tentativa}/${TENTATIVAS}) — repetindo`);
+    await new Promise((r) => setTimeout(r, 700 * tentativa));
   }
 
-  return {};
+  console.error("Erro ao enviar e-mail via Resend:", ultimoErro);
+  return { erro: ultimoErro?.message ?? "Falha ao enviar e-mail." };
 }

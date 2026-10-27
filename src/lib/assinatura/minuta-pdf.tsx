@@ -1,10 +1,12 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
-import type { DocMinuta, DocNo } from "@/lib/minuta-doc";
+import { textoParaDoc, type DocMinuta, type DocNo } from "@/lib/minuta-doc";
+import { dividirLacunas } from "@/lib/minuta-lacunas";
+
+const VERMELHO = "#dc2626";
 
 const styles = StyleSheet.create({
   page: { paddingVertical: 56, paddingHorizontal: 64, fontSize: 11, lineHeight: 1.6 },
-  titulo: { fontSize: 14, marginBottom: 18, textAlign: "center", fontFamily: "Helvetica-Bold" },
   paragrafo: { marginBottom: 8, textAlign: "justify" },
   rodape: {
     position: "absolute",
@@ -17,35 +19,6 @@ const styles = StyleSheet.create({
   },
 });
 
-function MinutaDoc({ titulo, texto }: { titulo: string; texto: string }) {
-  const blocos = texto.split(/\n{2,}/);
-  return (
-    <Document>
-      <Page size="A4" style={styles.page} wrap>
-        <Text style={styles.titulo}>{titulo}</Text>
-        {blocos.map((bloco, i) => (
-          <View key={i} style={styles.paragrafo}>
-            <Text>{bloco.replace(/\n/g, " ").trim()}</Text>
-          </View>
-        ))}
-        <Text
-          style={styles.rodape}
-          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-          fixed
-        />
-      </Page>
-    </Document>
-  );
-}
-
-// Gera o PDF da minuta que veio como texto (minuta feita a partir de
-// um modelo — ver migration 043). Minuta que já é arquivo não passa
-// por aqui.
-export async function minutaTextoParaPdf(titulo: string, texto: string): Promise<Buffer> {
-  return renderToBuffer(<MinutaDoc titulo={titulo} texto={texto} />);
-}
-
-// ---- Minuta editada (JSON do editor) -> PDF, com a formatação do editor.
 const FONTES: Record<string, string> = {
   n: "Helvetica",
   b: "Helvetica-Bold",
@@ -53,12 +26,20 @@ const FONTES: Record<string, string> = {
   bi: "Helvetica-BoldOblique",
 };
 
-function trecho(no: DocNo, chave: number): ReactNode {
+type Opcoes = {
+  // Versão de conferência: valores vindos do processo e lacunas do modelo
+  // (XXXX, 0000, [campo]) em vermelho, como na tela. O PDF que vai pra
+  // assinatura sai sem as cores.
+  destacar?: boolean;
+};
+
+function trecho(no: DocNo, chave: number, { destacar }: Opcoes): ReactNode {
   if (no.type === "hardBreak") return <Text key={chave}>{"\n"}</Text>;
   if (no.type !== "text") return null;
   const marcas = new Set((no.marks ?? []).map((m) => m.type));
-  const fonte =
-    FONTES[(marcas.has("bold") ? "b" : "") + (marcas.has("italic") ? "i" : "") || "n"];
+  const valor = Boolean(destacar) && marcas.has("valor");
+  const negrito = marcas.has("bold") || valor;
+  const fonte = FONTES[(negrito ? "b" : "") + (marcas.has("italic") ? "i" : "") || "n"];
   const decoracao =
     marcas.has("underline") && marcas.has("strike")
       ? "underline line-through"
@@ -68,18 +49,39 @@ function trecho(no: DocNo, chave: number): ReactNode {
           ? "line-through"
           : "none";
   const estilo = (no.marks ?? []).find((m) => m.type === "textStyle")?.attrs;
-  const cor = typeof estilo?.color === "string" ? estilo.color : undefined;
+  const corEscolhida = typeof estilo?.color === "string" ? estilo.color : undefined;
+  const cor = corEscolhida ?? (valor ? VERMELHO : undefined);
   const fundo = typeof estilo?.backgroundColor === "string" ? estilo.backgroundColor : undefined;
+
+  const base = {
+    fontFamily: fonte,
+    textDecoration: decoracao,
+    ...(cor ? { color: cor } : {}),
+    ...(fundo ? { backgroundColor: fundo } : {}),
+  } as const;
+
+  // Lacunas dentro do texto corrido também ficam em vermelho.
+  if (destacar && !valor) {
+    const partes = dividirLacunas(no.text ?? "");
+    if (partes.some((p) => p.lacuna)) {
+      return (
+        <Text key={chave} style={base}>
+          {partes.map((p, i) =>
+            p.lacuna ? (
+              <Text key={i} style={{ fontFamily: FONTES[marcas.has("italic") ? "bi" : "b"], color: VERMELHO }}>
+                {p.texto}
+              </Text>
+            ) : (
+              p.texto
+            )
+          )}
+        </Text>
+      );
+    }
+  }
+
   return (
-    <Text
-      key={chave}
-      style={{
-        fontFamily: fonte,
-        textDecoration: decoracao,
-        ...(cor ? { color: cor } : {}),
-        ...(fundo ? { backgroundColor: fundo } : {}),
-      }}
-    >
+    <Text key={chave} style={base}>
       {no.text}
     </Text>
   );
@@ -90,14 +92,14 @@ function alinha(no: DocNo): "left" | "center" | "right" | "justify" {
   return a === "center" || a === "right" || a === "justify" ? a : "left";
 }
 
-function blocoPdf(no: DocNo, chave: number): ReactNode {
+function blocoPdf(no: DocNo, chave: number, opcoes: Opcoes): ReactNode {
   if (no.type === "bulletList" || no.type === "orderedList") {
     return (
       <View key={chave} style={{ marginBottom: 8 }}>
         {(no.content ?? []).map((item, i) => (
           <View key={i} style={{ flexDirection: "row", marginBottom: 3 }}>
             <Text style={{ width: 18 }}>{no.type === "bulletList" ? "•" : `${i + 1}.`}</Text>
-            <View style={{ flex: 1 }}>{(item.content ?? []).map(blocoPdf)}</View>
+            <View style={{ flex: 1 }}>{(item.content ?? []).map((n, j) => blocoPdf(n, j, opcoes))}</View>
           </View>
         ))}
       </View>
@@ -113,17 +115,17 @@ function blocoPdf(no: DocNo, chave: number): ReactNode {
           ...(heading ? { fontFamily: "Helvetica-Bold", fontSize: nivel === 1 ? 15 : nivel === 2 ? 13 : 11 } : {}),
         }}
       >
-        {(no.content ?? []).length > 0 ? (no.content ?? []).map(trecho) : " "}
+        {(no.content ?? []).length > 0 ? (no.content ?? []).map((n, i) => trecho(n, i, opcoes)) : " "}
       </Text>
     </View>
   );
 }
 
-export async function minutaDocParaPdf(doc: DocMinuta): Promise<Buffer> {
+export async function minutaDocParaPdf(doc: DocMinuta, opcoes: Opcoes = {}): Promise<Buffer> {
   return renderToBuffer(
     <Document>
       <Page size="A4" style={styles.page} wrap>
-        {(doc.content ?? []).map(blocoPdf)}
+        {(doc.content ?? []).map((no, i) => blocoPdf(no, i, opcoes))}
         <Text
           style={styles.rodape}
           render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
@@ -132,4 +134,15 @@ export async function minutaDocParaPdf(doc: DocMinuta): Promise<Buffer> {
       </Page>
     </Document>
   );
+}
+
+// PDF da minuta gerada de modelo: do documento do editor, ou do texto (que vira
+// documento com título/cláusulas em destaque e parágrafos). Null se a minuta é
+// um arquivo enviado — aí o PDF é o próprio arquivo.
+export async function minutaParaPdf(
+  minuta: { ds_conteudo: string | null; ds_conteudo_json: DocMinuta | null },
+  opcoes: Opcoes = {}
+): Promise<Buffer | null> {
+  const doc = minuta.ds_conteudo_json ?? (minuta.ds_conteudo ? textoParaDoc(minuta.ds_conteudo) : null);
+  return doc ? minutaDocParaPdf(doc, opcoes) : null;
 }

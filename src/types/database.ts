@@ -513,6 +513,19 @@ export interface MinutaAprovacao {
   ts_decisao: string | null;
 }
 
+// Convite por e-mail pra uma pessoa ler a minuta e aceitar/recusar (migration 067).
+export interface MinutaConvite {
+  cd_convite: string; // também é o token do link /aprovar/[token]
+  cd_minuta: string;
+  tp_papel: TipoPapelAprovacao;
+  nm_destinatario: string;
+  ds_email: string;
+  tp_status: StatusAprovacaoMinuta;
+  ds_comentario: string | null;
+  ts_envio: string | null; // vazio até o e-mail realmente sair
+  ts_decisao: string | null;
+}
+
 export interface Contrato {
   cd_contrato: string;
   cd_processo: string;

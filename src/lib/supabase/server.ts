@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createRawClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { fetchResiliente } from "./fetch-resiliente";
 
 // Server Component / Server Action — usa a anon key + cookies da sessão,
 // respeita RLS normalmente.
@@ -11,6 +12,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: fetchResiliente },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -36,6 +38,9 @@ export function createServiceRoleClient() {
   return createRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
+    {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { fetch: fetchResiliente },
+    }
   );
 }

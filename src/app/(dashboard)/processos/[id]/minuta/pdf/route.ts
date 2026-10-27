@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { minutaDocParaPdf, minutaTextoParaPdf } from "@/lib/assinatura/minuta-pdf";
+import { minutaParaPdf } from "@/lib/assinatura/minuta-pdf";
 import type { DocMinuta } from "@/lib/minuta-doc";
-import { semMarcacao } from "@/lib/minuta-marcacao";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -54,10 +53,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const numero = minuta.processos?.ds_numero_processo ?? id;
-  const pdf = minuta.ds_conteudo_json
-    ? await minutaDocParaPdf(minuta.ds_conteudo_json)
-    : await minutaTextoParaPdf(`Minuta ${numero}`, semMarcacao(minuta.ds_conteudo));
   const baixar = new URL(request.url).searchParams.get("baixar") === "1";
+  // "Abrir" é pra conferir (valores do processo em vermelho); "Baixar" sai limpo.
+  const pdf = await minutaParaPdf(minuta, { destacar: !baixar });
+  if (!pdf) {
+    return new NextResponse("Minuta sem conteúdo.", { status: 404 });
+  }
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
