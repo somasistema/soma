@@ -1,28 +1,15 @@
 import { redirect } from "next/navigation";
 import { getUsuarioAtual } from "@/lib/auth";
+import { getSiteUrl } from "@/lib/mercadopago";
+import { carregarPartesAnteriores } from "@/lib/partes-anteriores";
 import { createClient } from "@/lib/supabase/server";
 import type { Corretor, Imobiliaria } from "@/types/database";
-import { ProcessoForm, type ParteAnterior } from "./processo-form";
+import { ProcessoForm } from "./processo-form";
 
 // A leitura dos documentos anexados (OCR + IA) roda em server action.
 export const maxDuration = 60;
 
 const PODE_CRIAR_PROCESSO = new Set(["master", "juridico"]);
-
-const CAMPOS_PARTE_ANTERIOR =
-  "nm_parte, ds_telefone, ds_email, ds_profissao, ds_conta_bancaria, ds_cpf, ds_rg, dt_nascimento, ds_endereco";
-
-// Uma sugestão por nome — a que tiver mais dados preenchidos.
-function deduplicar(partes: ParteAnterior[]): ParteAnterior[] {
-  const preenchidos = (p: ParteAnterior) => Object.values(p).filter((v) => v).length;
-  const porNome = new Map<string, ParteAnterior>();
-  for (const p of partes) {
-    const chave = p.nm_parte.trim().toLowerCase();
-    const atual = porNome.get(chave);
-    if (!atual || preenchidos(p) > preenchidos(atual)) porNome.set(chave, p);
-  }
-  return [...porNome.values()].sort((a, b) => a.nm_parte.localeCompare(b.nm_parte));
-}
 
 export default async function NovoProcessoPage() {
   const usuario = await getUsuarioAtual();
@@ -32,7 +19,7 @@ export default async function NovoProcessoPage() {
 
   const supabase = await createClient();
 
-  const [{ data: imobiliarias }, { data: corretores }, { data: partesAnteriores }] =
+  const [{ data: imobiliarias }, { data: corretores }, partesAnteriores] =
     await Promise.all([
       supabase
         .schema("soma")
@@ -48,13 +35,7 @@ export default async function NovoProcessoPage() {
         .eq("sn_ativo", true)
         .order("nm_corretor")
         .returns<Corretor[]>(),
-      supabase
-        .schema("soma")
-        .from("processo_parte")
-        .select(CAMPOS_PARTE_ANTERIOR)
-        .in("tp_lado", ["vendedor", "comprador", "imobiliaria", "adm", "cliente"])
-        .limit(3000)
-        .returns<ParteAnterior[]>(),
+      carregarPartesAnteriores(supabase),
     ]);
 
   return (
@@ -65,7 +46,8 @@ export default async function NovoProcessoPage() {
       <ProcessoForm
         imobiliarias={imobiliarias ?? []}
         corretoresCadastro={corretores ?? []}
-        partesAnteriores={deduplicar(partesAnteriores ?? [])}
+        partesAnteriores={partesAnteriores}
+        siteUrl={getSiteUrl()}
       />
     </div>
   );

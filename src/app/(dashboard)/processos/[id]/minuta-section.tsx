@@ -2,7 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { assinaturaConfigurada } from "@/lib/assinatura";
+import { MinutaDocView } from "@/components/minuta-doc-view";
 import { renderMarcado, semMarcacao } from "@/lib/minuta-marcacao";
+import { textoParaDoc } from "@/lib/minuta-doc";
 import { cn, formatarDataHora } from "@/lib/utils";
 import {
   ETAPA_CONTRATO_LABEL,
@@ -17,6 +19,7 @@ import {
 import { ContratoAssinatura } from "./contrato-assinatura";
 import { MinutaDecisaoBotoes } from "./minuta-decisao-botoes";
 import { MinutaDeModeloForm } from "./minuta-de-modelo-form";
+import { MinutaEditor } from "./minuta-editor";
 import { MinutaUploadForm } from "./minuta-upload-form";
 
 const PAPEIS: TipoPapelAprovacao[] = ["corretor", "comprador", "vendedor", "imobiliaria", "juridico"];
@@ -178,6 +181,35 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
             </div>
 
             {minutaAtual.ds_conteudo && (
+              <div className="flex flex-wrap gap-3 text-sm">
+                <a
+                  href={`/processos/${processo.cd_processo}/minuta/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand underline"
+                >
+                  Abrir PDF da minuta
+                </a>
+                <a
+                  href={`/processos/${processo.cd_processo}/minuta/pdf?baixar=1`}
+                  className="text-brand underline"
+                >
+                  Baixar PDF
+                </a>
+              </div>
+            )}
+
+            {minutaAtual.ds_conteudo && podeEnviarMinuta && (
+              <MinutaEditor
+                cdMinuta={minutaAtual.cd_minuta}
+                // Convertido aqui (servidor) pra que as marcas de "valor do
+                // processo" (vermelho) cheguem ao editor como JSON, e não
+                // como caracteres de controle dentro de um texto.
+                doc={minutaAtual.ds_conteudo_json ?? textoParaDoc(minutaAtual.ds_conteudo)}
+              />
+            )}
+
+            {minutaAtual.ds_conteudo && (
               <details className="rounded-radius border border-border p-3" open>
                 <summary className="cursor-pointer text-sm text-foreground">
                   Ver texto da minuta
@@ -186,9 +218,15 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
                   Em <span className="font-medium text-status-reprovado">vermelho</span>: o que veio
                   dos dados do processo. O PDF enviado pra assinatura sai sem as cores.
                 </p>
-                <pre className="mt-2 max-h-[500px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
-                  {renderMarcado(minutaAtual.ds_conteudo)}
-                </pre>
+                {minutaAtual.ds_conteudo_json ? (
+                  <div className="mt-2">
+                    <MinutaDocView doc={minutaAtual.ds_conteudo_json} />
+                  </div>
+                ) : (
+                  <pre className="mt-2 max-h-[500px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
+                    {renderMarcado(minutaAtual.ds_conteudo)}
+                  </pre>
+                )}
               </details>
             )}
 
@@ -250,9 +288,15 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
             {!urlMinuta && minutaAtual?.ds_conteudo && (
               <details className="rounded-radius border border-border bg-card p-3">
                 <summary className="cursor-pointer text-sm text-foreground">Ver contrato</summary>
-                <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
-                  {semMarcacao(minutaAtual.ds_conteudo)}
-                </pre>
+                {minutaAtual.ds_conteudo_json ? (
+                  <div className="mt-2">
+                    <MinutaDocView doc={minutaAtual.ds_conteudo_json} />
+                  </div>
+                ) : (
+                  <pre className="mt-2 max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">
+                    {semMarcacao(minutaAtual.ds_conteudo)}
+                  </pre>
+                )}
               </details>
             )}
 

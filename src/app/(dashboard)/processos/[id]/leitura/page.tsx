@@ -100,11 +100,11 @@ export default async function LeituraDocumentosPage({
     <FadeIn className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <Link
-          href={`/processos/${id}`}
+          href={`/processos/${id}/documentos`}
           className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar ao processo
+          Voltar aos documentos
         </Link>
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
           Leitura automática dos documentos

@@ -46,7 +46,17 @@ export type ItemChecklist = { categoria: CategoriaDocIntake; compartilhado: bool
 // dois. União estável: cada um manda o próprio estado civil, o
 // comprovante de endereço é um só, e a declaração de união estável
 // também (uma pro casal).
-export function checklistDaPessoa(vinculo: "conjuge" | "companheiro" | null): ItemChecklist[] {
+export function checklistDaPessoa(
+  vinculo: "conjuge" | "companheiro" | null,
+  empresa = false
+): ItemChecklist[] {
+  // Empresa (CNPJ): contrato social/JUCEB e certidões — não tem identidade nem estado civil.
+  if (empresa) {
+    return [
+      { categoria: "contrato_social", compartilhado: false },
+      { categoria: "certidoes", compartilhado: false },
+    ];
+  }
   return [
     { categoria: "identidade", compartilhado: false },
     { categoria: "estado_civil", compartilhado: vinculo === "conjuge" },

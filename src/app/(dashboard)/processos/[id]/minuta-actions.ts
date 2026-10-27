@@ -5,6 +5,7 @@ import { enviarContratoParaAssinatura } from "@/lib/assinatura/enviar";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizarNomeArquivo } from "@/lib/utils";
+import { docParaTexto, docValido, type DocMinuta } from "@/lib/minuta-doc";
 import type { TipoPapelAprovacao } from "@/types/database";
 
 export type MinutaActionState = { sucesso: true } | { sucesso: false; erro: string };
@@ -54,6 +55,33 @@ export async function gerarMinutaDeModelo(
   const { error } = await supabase.schema("soma").rpc("fn_gerar_minuta_de_modelo", {
     p_cd_processo: cdProcesso,
     p_cd_modelo: cdModelo,
+  });
+
+  if (error) {
+    return { sucesso: false, erro: error.message };
+  }
+
+  return { sucesso: true };
+}
+
+// Edição da minuta (editor estilo Word): grava o documento com
+// formatação e o texto puro derivado, como uma nova versão — as 5
+// aprovações recomeçam (fn_editar_minuta valida perfil e se já virou
+// contrato).
+export async function editarMinuta(
+  cdMinuta: string,
+  doc: DocMinuta
+): Promise<MinutaActionState> {
+  if (!docValido(doc)) {
+    return { sucesso: false, erro: "Documento inválido." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.schema("soma").rpc("fn_editar_minuta", {
+    p_cd_minuta: cdMinuta,
+    p_ds_conteudo: docParaTexto(doc),
+    p_ds_json: doc,
   });
 
   if (error) {
@@ -140,7 +168,7 @@ export async function reenviarAssinatura(cdContrato: string): Promise<MinutaActi
 
   const resultado = await enviarContratoParaAssinatura(cdContrato);
   if (resultado.naoConfigurado) {
-    return { sucesso: false, erro: "Assinatura digital ainda não configurada (sem token da Autentique)." };
+    return { sucesso: false, erro: "Assinatura digital ainda não configurada (sem token da Clicksign)." };
   }
   if (!resultado.enviado) {
     return { sucesso: false, erro: resultado.erro ?? "Não foi possível enviar." };

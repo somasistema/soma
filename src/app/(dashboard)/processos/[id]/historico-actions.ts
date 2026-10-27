@@ -15,6 +15,6 @@ export async function reverterAlteracao(
     return { erro: error.message };
   }
 
-  revalidatePath(`/processos/${cdProcesso}`);
+  revalidatePath(`/processos/${cdProcesso}`, "layout");
   return {};
 }

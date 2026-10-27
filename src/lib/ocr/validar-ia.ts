@@ -156,14 +156,15 @@ const FERRAMENTA_LEITURA = {
       },
       campos: {
         type: "array",
-        description: "Cada dado relevante que aparece no documento (nome, CPF, datas, números de registro...).",
+        description:
+          "Os dados relevantes do documento (nome, CPF, datas, números de registro...), com os nomes padrão pedidos em nm_campo PRIMEIRO. No máximo 25 itens; não liste sócios, cláusulas nem capital em campos extras.",
         items: {
           type: "object",
           properties: {
             nm_campo: {
               type: "string",
               description:
-                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
+                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). rg (número do documento de identidade: RG, campo 'Doc. identidade' da CNH ou número da carteira profissional da OAB), sexo ('M' ou 'F'). Em contrato social, alteração contratual ou certidão da Junta Comercial (empresa) use: razao_social, cnpj, nire, tipo_societario (ex: 'sociedade empresária limitada'), endereco (sede) — e nunca preencha 'cpf' com CPF de sócio. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
             },
             ds_valor: { type: "string" },
             confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
@@ -177,8 +178,11 @@ const FERRAMENTA_LEITURA = {
 };
 
 export async function lerDocumentoComIA(params: {
-  imagem: Buffer;
-  mimeType: string;
+  // Foto/scan do documento; em PDF com camada de texto não há imagem, e a
+  // IA lê o texto extraído (texto).
+  imagem?: Buffer | null;
+  mimeType?: string | null;
+  texto?: string | null;
   // Leitura completa quando o OCR já achou campos (identidade/certidão).
   complemento?: boolean;
 }): Promise<ResultadoLeituraIA | null> {
@@ -186,26 +190,38 @@ export async function lerDocumentoComIA(params: {
 
   const client = new Anthropic();
 
-  const mediaType = params.mimeType.includes("png")
+  const mime = params.mimeType ?? "image/jpeg";
+  const mediaType = mime.includes("png")
     ? "image/png"
-    : params.mimeType.includes("webp")
+    : mime.includes("webp")
       ? "image/webp"
       : "image/jpeg";
+
+  if (!params.imagem && !params.texto?.trim()) return null;
 
   try {
     const response = await client.messages.create({
       model: MODELO,
-      max_tokens: 1536,
+      max_tokens: 4096,
       tools: [FERRAMENTA_LEITURA],
       tool_choice: { type: "tool", name: "reportar_leitura" },
       messages: [
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: params.imagem.toString("base64") },
-            },
+            params.imagem
+              ? {
+                  type: "image" as const,
+                  source: {
+                    type: "base64" as const,
+                    media_type: mediaType,
+                    data: params.imagem.toString("base64"),
+                  },
+                }
+              : {
+                  type: "text" as const,
+                  text: `Texto extraído de um documento brasileiro:\n\n${(params.texto ?? "").slice(0, 14000)}`,
+                },
             {
               type: "text",
               text:
@@ -220,6 +236,9 @@ export async function lerDocumentoComIA(params: {
       ],
     });
 
+    if (response.stop_reason === "max_tokens") {
+      console.error("[ocr] leitura por IA cortada por limite de tokens");
+    }
     const toolUse = response.content.find((b) => b.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") return null;
 

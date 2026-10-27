@@ -1,4 +1,4 @@
-import { lerPdf } from "./pdf";
+import { lerPdf, rasterizarPrimeiraPagina } from "./pdf";
 import { reconhecer } from "./tesseract";
 
 const MAX_PAGINAS_PADRAO = 5;
@@ -15,6 +15,9 @@ export type TextoExtraido = {
   // Primeira página como imagem, pra conferência por IA (visão). Nula
   // em PDF com camada de texto — não tem raster gerado.
   imagemPrincipal: ImagemPrincipal | null;
+  // PDF com texto nativo: 1ª página rasterizada, só pra leitura do imóvel
+  // (matrícula escaneada com carimbo em texto).
+  imagemPaginaPdf?: ImagemPrincipal | null;
 };
 
 function ehPdf(contentType: string | null, nomeArquivo: string) {
@@ -45,12 +48,22 @@ export async function extrairTexto(
   const leitura = await lerPdf(buffer, maxPaginas);
 
   if (leitura.fonte === "pdf-nativo") {
+    let texto = leitura.texto;
+    let confianca = 99;
+    if (leitura.paginasSemTexto.length > 0) {
+      const ocr = await reconhecer(leitura.paginasSemTexto);
+      texto = `${texto}\n\n${ocr.texto}`.trim();
+      confianca = Math.min(confianca, ocr.confianca);
+    }
     return {
-      texto: leitura.texto,
-      confianca: 99,
+      texto,
+      confianca,
       paginas: leitura.paginas,
       fonte: "pdf-nativo",
       imagemPrincipal: null,
+      imagemPaginaPdf: await rasterizarPrimeiraPagina(buffer)
+        .then((dados) => (dados ? { dados, mimeType: "image/png" } : null))
+        .catch(() => null),
     };
   }
 

@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DocumentoFiscalInput } from "@/components/ui/documento-fiscal-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatarTelefone } from "@/lib/utils";
@@ -16,7 +17,12 @@ import {
   type CategoriaDocIntake,
   type ParteAutoatendimento,
 } from "@/types/database";
-import { anexarMeuDocumento, removerMeuDocumento, salvarMeusDados } from "./actions";
+import {
+  anexarMeuDocumento,
+  removerMeuDocumento,
+  salvarMeusDados,
+  type DadosPreenchidos,
+} from "./actions";
 
 // Arquivo listado na tela. sn_meu = false: mandado por outra pessoa
 // (ex: o outro vendedor), só aparece — não dá pra remover daqui.
@@ -73,10 +79,12 @@ function BotaoAnexar({
   token,
   categoria,
   rotulo,
+  aoPreencher,
 }: {
   token: string;
   categoria: CategoriaDocIntake | "geral";
   rotulo: string;
+  aoPreencher?: (dados: DadosPreenchidos) => void;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +104,7 @@ function BotaoAnexar({
         setErro(r.erro);
         return;
       }
+      if (r.preenchido && Object.keys(r.preenchido).length > 0) aoPreencher?.(r.preenchido);
       router.refresh();
     });
   }
@@ -139,9 +148,11 @@ function LinhaDocumento({
   categoria,
   arquivos,
   parceiro,
+  aoPreencher,
 }: {
   token: string;
   categoria: CategoriaDocIntake;
+  aoPreencher?: (dados: DadosPreenchidos) => void;
   arquivos: ArquivoEnviado[];
   // item que vale pro casal: o que o cônjuge/companheiro(a) já mandou
   parceiro?: { nome: string; arquivos: string[] } | null;
@@ -162,6 +173,7 @@ function LinhaDocumento({
         <div className="flex items-center gap-2">
           <BotaoAnexar
             token={token}
+            aoPreencher={aoPreencher}
             categoria={categoria}
             rotulo={anexado ? "Mais um (ex: verso)" : "Anexar"}
           />
@@ -228,7 +240,9 @@ export function ParteAutoatendimentoForm({
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
-  const [nm, setNm] = useState(parte.nm_parte ?? "");
+  const [nm, setNm] = useState(
+    (parte.nm_parte ?? "").includes("aguardando preenchimento") ? "" : (parte.nm_parte ?? "")
+  );
   const [tel, setTel] = useState(parte.ds_telefone ?? "");
   const [email, setEmail] = useState(parte.ds_email ?? "");
   const [profissao, setProfissao] = useState(parte.ds_profissao ?? "");
@@ -242,6 +256,38 @@ export function ParteAutoatendimentoForm({
   const parceiro = parte.parceiro ?? null;
   const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null);
   const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake);
+
+  // A leitura do documento completou campos: mostra na hora, só no que
+  // ainda está vazio na tela (não apaga o que a pessoa estava digitando).
+  const [avisoLeitura, setAvisoLeitura] = useState<string | null>(null);
+  function aoPreencher(d: DadosPreenchidos) {
+    const rotulos: string[] = [];
+    if (d.nm_parte && !nm.trim()) {
+      setNm(d.nm_parte);
+      rotulos.push("nome");
+    }
+    if (d.ds_cpf && !cpf.trim()) {
+      setCpf(d.ds_cpf);
+      rotulos.push("CPF");
+    }
+    if (d.ds_rg && !rg.trim()) {
+      setRg(d.ds_rg);
+      rotulos.push("RG");
+    }
+    if (d.dt_nascimento && !nascimento) {
+      setNascimento(d.dt_nascimento);
+      rotulos.push("data de nascimento");
+    }
+    if (d.ds_endereco && !endereco.trim()) {
+      setEndereco(d.ds_endereco);
+      rotulos.push("endereço");
+    }
+    if (rotulos.length > 0) {
+      setAvisoLeitura(
+        `Lemos o seu documento e preenchemos: ${rotulos.join(", ")}. Confira abaixo se está certo.`
+      );
+    }
+  }
 
   function salvar() {
     setMsg(null);
@@ -277,8 +323,13 @@ export function ParteAutoatendimentoForm({
           <CardTitle>Meus dados</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {avisoLeitura && (
+            <p className="rounded-radius border border-status-aceito/40 bg-status-aceito/10 px-3 py-2 text-sm text-foreground sm:col-span-2">
+              {avisoLeitura}
+            </p>
+          )}
           <CampoTexto id="nm" label="Nome completo" value={nm} onChange={setNm} className="sm:col-span-2" />
-          <CampoTexto id="cpf" label="CPF" value={cpf} onChange={setCpf} />
+          <DocumentoFiscalInput id="cpf" value={cpf} onChange={setCpf} />
           <CampoTexto id="rg" label="RG" value={rg} onChange={setRg} />
           <CampoTexto id="nasc" label="Data de nascimento" tipo="date" value={nascimento} onChange={setNascimento} />
           <CampoTexto id="profissao" label="Profissão" value={profissao} onChange={setProfissao} />
@@ -336,6 +387,7 @@ export function ParteAutoatendimentoForm({
               <LinhaDocumento
                 key={item.categoria}
                 token={token}
+                aoPreencher={aoPreencher}
                 categoria={item.categoria}
                 arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === item.categoria)}
                 parceiro={

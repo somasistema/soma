@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-import { anexarDocumentosRascunho, type DocumentoRascunho } from "@/lib/documentos-rascunho";
+import {
+  anexarDocumentosDeConvites,
+  anexarDocumentosRascunho,
+  type DocumentoRascunho,
+} from "@/lib/documentos-rascunho";
 import type { LadoParte, VinculoParte } from "@/types/database";
 
 // Documento já lido no cadastro; lado e posição vêm da parte que o carrega.
@@ -24,7 +28,17 @@ export interface ParteInput {
   ds_endereco: string;
   // 2ª pessoa em diante: vínculo com a anterior do mesmo lado
   tp_vinculo: VinculoParte | "";
+  // Empresa (CNPJ no campo ds_cpf)
+  ds_nire: string;
+  ds_tipo_societario: string;
+  ds_representacao: "conjunta" | "isolada" | "";
   docs?: DocumentoDaParte[];
+  // Só na tela: como a pessoa é cadastrada (não vai pro banco)
+  modo?: "manual" | "link";
+  // Link pro cliente: token gerado na tela (vai pro banco)
+  cd_token_parte?: string;
+  // Só na edição: a parte já existe no processo (upsert, não recria)
+  cd_parte?: string;
 }
 
 // cd_corretor vazio = corretor novo, entra no cadastro ao salvar
@@ -57,6 +71,7 @@ export interface NegocioInput {
   ds_imovel_matricula: string;
   ds_imovel_iptu: string;
   ds_imovel_cartorio: string;
+  ds_imovel_descricao: string;
   tp_pagamento: "financiado" | "a_vista" | "";
   vl_sinal: string;
   sn_usa_fgts: string; // "true" | "false" | ""
@@ -100,6 +115,8 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
       p_partes: input.partes.map((p) => {
         const resto = { ...p };
         delete resto.docs;
+        delete resto.modo;
+        if (p.modo !== "link") delete resto.cd_token_parte;
         return resto;
       }),
       p_corretores: input.corretores,
@@ -138,6 +155,10 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
       if (falhas.length > 0) console.error("[processo] anexos com falha:", falhas);
     }
   }
+
+  // Documentos que o cliente já mandou pelo link, antes de o processo existir.
+  const { falhas: falhasConvite } = await anexarDocumentosDeConvites(cd_processo as string);
+  if (falhasConvite.length > 0) console.error("[processo] anexos do link com falha:", falhasConvite);
 
   redirect(`/processos/${cd_processo}`);
 }

@@ -14,7 +14,7 @@ export function LinkParteButton({
   link: string;
   telefone: string | null;
   nome: string;
-  numeroProcesso: string;
+  numeroProcesso?: string;
 }) {
   const [copiado, setCopiado] = useState(false);
 
@@ -27,7 +27,7 @@ export function LinkParteButton({
 
   const digitos = (telefone ?? "").replace(/\D/g, "");
   const numeroWa = digitos ? (digitos.length > 11 ? digitos : `55${digitos}`) : null;
-  const mensagem = `Olá${nome ? `, ${nome}` : ""}! Para o processo ${numeroProcesso} da SOMA, preencha seus dados e anexe seus documentos neste link: ${link}`;
+  const mensagem = `Olá${nome ? `, ${nome}` : ""}! ${numeroProcesso ? `Para o processo ${numeroProcesso} da SOMA` : "Para o seu contrato com a SOMA"}, preencha seus dados e anexe seus documentos neste link seguro e pessoal: ${link}`;
 
   return (
     <div className="flex items-center gap-1.5">

@@ -1,10 +1,12 @@
 "use client";
 
-import { Paperclip, Plus, Trash2, X } from "lucide-react";
+import { Link2, Paperclip, PenLine, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { DocumentoFiscalInput } from "@/components/ui/documento-fiscal-input";
+import { tipoDocumentoFiscal } from "@/lib/documento-fiscal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PercentInput } from "@/components/ui/percent-input";
@@ -14,6 +16,7 @@ import {
   CARTORIOS_IMOVEIS,
   CATEGORIA_DOC_INTAKE_LABEL,
   CATEGORIAS_DOC_IMOVEL,
+  CATEGORIAS_DOC_EMPRESA,
   CATEGORIAS_DOC_PESSOAIS,
   LADO_PARTE_LABEL,
   VINCULO_PARTE_LABEL,
@@ -31,7 +34,10 @@ import {
   type NegocioInput,
   type ParteInput,
 } from "./actions";
+import { consultarConvite, salvarConvite } from "./convites";
 import { lerDocumentoRascunho } from "./documentos-rascunho";
+import { LinkParteButton } from "../[id]/link-parte-button";
+import { atualizarDadosProcesso } from "../[id]/editar/actions";
 
 // Parte de um processo anterior — sugestão pra não redigitar quem já
 // apareceu em outro negócio (ex: o mesmo vendedor com dois imóveis).
@@ -59,7 +65,22 @@ const TEXTAREA_CLASS =
 // é calculado a partir dele.
 type Base = "valor" | "percentual";
 
-type CorretorLinha = CorretorInput & { base: Base };
+export type CorretorLinha = CorretorInput & { base: Base };
+
+// Estado inicial quando o formulário edita um processo existente.
+export type InicialProcessoForm = {
+  cd_imobiliaria: string;
+  nm_solicitante: string;
+  ds_telefone: string;
+  vendedores: ParteInput[];
+  compradores: ParteInput[];
+  outrasPartes: ParteInput[];
+  corretores: CorretorLinha[];
+  negocio: NegocioInput;
+  baseTotal: Base;
+  baseImobiliaria: Base;
+  imobiliariaParticipa: boolean;
+};
 
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
 const arred = (n: number) => String(Math.round(n * 100) / 100);
@@ -139,6 +160,9 @@ const parteVazia = (tp_lado: LadoParte, tp_vinculo: VinculoParte | "" = ""): Par
   dt_nascimento: "",
   ds_endereco: "",
   tp_vinculo,
+  ds_nire: "",
+  ds_tipo_societario: "",
+  ds_representacao: "",
   docs: [],
 });
 
@@ -194,7 +218,7 @@ function dataParaInput(valor: string | undefined) {
 function aplicarLeituraNaParte(
   parte: ParteInput,
   categoria: CategoriaDocIntake,
-  campos: DocumentoDaParte["campos"]
+  campos: DocumentoDaParte["campos"],
 ): { patch: Partial<ParteInput>; preenchidos: string[] } {
   const get = (nome: string) => campos.find((c) => c.nm_campo === nome)?.ds_valor?.trim();
   const patch: Partial<ParteInput> = {};
@@ -215,6 +239,13 @@ function aplicarLeituraNaParte(
   if (categoria === "comprovante_residencia") {
     usar("ds_endereco", get("endereco"), "endereço");
   }
+  if (categoria === "contrato_social") {
+    usar("nm_parte", get("razao_social") ?? get("nome"), "razão social");
+    usar("ds_cpf", get("cnpj"), "CNPJ");
+    usar("ds_nire", get("nire"), "NIRE");
+    usar("ds_tipo_societario", get("tipo_societario"), "tipo societário");
+    usar("ds_endereco", get("endereco"), "sede");
+  }
   return { patch, preenchidos };
 }
 
@@ -222,6 +253,7 @@ type DadosImovelLido = {
   endereco: string | null;
   matricula: string | null;
   inscricaoMunicipal: string | null;
+  descricao?: string | null;
   cartorioCodigo: string | null;
 } | null;
 
@@ -270,7 +302,7 @@ function AnexarDocumentos({
           confianca: r.confianca,
           campos: r.campos,
         },
-        r.dadosImovel
+        r.dadosImovel,
       );
       setAviso({
         ok: true,
@@ -411,14 +443,21 @@ function OutraParteRow({
 
 function ParteFields({
   parte,
+  primeiraEhEmpresa,
   titulo,
   anteriorNome,
   anteriores,
+  siteUrl,
   onChange,
   onRemove,
   podeRemover,
+  edicao = false,
 }: {
+  edicao?: boolean;
   parte: ParteInput;
+  // o 1º do lado é uma empresa (CNPJ): os seguintes são representantes/sócios
+  primeiraEhEmpresa: boolean;
+  siteUrl: string | null;
   titulo: string;
   // nome da pessoa anterior do mesmo lado (pro seletor de vínculo)
   anteriorNome: string | null;
@@ -428,6 +467,69 @@ function ParteFields({
   podeRemover: boolean;
 }) {
   const [aproveitado, setAproveitado] = useState(false);
+  const empresa = anteriorNome === null && tipoDocumentoFiscal(parte.ds_cpf) === "cnpj";
+  const [gerandoLink, startLink] = useTransition();
+  const [avisoLink, setAvisoLink] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  // Gera o link na hora (ou salva os ajustes de nome/CPF/telefone num link já gerado).
+  function gerarOuSalvarLink() {
+    setAvisoLink(null);
+    startLink(async () => {
+      const r = await salvarConvite({
+        token: parte.cd_token_parte ?? null,
+        lado: parte.tp_lado === "comprador" ? "comprador" : "vendedor",
+        nome: parte.nm_parte,
+        cpf: parte.ds_cpf,
+        telefone: parte.ds_telefone,
+      });
+      if (!r.sucesso) {
+        setAvisoLink({ ok: false, texto: r.erro });
+        return;
+      }
+      onChange({ cd_token_parte: r.token });
+      setAvisoLink({
+        ok: true,
+        texto: parte.cd_token_parte
+          ? "Alterações salvas no link."
+          : "Link gerado — já está funcionando. Pode enviar ao cliente.",
+      });
+    });
+  }
+
+  // O que o cliente já preencheu/enviou: mostra e completa só os campos vazios aqui.
+  function verRetornoDoCliente() {
+    if (!parte.cd_token_parte) return;
+    setAvisoLink(null);
+    startLink(async () => {
+      const r = await consultarConvite(parte.cd_token_parte as string);
+      if (!r.sucesso) {
+        setAvisoLink({ ok: false, texto: r.erro });
+        return;
+      }
+      const d = r.dados;
+      const patch: Partial<ParteInput> = {};
+      const vazio = (v: string) => !v.trim();
+      if (d.nm_parte && vazio(parte.nm_parte)) patch.nm_parte = d.nm_parte;
+      if (d.ds_cpf && vazio(parte.ds_cpf)) patch.ds_cpf = d.ds_cpf;
+      if (d.ds_rg && vazio(parte.ds_rg)) patch.ds_rg = d.ds_rg;
+      if (d.dt_nascimento && !parte.dt_nascimento)
+        patch.dt_nascimento = d.dt_nascimento.slice(0, 10);
+      if (d.ds_telefone && vazio(parte.ds_telefone)) patch.ds_telefone = d.ds_telefone;
+      if (d.ds_email && vazio(parte.ds_email)) patch.ds_email = d.ds_email;
+      if (d.ds_profissao && vazio(parte.ds_profissao)) patch.ds_profissao = d.ds_profissao;
+      if (d.ds_endereco && vazio(parte.ds_endereco)) patch.ds_endereco = d.ds_endereco;
+      if (Object.keys(patch).length > 0) onChange(patch);
+
+      const preencheu = [d.nm_parte, d.ds_rg, d.ds_profissao, d.ds_endereco].some(Boolean);
+      setAvisoLink({
+        ok: true,
+        texto:
+          r.documentos.length === 0 && !preencheu
+            ? "O cliente ainda não preencheu nem enviou nada."
+            : `O cliente já enviou ${r.documentos.length} documento(s)${preencheu ? " e preencheu dados" : ""}. Tudo entra no processo ao clicar em Criar processo.`,
+      });
+    });
+  }
 
   function trocarNome(nome: string) {
     const anterior = acharAnterior(nome, anteriores);
@@ -457,122 +559,335 @@ function ParteFields({
       {anteriorNome !== null && (
         <Campo label={`Vínculo com ${anteriorNome.trim() || "a pessoa anterior"}`}>
           <Select
-            value={parte.tp_vinculo || "conjuge"}
+            value={parte.tp_vinculo || (primeiraEhEmpresa ? "representante" : "conjuge")}
             onChange={(e) => onChange({ tp_vinculo: e.target.value as VinculoParte })}
           >
-            {(Object.keys(VINCULO_PARTE_LABEL) as VinculoParte[]).map((v) => (
+            {(
+              (primeiraEhEmpresa
+                ? ["representante", "anuente", "outro"]
+                : ["conjuge", "companheiro", "anuente", "outro"]) as VinculoParte[]
+            ).map((v) => (
               <option key={v} value={v}>
                 {VINCULO_PARTE_LABEL[v]}
               </option>
             ))}
           </Select>
           <span className="text-xs text-muted-foreground">
-            {(parte.tp_vinculo || "conjuge") === "conjuge"
-              ? "Certidão de casamento e comprovante de endereço valem pros dois — não precisa anexar duas vezes."
-              : parte.tp_vinculo === "companheiro"
-                ? "Cada um manda a própria certidão de estado civil; comprovante de endereço e declaração de união estável valem pros dois."
-                : parte.tp_vinculo === "anuente"
-                  ? "Anuente: consente no negócio (ex: cônjuge que não é parte, herdeiro). Entra no contrato como anuente e manda os próprios documentos."
-                  : "Pessoa independente: manda todos os documentos dela."}
+            {primeiraEhEmpresa && (parte.tp_vinculo || "representante") === "representante"
+              ? 'Sócio-administrador: assina pela empresa e é qualificado no contrato ("neste ato representada por...").'
+              : primeiraEhEmpresa && parte.tp_vinculo === "anuente"
+                ? 'Sócio anuente: entra no contrato como "com a expressa anuência de seus demais sócios".'
+                : (parte.tp_vinculo || "conjuge") === "conjuge"
+                  ? "Certidão de casamento e comprovante de endereço valem pros dois — não precisa anexar duas vezes."
+                  : parte.tp_vinculo === "companheiro"
+                    ? "Cada um manda a própria certidão de estado civil; comprovante de endereço e declaração de união estável valem pros dois."
+                    : parte.tp_vinculo === "anuente"
+                      ? "Anuente: consente no negócio (ex: cônjuge que não é parte, herdeiro). Entra no contrato como anuente e manda os próprios documentos."
+                      : "Pessoa independente: manda todos os documentos dela."}
           </span>
         </Campo>
       )}
 
-      <div className="rounded-radius border border-dashed border-border p-3">
-        <p className="mb-2 text-xs text-muted-foreground">
-          Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e
-          endereço que estiverem em branco. Os arquivos já ficam no processo.
-        </p>
-        <AnexarDocumentos
-          categorias={CATEGORIAS_DOC_PESSOAIS}
-          docs={parte.docs ?? []}
-          onLido={(doc) => {
-            const { patch, preenchidos } = aplicarLeituraNaParte(parte, doc.categoria, doc.campos);
-            onChange({ ...patch, docs: [...(parte.docs ?? []), doc] });
-            return preenchidos;
-          }}
-          onRemover={(caminho) =>
-            onChange({ docs: (parte.docs ?? []).filter((d) => d.caminho !== caminho) })
-          }
-        />
-      </div>
+      {!parte.modo && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-foreground">Como você quer cadastrar esta pessoa?</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onChange({ modo: "manual" })}
+              className="flex flex-col items-start gap-1.5 rounded-radius border border-border p-4 text-left transition-colors hover:border-brand hover:bg-muted/40"
+            >
+              <PenLine className="h-5 w-5 text-accent" />
+              <span className="text-sm font-medium text-foreground">Preencher aqui</span>
+              <span className="text-xs text-muted-foreground">
+                Você digita os dados e/ou anexa os documentos (o sistema lê e preenche).
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ modo: "link" })}
+              className="flex flex-col items-start gap-1.5 rounded-radius border border-border p-4 text-left transition-colors hover:border-brand hover:bg-muted/40"
+            >
+              <Link2 className="h-5 w-5 text-accent" />
+              <span className="text-sm font-medium text-foreground">Gerar link para o cliente</span>
+              <span className="text-xs text-muted-foreground">
+                O próprio cliente anexa os documentos e preenche os dados, numa página segura.
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Campo label="Nome" className="sm:col-span-2">
-          <Input
-            list="partes-anteriores"
-            placeholder="Digite o nome completo — se já participou de outro processo, os dados vêm sozinhos"
-            value={parte.nm_parte}
-            onChange={(e) => trocarNome(e.target.value)}
-          />
-          {aproveitado && (
-            <span className="text-xs text-status-aceito">
-              Dados preenchidos a partir de um processo anterior — confira.
-            </span>
+      {parte.modo && !edicao && (
+        <button
+          type="button"
+          onClick={() => onChange({ modo: undefined, cd_token_parte: undefined })}
+          className="w-fit text-xs text-muted-foreground underline"
+        >
+          ← escolher outra forma de cadastro
+        </button>
+      )}
+
+      {parte.modo === "link" && (
+        <div className="flex flex-col gap-3 rounded-radius border border-border bg-muted/20 p-4">
+          <p className="text-sm font-medium text-foreground">Link para o cliente preencher</p>
+          <p className="text-xs text-muted-foreground">
+            O cliente abre o link, confere os dados, anexa os documentos e a leitura preenche o
+            resto. A página explica a ele como os dados são protegidos. Se você já souber, preencha
+            abaixo o que quiser deixar pronto antes de enviar — o cliente vê esses dados já
+            preenchidos e só confere.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo label="Nome completo" className="sm:col-span-2">
+              <Input
+                list="partes-anteriores"
+                value={parte.nm_parte}
+                placeholder="Se ficar em branco, o cliente preenche"
+                onChange={(e) => trocarNome(e.target.value)}
+              />
+              {aproveitado && (
+                <span className="text-xs text-status-aceito">
+                  Dados preenchidos a partir de um processo anterior — confira.
+                </span>
+              )}
+            </Campo>
+            <DocumentoFiscalInput
+              value={parte.ds_cpf}
+              placeholder="Se ficar em branco, o cliente preenche"
+              onChange={(v) => onChange({ ds_cpf: v })}
+            />
+            <Campo label="Telefone (pra enviar no WhatsApp)">
+              <Input
+                type="tel"
+                placeholder="(71) 99999-9999"
+                value={parte.ds_telefone}
+                onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
+              />
+            </Campo>
+          </div>
+          {!siteUrl ? (
+            <p className="text-xs text-status-reprovado">
+              Endereço do site não configurado (NEXT_PUBLIC_SITE_URL) — não dá pra montar o link.
+            </p>
+          ) : !parte.cd_token_parte ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="w-fit gap-1.5"
+                disabled={gerandoLink}
+                onClick={gerarOuSalvarLink}
+              >
+                <Link2 className="h-4 w-4" />
+                {gerandoLink ? "Gerando..." : "Gerar link"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                O link fica pronto na hora e já funciona — mesmo antes de você criar o processo.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-radius border border-dashed border-border bg-card p-3">
+              <p className="break-all font-mono text-xs text-foreground">
+                {siteUrl}/parte/{parte.cd_token_parte}
+              </p>
+              <LinkParteButton
+                link={`${siteUrl}/parte/${parte.cd_token_parte}`}
+                telefone={parte.ds_telefone}
+                nome={parte.nm_parte}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={gerandoLink}
+                  onClick={gerarOuSalvarLink}
+                >
+                  Salvar alterações no link
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={gerandoLink}
+                  onClick={verRetornoDoCliente}
+                >
+                  Ver o que o cliente já enviou
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tudo o que o cliente preencher e anexar fica guardado e entra no processo quando
+                você clicar em <strong>Criar processo</strong>.
+              </p>
+            </div>
           )}
-        </Campo>
-        <Campo label="CPF">
-          <Input value={parte.ds_cpf} onChange={(e) => onChange({ ds_cpf: e.target.value })} />
-        </Campo>
-        <Campo label="RG">
-          <Input value={parte.ds_rg} onChange={(e) => onChange({ ds_rg: e.target.value })} />
-        </Campo>
-        <Campo label="Data de nascimento">
-          <Input
-            type="date"
-            value={parte.dt_nascimento}
-            onChange={(e) => onChange({ dt_nascimento: e.target.value })}
-          />
-        </Campo>
-        <Campo label="Profissão">
-          <Input
-            value={parte.ds_profissao}
-            onChange={(e) => onChange({ ds_profissao: e.target.value })}
-          />
-        </Campo>
-        <Campo label="Telefone">
-          <Input
-            type="tel"
-            placeholder="(71) 99999-9999"
-            value={parte.ds_telefone}
-            onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
-          />
-        </Campo>
-        <Campo label="E-mail">
-          <Input
-            type="email"
-            value={parte.ds_email}
-            onChange={(e) => onChange({ ds_email: e.target.value })}
-          />
-        </Campo>
-        <Campo label="Endereço" className="sm:col-span-2">
-          <Input
-            placeholder="Rua, número, bairro, cidade/UF"
-            value={parte.ds_endereco}
-            onChange={(e) => onChange({ ds_endereco: e.target.value })}
-          />
-        </Campo>
-        <Campo label="Conta bancária" className="sm:col-span-2">
-          <Input
-            placeholder="Banco, agência e conta"
-            value={parte.ds_conta_bancaria}
-            onChange={(e) => onChange({ ds_conta_bancaria: e.target.value })}
-          />
-        </Campo>
-        <Campo label="Observações sobre os documentos" className="sm:col-span-2">
-          <textarea
-            className={TEXTAREA_CLASS}
-            value={parte.ds_documentos_obs}
-            onChange={(e) => onChange({ ds_documentos_obs: e.target.value })}
-          />
-        </Campo>
-      </div>
+          {avisoLink && (
+            <p
+              className={`text-xs ${avisoLink.ok ? "text-status-aceito" : "text-status-reprovado"}`}
+            >
+              {avisoLink.texto}
+            </p>
+          )}
+        </div>
+      )}
 
-      <p className="text-xs text-muted-foreground">
-        Os documentos anexados acima já vão pro processo, no item certo do checklist. Em casal,
-        anexe a certidão de casamento e o comprovante de endereço só uma vez (na primeira pessoa).
-        Também dá pra anexar depois, na tela do processo, ou a própria pessoa pelo link.
-      </p>
+      {parte.modo === "manual" && (
+        <>
+          {!edicao && (
+          <div className="rounded-radius border border-dashed border-border p-3">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e
+              endereço que estiverem em branco. Os arquivos já ficam no processo.
+            </p>
+            <AnexarDocumentos
+              categorias={empresa ? CATEGORIAS_DOC_EMPRESA : CATEGORIAS_DOC_PESSOAIS}
+              docs={parte.docs ?? []}
+              onLido={(doc) => {
+                const { patch, preenchidos } = aplicarLeituraNaParte(
+                  parte,
+                  doc.categoria,
+                  doc.campos,
+                );
+                onChange({ ...patch, docs: [...(parte.docs ?? []), doc] });
+                return preenchidos;
+              }}
+              onRemover={(caminho) =>
+                onChange({
+                  docs: (parte.docs ?? []).filter((d) => d.caminho !== caminho),
+                })
+              }
+            />
+          </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo label={empresa ? "Razão social" : "Nome"} className="sm:col-span-2">
+              <Input
+                list="partes-anteriores"
+                placeholder="Digite o nome completo — se já participou de outro processo, os dados vêm sozinhos"
+                value={parte.nm_parte}
+                onChange={(e) => trocarNome(e.target.value)}
+              />
+              {aproveitado && (
+                <span className="text-xs text-status-aceito">
+                  Dados preenchidos a partir de um processo anterior — confira.
+                </span>
+              )}
+            </Campo>
+            <DocumentoFiscalInput value={parte.ds_cpf} onChange={(v) => onChange({ ds_cpf: v })} />
+            {empresa && (
+              <>
+                <Campo label="NIRE">
+                  <Input
+                    value={parte.ds_nire}
+                    onChange={(e) => onChange({ ds_nire: e.target.value })}
+                  />
+                </Campo>
+                <Campo label="Tipo societário">
+                  <Input
+                    list="tipos-societarios"
+                    placeholder="Ex: sociedade empresária limitada"
+                    value={parte.ds_tipo_societario}
+                    onChange={(e) => onChange({ ds_tipo_societario: e.target.value })}
+                  />
+                  <datalist id="tipos-societarios">
+                    <option value="sociedade empresária limitada" />
+                    <option value="sociedade anônima" />
+                    <option value="empresa individual de responsabilidade limitada" />
+                    <option value="sociedade simples" />
+                  </datalist>
+                </Campo>
+                <Campo label="Como a empresa é representada" className="sm:col-span-2">
+                  <Select
+                    value={parte.ds_representacao || "conjunta"}
+                    onChange={(e) =>
+                      onChange({ ds_representacao: e.target.value as "conjunta" | "isolada" })
+                    }
+                  >
+                    <option value="conjunta">Em conjunto (todos os administradores assinam)</option>
+                    <option value="isolada">Isoladamente (qualquer administrador assina)</option>
+                  </Select>
+                  <span className="text-xs text-muted-foreground">
+                    Depois, em <strong>Adicionar vendedor</strong>, cadastre cada
+                    sócio-administrador (representante) e cada sócio anuente.
+                  </span>
+                </Campo>
+              </>
+            )}
+            {!empresa && (
+              <Campo label="RG">
+                <Input value={parte.ds_rg} onChange={(e) => onChange({ ds_rg: e.target.value })} />
+              </Campo>
+            )}
+            {!empresa && (
+              <Campo label="Data de nascimento">
+                <Input
+                  type="date"
+                  value={parte.dt_nascimento}
+                  onChange={(e) => onChange({ dt_nascimento: e.target.value })}
+                />
+              </Campo>
+            )}
+            {!empresa && (
+              <Campo label="Profissão">
+                <Input
+                  value={parte.ds_profissao}
+                  onChange={(e) => onChange({ ds_profissao: e.target.value })}
+                />
+              </Campo>
+            )}
+            <Campo label="Telefone">
+              <Input
+                type="tel"
+                placeholder="(71) 99999-9999"
+                value={parte.ds_telefone}
+                onChange={(e) => onChange({ ds_telefone: formatarTelefone(e.target.value) })}
+              />
+            </Campo>
+            <Campo label="E-mail">
+              <Input
+                type="email"
+                value={parte.ds_email}
+                onChange={(e) => onChange({ ds_email: e.target.value })}
+              />
+            </Campo>
+            <Campo
+              label={empresa ? "Sede (endereço da empresa)" : "Endereço"}
+              className="sm:col-span-2"
+            >
+              <Input
+                placeholder="Rua, número, bairro, cidade/UF"
+                value={parte.ds_endereco}
+                onChange={(e) => onChange({ ds_endereco: e.target.value })}
+              />
+            </Campo>
+            <Campo label="Conta bancária" className="sm:col-span-2">
+              <Input
+                placeholder="Banco, agência e conta"
+                value={parte.ds_conta_bancaria}
+                onChange={(e) => onChange({ ds_conta_bancaria: e.target.value })}
+              />
+            </Campo>
+            <Campo label="Observações sobre os documentos" className="sm:col-span-2">
+              <textarea
+                className={TEXTAREA_CLASS}
+                value={parte.ds_documentos_obs}
+                onChange={(e) => onChange({ ds_documentos_obs: e.target.value })}
+              />
+            </Campo>
+          </div>
+        </>
+      )}
+
+      {parte.modo === "manual" && (
+        <p className="text-xs text-muted-foreground">
+          Os documentos anexados acima já vão pro processo, no item certo do checklist. Em casal,
+          anexe a certidão de casamento e o comprovante de endereço só uma vez (na primeira pessoa).
+          Também dá pra anexar depois, na tela do processo, ou a própria pessoa pelo link.
+        </p>
+      )}
     </div>
   );
 }
@@ -591,12 +906,12 @@ function CorretorRow({
   onRemove: () => void;
 }) {
   const doCadastro = corretor.cd_corretor
-    ? cadastro.find((c) => c.cd_corretor === corretor.cd_corretor) ?? null
+    ? (cadastro.find((c) => c.cd_corretor === corretor.cd_corretor) ?? null)
     : null;
 
   function trocarNome(nome: string) {
     const achado = cadastro.find(
-      (c) => c.nm_corretor.trim().toLowerCase() === nome.trim().toLowerCase()
+      (c) => c.nm_corretor.trim().toLowerCase() === nome.trim().toLowerCase(),
     );
     onChange({ nm_corretor: nome, cd_corretor: achado?.cd_corretor ?? "" });
   }
@@ -714,29 +1029,49 @@ export function ProcessoForm({
   imobiliarias,
   corretoresCadastro,
   partesAnteriores,
+  siteUrl,
+  edicao,
 }: {
+  // Preenchido na tela de edição (/processos/[id]/editar)
+  edicao?: { cdProcesso: string; inicial: InicialProcessoForm };
   imobiliarias: Imobiliaria[];
   corretoresCadastro: Corretor[];
   partesAnteriores: ParteAnterior[];
+  siteUrl: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
 
   // Imobiliária é opcional — venda sem imobiliária (só corretores).
-  const [cdImobiliaria, setCdImobiliaria] = useState("");
-  const [nmSolicitante, setNmSolicitante] = useState("");
-  const [dsTelefone, setDsTelefone] = useState("");
+  const [cdImobiliaria, setCdImobiliaria] = useState(edicao?.inicial.cd_imobiliaria ?? "");
+  const [nmSolicitante, setNmSolicitante] = useState(edicao?.inicial.nm_solicitante ?? "");
+  const [dsTelefone, setDsTelefone] = useState(edicao?.inicial.ds_telefone ?? "");
 
-  const [vendedores, setVendedores] = useState<ParteInput[]>([parteVazia("vendedor")]);
-  const [compradores, setCompradores] = useState<ParteInput[]>([parteVazia("comprador")]);
-  const [outrasPartes, setOutrasPartes] = useState<ParteInput[]>([]);
-  const [corretores, setCorretores] = useState<CorretorLinha[]>([]);
+  const [vendedores, setVendedores] = useState<ParteInput[]>(
+    edicao?.inicial.vendedores ?? [parteVazia("vendedor")],
+  );
+  const [compradores, setCompradores] = useState<ParteInput[]>(
+    edicao?.inicial.compradores ?? [parteVazia("comprador")],
+  );
+  const [outrasPartes, setOutrasPartes] = useState<ParteInput[]>(
+    edicao?.inicial.outrasPartes ?? [],
+  );
+  const [corretores, setCorretores] = useState<CorretorLinha[]>(
+    edicao?.inicial.corretores ?? [],
+  );
   const [docsImovel, setDocsImovel] = useState<DocumentoDaParte[]>([]);
-  const [baseTotal, setBaseTotal] = useState<Base>("valor");
-  const [baseImobiliaria, setBaseImobiliaria] = useState<Base>("valor");
-  const [imobiliariaParticipa, setImobiliariaParticipa] = useState(false);
+  const [baseTotal, setBaseTotal] = useState<Base>(
+    edicao?.inicial.baseTotal ?? "valor",
+  );
+  const [baseImobiliaria, setBaseImobiliaria] = useState<Base>(
+    edicao?.inicial.baseImobiliaria ?? "valor",
+  );
+  const [imobiliariaParticipa, setImobiliariaParticipa] = useState(
+    edicao?.inicial.imobiliariaParticipa ?? false,
+  );
 
-  const [negocio, setNegocio] = useState<NegocioInput>({
+  const [negocio, setNegocio] = useState<NegocioInput>(
+    edicao?.inicial.negocio ?? {
     vl_imovel: "",
     vl_entrada: "",
     vl_financiamento: "",
@@ -748,6 +1083,7 @@ export function ProcessoForm({
     ds_imovel_endereco: "",
     ds_imovel_matricula: "",
     ds_imovel_iptu: "",
+    ds_imovel_descricao: "",
     ds_imovel_cartorio: "",
     tp_pagamento: "",
     vl_sinal: "",
@@ -759,7 +1095,8 @@ export function ProcessoForm({
     ds_honorarios_quando: "",
     vl_honorarios_imobiliaria: "",
     pc_honorarios_imobiliaria: "",
-  });
+  },
+  );
 
   function patchNegocio(patch: Partial<NegocioInput>) {
     setNegocio((n) => ({ ...n, ...patch }));
@@ -769,7 +1106,7 @@ export function ProcessoForm({
     lista: ParteInput[],
     setLista: (v: ParteInput[]) => void,
     idx: number,
-    patch: Partial<ParteInput>
+    patch: Partial<ParteInput>,
   ) {
     setLista(lista.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   }
@@ -784,7 +1121,12 @@ export function ProcessoForm({
   const saldo =
     vlImovel === null
       ? null
-      : Math.max(0, Math.round((vlImovel - (num(negocio.vl_sinal) ?? 0) - (num(negocio.vl_entrada) ?? 0)) * 100) / 100);
+      : Math.max(
+          0,
+          Math.round(
+            (vlImovel - (num(negocio.vl_sinal) ?? 0) - (num(negocio.vl_entrada) ?? 0)) * 100,
+          ) / 100,
+        );
 
   // Honorários: total em R$ ou % do imóvel; imobiliária e corretores em
   // R$ ou % do total. O campo digitado por último manda.
@@ -792,7 +1134,7 @@ export function ProcessoForm({
     baseTotal,
     negocio.vl_honorarios_total,
     negocio.pc_honorarios_total,
-    vlImovel
+    vlImovel,
   );
   const totalNum = num(total.valor);
   const imobiliaria = imobiliariaParticipa
@@ -800,11 +1142,11 @@ export function ProcessoForm({
         baseImobiliaria,
         negocio.vl_honorarios_imobiliaria,
         negocio.pc_honorarios_imobiliaria,
-        totalNum
+        totalNum,
       )
     : { valor: "", percentual: "" };
   const corretoresExibidos = corretores.map((c) =>
-    derivar(c.base, c.vl_honorario, c.pc_honorario, totalNum)
+    derivar(c.base, c.vl_honorario, c.pc_honorario, totalNum),
   );
 
   const temDistribuicao =
@@ -822,20 +1164,47 @@ export function ProcessoForm({
       return;
     }
 
+    const comNomeProvisorio = (p: ParteInput, rotulo: string, i: number): ParteInput =>
+      p.modo === "link" && !p.nm_parte.trim()
+        ? { ...p, nm_parte: `${rotulo} ${i + 1} — aguardando preenchimento` }
+        : p;
+
     const partes: ParteInput[] = [
-      ...vendedores.map((p, i) => ({
+      ...vendedores.map((pOrig, i) => {
+        const p = comNomeProvisorio(pOrig, "Vendedor", i);
+        return {
+          ...p,
+          tp_lado: "vendedor" as const,
+          nr_ordem: i,
+          tp_vinculo:
+            i === 0
+              ? ("" as const)
+              : p.tp_vinculo ||
+                (tipoDocumentoFiscal(vendedores[0].ds_cpf) === "cnpj"
+                  ? ("representante" as const)
+                  : ("conjuge" as const)),
+        };
+      }),
+      ...compradores.map((pOrig, i) => {
+        const p = comNomeProvisorio(pOrig, "Comprador", i);
+        return {
+          ...p,
+          tp_lado: "comprador" as const,
+          nr_ordem: i,
+          tp_vinculo:
+            i === 0
+              ? ("" as const)
+              : p.tp_vinculo ||
+                (tipoDocumentoFiscal(compradores[0].ds_cpf) === "cnpj"
+                  ? ("representante" as const)
+                  : ("conjuge" as const)),
+        };
+      }),
+      ...outrasPartes.map((p, i) => ({
         ...p,
-        tp_lado: "vendedor" as const,
         nr_ordem: i,
-        tp_vinculo: i === 0 ? ("" as const) : p.tp_vinculo || ("conjuge" as const),
+        tp_vinculo: "" as const,
       })),
-      ...compradores.map((p, i) => ({
-        ...p,
-        tp_lado: "comprador" as const,
-        nr_ordem: i,
-        tp_vinculo: i === 0 ? ("" as const) : p.tp_vinculo || ("conjuge" as const),
-      })),
-      ...outrasPartes.map((p, i) => ({ ...p, nr_ordem: i, tp_vinculo: "" as const })),
     ].filter((p) => p.nm_parte.trim());
 
     const corretoresFinal: CorretorInput[] = corretores
@@ -858,7 +1227,7 @@ export function ProcessoForm({
     const aVista = negocio.tp_pagamento === "a_vista";
 
     startTransition(async () => {
-      const resultado = await criarProcesso({
+      const payload = {
         cd_imobiliaria: cdImobiliaria,
         nm_comprador_convidado: nmSolicitante.trim(),
         ds_telefone_comprador_convidado: dsTelefone,
@@ -877,7 +1246,10 @@ export function ProcessoForm({
         partes,
         corretores: corretoresFinal,
         documentos_imovel: docsImovel,
-      });
+      };
+      const resultado = edicao
+        ? await atualizarDadosProcesso(edicao.cdProcesso, payload)
+        : await criarProcesso(payload);
       if (resultado?.erro) setErro(resultado.erro);
     });
   }
@@ -886,7 +1258,7 @@ export function ProcessoForm({
     titulo: string,
     lado: "vendedor" | "comprador",
     lista: ParteInput[],
-    setLista: (v: ParteInput[]) => void
+    setLista: (v: ParteInput[]) => void,
   ) {
     const rotulo = lado === "vendedor" ? "Vendedor" : "Comprador";
     return (
@@ -900,9 +1272,12 @@ export function ProcessoForm({
               key={idx}
               parte={parte}
               titulo={idx === 0 ? rotulo : `${rotulo} ${idx + 1}`}
+              primeiraEhEmpresa={tipoDocumentoFiscal(lista[0].ds_cpf) === "cnpj"}
               anteriorNome={idx === 0 ? null : lista[idx - 1].nm_parte}
               anteriores={partesAnteriores}
+              siteUrl={siteUrl}
               podeRemover={lista.length > 1}
+              edicao={!!edicao}
               onChange={(patch) => patchParte(lista, setLista, idx, patch)}
               onRemove={() => setLista(lista.filter((_, i) => i !== idx))}
             />
@@ -912,11 +1287,16 @@ export function ProcessoForm({
             variant="outline"
             size="sm"
             className="w-fit gap-1.5"
-            onClick={() => setLista([...lista, parteVazia(lado, "conjuge")])}
+            onClick={() =>
+              setLista([
+                ...lista,
+                { ...parteVazia(lado, "conjuge"), ...(edicao ? { modo: "manual" as const } : {}) },
+              ])
+            }
           >
             <Plus className="h-4 w-4" />
-            Adicionar {lado === "vendedor" ? "vendedor" : "comprador"} (cônjuge, companheiro ou outra
-            pessoa)
+            Adicionar {lado === "vendedor" ? "vendedor" : "comprador"} (cônjuge, companheiro ou
+            outra pessoa)
           </Button>
         </CardContent>
       </Card>
@@ -925,6 +1305,12 @@ export function ProcessoForm({
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      {edicao && (
+        <p className="rounded-radius border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+          Os documentos já anexados e os links dos clientes continuam como estão. Se este processo já
+          tem minuta, gere uma nova versão depois de salvar para refletir as mudanças.
+        </p>
+      )}
       <datalist id="partes-anteriores">
         {partesAnteriores.map((p) => (
           <option key={p.nm_parte} value={p.nm_parte} />
@@ -1018,6 +1404,7 @@ export function ProcessoForm({
           <CardTitle>Imóvel</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {!edicao && (
           <div className="rounded-radius border border-dashed border-border p-3 sm:col-span-2">
             <p className="mb-2 text-xs text-muted-foreground">
               Anexe a certidão de ônus/escritura e o IPTU — o sistema lê e preenche endereço,
@@ -1043,6 +1430,10 @@ export function ProcessoForm({
                   patch.ds_imovel_iptu = dados.inscricaoMunicipal;
                   preenchidos.push("inscrição municipal");
                 }
+                if (dados?.descricao && !negocio.ds_imovel_descricao) {
+                  patch.ds_imovel_descricao = dados.descricao;
+                  preenchidos.push("descrição do imóvel");
+                }
                 if (dados?.cartorioCodigo && !negocio.ds_imovel_cartorio) {
                   patch.ds_imovel_cartorio = dados.cartorioCodigo;
                   preenchidos.push("cartório");
@@ -1055,11 +1446,21 @@ export function ProcessoForm({
               }
             />
           </div>
+          )}
           <Campo label="Endereço do imóvel" className="sm:col-span-2">
             <Input
               placeholder="Rua, número, complemento, bairro, cidade/UF"
               value={negocio.ds_imovel_endereco}
               onChange={(e) => patchNegocio({ ds_imovel_endereco: e.target.value })}
+            />
+          </Campo>
+          <Campo label="Descrição do imóvel (como na matrícula)" className="sm:col-span-2">
+            <textarea
+              rows={4}
+              className="w-full rounded-radius border border-border bg-background px-3 py-2 text-sm"
+              placeholder="APARTAMENTO de nº … , com área privativa de …, fração ideal de …"
+              value={negocio.ds_imovel_descricao}
+              onChange={(e) => patchNegocio({ ds_imovel_descricao: e.target.value })}
             />
           </Campo>
           <Campo label="Matrícula">
@@ -1129,7 +1530,9 @@ export function ProcessoForm({
             <Select
               value={negocio.tp_pagamento}
               onChange={(e) =>
-                patchNegocio({ tp_pagamento: e.target.value as NegocioInput["tp_pagamento"] })
+                patchNegocio({
+                  tp_pagamento: e.target.value as NegocioInput["tp_pagamento"],
+                })
               }
             >
               <option value="">—</option>
@@ -1138,7 +1541,10 @@ export function ProcessoForm({
             </Select>
           </Campo>
           <Campo label="Sinal">
-            <CurrencyInput value={negocio.vl_sinal} onChange={(v) => patchNegocio({ vl_sinal: v })} />
+            <CurrencyInput
+              value={negocio.vl_sinal}
+              onChange={(v) => patchNegocio({ vl_sinal: v })}
+            />
           </Campo>
           <Campo label="Entrada">
             <CurrencyInput
@@ -1317,7 +1723,13 @@ export function ProcessoForm({
 
       <div>
         <Button type="button" onClick={salvar} disabled={pending} className="font-bold">
-          {pending ? "Criando..." : "Criar processo"}
+          {pending
+            ? edicao
+              ? "Salvando..."
+              : "Criando..."
+            : edicao
+              ? "Salvar alterações"
+              : "Criar processo"}
         </Button>
         {erro && <p className="mt-2 text-sm text-status-reprovado">{erro}</p>}
       </div>

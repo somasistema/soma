@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { classificarDocumento } from "./classificar";
+import { normalizarNomesCampos } from "./ler-documento";
 import { aplicarDadosImovel, lerDadosImovelComIA } from "./dados-imovel";
 import { extrairTexto } from "./extrair";
 import { extrairCampos, type CampoLido } from "./parsers";
@@ -58,7 +59,7 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
       throw new Error(`Não foi possível baixar o arquivo: ${erroDownload?.message ?? "sem retorno"}`);
     }
 
-    const { texto, confianca, paginas, imagemPrincipal } = await extrairTexto(
+    const { texto, confianca, paginas, imagemPrincipal, imagemPaginaPdf } = await extrairTexto(
       await blob.arrayBuffer(),
       blob.type || null,
       documento.nm_arquivo
@@ -86,16 +87,19 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
     const alimentaMinuta =
       documento.tp_categoria_intake === "identidade" ||
       documento.tp_categoria_intake === "estado_civil" ||
-      documento.tp_categoria_intake === "uniao_estavel";
+      documento.tp_categoria_intake === "uniao_estavel" ||
+      documento.tp_categoria_intake === "comprovante_residencia" ||
+      documento.tp_categoria_intake === "contrato_social";
 
-    if ((campos.length === 0 || alimentaMinuta) && imagemPrincipal) {
+    if ((campos.length === 0 || alimentaMinuta) && (imagemPrincipal || texto.trim())) {
       const leitura = await lerDocumentoComIA({
-        imagem: imagemPrincipal.dados,
-        mimeType: imagemPrincipal.mimeType,
+        imagem: imagemPrincipal?.dados ?? null,
+        mimeType: imagemPrincipal?.mimeType ?? null,
+        texto: imagemPrincipal ? null : texto,
         complemento: campos.length > 0,
       });
       if (leitura && leitura.campos.length > 0) {
-        const daIA: CampoLido[] = leitura.campos
+        const daIA: CampoLido[] = normalizarNomesCampos(leitura.campos)
           .filter((c) => c.nm_campo && c.ds_valor?.trim())
           .map((c) => ({
             nm_campo: c.nm_campo,
@@ -138,12 +142,13 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
       documento.tp_categoria_intake === "iptu" ||
       documento.tp_categoria_intake === "onus_escritura";
     if (ehDoImovel) {
-      const dadosImovel = (await lerDadosImovelComIA({ texto, imagem: imagemPrincipal })) ?? {
+      const dadosImovel = (await lerDadosImovelComIA({ texto, imagem: imagemPrincipal ?? imagemPaginaPdf ?? null })) ?? {
         // Sem IA: pelo menos a matrícula que o regex achou.
         endereco: null,
         matricula: campos.find((c) => c.nm_campo === "matricula")?.ds_valor ?? null,
         inscricaoMunicipal: null,
         cartorioCodigo: null,
+        descricao: null,
       };
       await aplicarDadosImovel(supabase, documento.cd_processo, dadosImovel).catch((e) =>
         console.error("[ocr] falha ao preencher dados do imóvel:", e)

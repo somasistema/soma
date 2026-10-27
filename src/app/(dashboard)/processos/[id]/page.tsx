@@ -1,40 +1,21 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button-variants";
+import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { getUsuarioAtual, temPermissao } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { formatarData, formatarMoeda } from "@/lib/utils";
-import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerList, StaggerItem } from "@/components/motion/stagger-list";
-import {
-  STATUS_PENDENCIA_LABEL,
-  TIPO_PROCESSO_LABEL,
-  type Andamento,
-  type LogAuditoria,
-  type Orcamento,
-  type Pendencia,
-  type Processo,
-} from "@/types/database";
-import { DocumentosSection } from "../../orcamentos/[id]/documentos-section";
-import { DadosNegocioSection } from "./dados-negocio-section";
-import { ExcluirProcessoButton } from "./excluir-processo-button";
-import { PendenciaForm } from "./pendencia-form";
+import { getUsuarioAtual } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { formatarData, formatarDataHora, formatarMoeda } from "@/lib/utils";
+import { STATUS_PENDENCIA_LABEL, type Andamento, type Pendencia } from "@/types/database";
 import { PendenciaCheckbox } from "./pendencia-checkbox";
-import { HistoricoProcesso } from "./historico-processo";
-import { ChatProcesso } from "./chat-processo";
-import { MinutaSection } from "./minuta-section";
-import { TimelineProcesso } from "./timeline-processo";
-
-// Upload de documento roda o OCR (Tesseract) na mesma requisição do
-// server action — precisa de mais que o default da plataforma.
-export const maxDuration = 60;
+import { PendenciaForm } from "./pendencia-form";
+import { carregarProcesso } from "./processo-dados";
+import { ProximoPasso } from "./proximo-passo";
 
 const PODE_CRIAR_PENDENCIA = new Set(["master", "juridico", "despachante"]);
-const PODE_CRIAR_ORCAMENTO = new Set(["master", "juridico"]);
 
-export default async function ProcessoDetalhePage({
+const PAGAMENTO_LABEL: Record<string, string> = { financiado: "Financiado", a_vista: "À vista" };
+
+export default async function ProcessoResumoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -43,152 +24,94 @@ export default async function ProcessoDetalhePage({
   const supabase = await createClient();
   const usuario = await getUsuarioAtual();
 
-  const { data: processo } = await supabase
-    .schema("soma")
-    .from("processos")
-    .select("*")
-    .eq("cd_processo", id)
-    .single<Processo>();
+  const processo = await carregarProcesso(id);
+  if (!processo) notFound();
+  const contrato = processo.tp_processo === "contrato";
 
-  if (!processo) {
-    notFound();
-  }
-
-  const podeExcluir = await temPermissao(usuario, "processos", "excluir");
-
-  const [{ data: andamentos }, { data: pendencias }, { data: orcamentos }] = await Promise.all([
-    supabase
-      .schema("soma")
-      .from("andamentos")
-      .select("*, usuarios(nm_usuario)")
-      .eq("cd_processo", id)
-      .order("ts_criacao", { ascending: false })
-      .returns<(Andamento & { usuarios: { nm_usuario: string } | null })[]>(),
-    supabase
-      .schema("soma")
-      .from("pendencias")
-      .select("*")
-      .eq("cd_processo", id)
-      .order("ts_criacao", { ascending: false })
-      .returns<Pendencia[]>(),
-    supabase
-      .schema("soma")
-      .from("orcamentos")
-      .select("*")
-      .eq("cd_processo", id)
-      .order("ts_criacao", { ascending: false })
-      .returns<Orcamento[]>(),
-  ]);
-
-  // Histórico com "reverter" — só Master vê (log_auditoria só é
-  // legível por Master, ver migration 033). Junta o log do processo
-  // em si, dos orçamentos dele, e dos itens desses orçamentos.
-  type LogComUsuario = LogAuditoria & { usuarios: { nm_usuario: string } | null };
-  let logsHistorico: LogComUsuario[] = [];
-  if (usuario.tp_role === "master") {
-    const cdsOrcamentos = (orcamentos ?? []).map((o) => o.cd_orcamento);
-
-    const consultas = [
+  const [{ data: pendencias }, { data: andamentos }, { data: negocio }, { count: minutas }] =
+    await Promise.all([
       supabase
         .schema("soma")
-        .from("log_auditoria")
-        .select("*, usuarios(nm_usuario)")
-        .eq("nm_tabela", "processos")
-        .eq("cd_registro", id)
-        .returns<LogComUsuario[]>(),
-    ];
+        .from("pendencias")
+        .select("*")
+        .eq("cd_processo", id)
+        .order("ts_criacao", { ascending: false })
+        .returns<Pendencia[]>(),
+      supabase
+        .schema("soma")
+        .from("andamentos")
+        .select("*")
+        .eq("cd_processo", id)
+        .order("ts_criacao", { ascending: false })
+        .limit(5)
+        .returns<Andamento[]>(),
+      contrato
+        ? supabase
+            .schema("soma")
+            .from("processo_negocio")
+            .select("vl_imovel, tp_pagamento, vl_entrada, vl_financiamento, vl_honorarios_total")
+            .eq("cd_processo", id)
+            .maybeSingle<{
+              vl_imovel: number | null;
+              tp_pagamento: string | null;
+              vl_entrada: number | null;
+              vl_financiamento: number | null;
+              vl_honorarios_total: number | null;
+            }>()
+        : Promise.resolve({ data: null }),
+      supabase
+        .schema("soma")
+        .from("minutas")
+        .select("cd_minuta", { count: "exact", head: true })
+        .eq("cd_processo", id),
+    ]);
 
-    if (cdsOrcamentos.length > 0) {
-      consultas.push(
-        supabase
-          .schema("soma")
-          .from("log_auditoria")
-          .select("*, usuarios(nm_usuario)")
-          .eq("nm_tabela", "orcamentos")
-          .in("cd_registro", cdsOrcamentos)
-          .returns<LogComUsuario[]>(),
-        supabase
-          .schema("soma")
-          .from("log_auditoria")
-          .select("*, usuarios(nm_usuario)")
-          .eq("nm_tabela", "orcamento_servicos")
-          .or(
-            cdsOrcamentos
-              .flatMap((cd) => [
-                `dados_novos->>cd_orcamento.eq.${cd}`,
-                `dados_antigos->>cd_orcamento.eq.${cd}`,
-              ])
-              .join(",")
-          )
-          .returns<LogComUsuario[]>()
-      );
-    }
+  const abertas = (pendencias ?? []).filter((p) => p.tp_status !== "concluida").length;
 
-    const resultados = await Promise.all(consultas);
-    logsHistorico = resultados
-      .flatMap((r) => r.data ?? [])
-      .sort((a, b) => b.ts_criacao.localeCompare(a.ts_criacao));
-  }
+  const numeros: { rotulo: string; valor: string }[] = negocio
+    ? [
+        { rotulo: "Valor do imóvel", valor: negocio.vl_imovel != null ? formatarMoeda(Number(negocio.vl_imovel)) : "—" },
+        { rotulo: "Pagamento", valor: PAGAMENTO_LABEL[negocio.tp_pagamento ?? ""] ?? "—" },
+        { rotulo: "Entrada", valor: negocio.vl_entrada != null ? formatarMoeda(Number(negocio.vl_entrada)) : "—" },
+        { rotulo: "Financiamento", valor: negocio.vl_financiamento != null ? formatarMoeda(Number(negocio.vl_financiamento)) : "—" },
+        { rotulo: "Honorários", valor: negocio.vl_honorarios_total != null ? formatarMoeda(Number(negocio.vl_honorarios_total)) : "—" },
+      ]
+    : [];
 
   return (
-    <FadeIn className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
-            Processo {processo.ds_numero_processo}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {TIPO_PROCESSO_LABEL[processo.tp_processo]}
-            {processo.nm_comprador_convidado ? ` — ${processo.nm_comprador_convidado}` : ""}
-          </p>
-        </div>
-        {podeExcluir && (
-          <ExcluirProcessoButton
-            cdProcesso={id}
-            numeroProcesso={processo.ds_numero_processo}
-          />
-        )}
-      </div>
-
-      {processo.tp_processo === "contrato" && (
-        <>
-          <DadosNegocioSection cdProcesso={id} numeroProcesso={processo.ds_numero_processo} />
-          <DocumentosSection cdProcesso={id} />
-          <MinutaSection processo={processo} />
-        </>
+    <div className="flex flex-col gap-6">
+      {contrato && (
+        <ProximoPasso
+          cdProcesso={id}
+          etapa={processo.tp_etapa_contrato}
+          pendenciasAbertas={abertas}
+          temMinuta={(minutas ?? 0) > 0}
+        />
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Orçamentos</CardTitle>
-          {PODE_CRIAR_ORCAMENTO.has(usuario.tp_role) && (
+      {numeros.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>O negócio em resumo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {numeros.map((n) => (
+                <div key={n.rotulo}>
+                  <dt className="text-xs text-muted-foreground">{n.rotulo}</dt>
+                  <dd className="text-sm font-medium text-foreground">{n.valor}</dd>
+                </div>
+              ))}
+            </dl>
             <Link
-              href={`/processos/${id}/orcamento-complementar`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              href={`/processos/${id}/imovel`}
+              className="mt-3 inline-block text-xs text-brand underline"
             >
-              {orcamentos && orcamentos.length > 0 ? "Novo orçamento complementar" : "Novo orçamento"}
+              Ver imóvel e todos os valores
             </Link>
-          )}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {orcamentos && orcamentos.length > 0 ? (
-            orcamentos.map((orcamento) => (
-              <Link
-                key={orcamento.cd_orcamento}
-                href={`/orcamentos/${orcamento.cd_orcamento}`}
-                className="flex items-center justify-between rounded-radius border border-border p-3 hover:bg-muted/50"
-              >
-                <span className="text-sm text-foreground">
-                  {formatarData(orcamento.ts_criacao)} — {formatarMoeda(orcamento.vl_total_geral)}
-                </span>
-                <StatusBadge status={orcamento.tp_status} />
-              </Link>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum orçamento para este processo.</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -246,41 +169,35 @@ export default async function ProcessoDetalhePage({
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Conversa do processo</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Últimas atividades</CardTitle>
+          <Link href={`/processos/${id}/atividade`} className="text-xs text-brand underline">
+            Ver tudo
+          </Link>
         </CardHeader>
         <CardContent>
-          <ChatProcesso cdProcesso={id} cdUsuarioAtual={usuario.cd_usuario} />
+          {andamentos && andamentos.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {andamentos.map((a) => (
+                <li
+                  key={a.cd_andamento}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
+                >
+                  <span className="text-foreground">
+                    <strong className="font-medium">{a.nm_etapa}</strong>
+                    {a.ds_andamento ? ` — ${a.ds_andamento}` : ""}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatarDataHora(a.ts_criacao)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhuma atividade registrada.</p>
+          )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Timeline do processo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TimelineProcesso
-            andamentos={andamentos ?? []}
-            pendencias={pendencias ?? []}
-            orcamentos={orcamentos ?? []}
-          />
-        </CardContent>
-      </Card>
-
-      {usuario.tp_role === "master" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico de alterações</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-xs text-muted-foreground">
-              Mudanças nos dados do processo, do orçamento e dos itens — dá pra reverter uma
-              edição pro valor de antes. Status (pago, aceito etc) nunca é revertido por aqui.
-            </p>
-            <HistoricoProcesso logs={logsHistorico} cdProcesso={id} />
-          </CardContent>
-        </Card>
-      )}
-    </FadeIn>
+    </div>
   );
 }

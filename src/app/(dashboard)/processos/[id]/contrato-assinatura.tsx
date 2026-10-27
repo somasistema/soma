@@ -74,7 +74,7 @@ export function ContratoAssinatura({
 
       {!assinaturaConfigurada && !enviado && (
         <p className="text-xs text-muted-foreground">
-          Assinatura digital ainda não configurada — defina o token da Autentique para o envio
+          Assinatura digital ainda não configurada — defina o token da Clicksign para o envio
           automático passar a acontecer.
         </p>
       )}

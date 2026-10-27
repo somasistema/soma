@@ -5,6 +5,9 @@ export type SignatarioEntrada = {
   nome: string;
   email: string;
   cd_usuario: string | null;
+  // Opcionais: com os dois, o provedor valida o signatário pelo CPF.
+  cpf?: string | null;
+  nascimento?: string | null; // yyyy-mm-dd
 };
 
 export type ArquivoParaAssinar = {
@@ -15,7 +18,7 @@ export type ArquivoParaAssinar = {
 
 export type SignatarioCriado = {
   tp_papel: TipoPapelAprovacao;
-  assinaturaExternoId: string | null; // public_id no provedor, casa com o webhook
+  assinaturaExternoId: string | null; // id do signatário no provedor, casa com o webhook
   urlAssinatura: string | null;
 };
 

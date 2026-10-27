@@ -260,7 +260,9 @@ export type CategoriaDocIntake =
   | "comprovante_residencia"
   | "uniao_estavel"
   | "onus_escritura"
-  | "iptu";
+  | "iptu"
+  | "contrato_social"
+  | "certidoes";
 
 export const CATEGORIA_DOC_INTAKE_LABEL: Record<CategoriaDocIntake, string> = {
   identidade: "Identidade ou CNH",
@@ -269,6 +271,8 @@ export const CATEGORIA_DOC_INTAKE_LABEL: Record<CategoriaDocIntake, string> = {
   uniao_estavel: "Declaração de união estável",
   onus_escritura: "Certidão de ônus ou Escritura",
   iptu: "IPTU do imóvel",
+  contrato_social: "Contrato social / certidão da Junta",
+  certidoes: "Certidões (negativas, fiscais, forenses)",
 };
 
 // Documentos pessoais de vendedor e comprador. O checklist exato de
@@ -279,17 +283,21 @@ export const CATEGORIAS_DOC_PESSOAIS: CategoriaDocIntake[] = [
   "comprovante_residencia",
 ];
 
+// Documentos da empresa (vendedor/comprador com CNPJ).
+export const CATEGORIAS_DOC_EMPRESA: CategoriaDocIntake[] = ["contrato_social", "certidoes"];
+
 // Documentos do imóvel — um conjunto por processo (migration 057),
 // não um por vendedor.
 export const CATEGORIAS_DOC_IMOVEL: CategoriaDocIntake[] = ["onus_escritura", "iptu"];
 
 // Vínculo da 2ª pessoa em diante com a pessoa anterior do mesmo lado.
-export type VinculoParte = "conjuge" | "companheiro" | "anuente" | "outro";
+export type VinculoParte = "conjuge" | "companheiro" | "anuente" | "representante" | "outro";
 
 export const VINCULO_PARTE_LABEL: Record<VinculoParte, string> = {
   conjuge: "Cônjuge (casados)",
   companheiro: "Companheiro(a) — união estável",
   anuente: "Anuente (consente no negócio)",
+  representante: "Representante (assina pela empresa)",
   outro: "Outra pessoa",
 };
 
@@ -316,6 +324,7 @@ export interface ProcessoNegocio {
   ds_imovel_endereco: string | null;
   ds_imovel_matricula: string | null;
   ds_imovel_iptu: string | null;
+  ds_imovel_descricao: string | null;
   ds_imovel_cartorio: string | null;
   tp_pagamento: FormaPagamento | null;
   vl_sinal: number | null;
@@ -348,14 +357,19 @@ export interface ProcessoParte {
   dt_nascimento: string | null;
   ds_endereco: string | null;
   tp_vinculo: VinculoParte | null;
+  // Empresa (CNPJ no campo ds_cpf)
+  ds_nire: string | null;
+  ds_tipo_societario: string | null;
+  ds_representacao: "conjunta" | "isolada" | null;
   // Link público de autoatendimento da parte (migration 050).
   cd_token_parte: string | null;
 }
 
 // Retorno de soma.fn_parte_por_token — tela pública /parte/[token].
 export interface ParteAutoatendimento {
-  cd_parte: string;
-  cd_processo: string;
+  // null enquanto é só um convite (link gerado antes de o processo existir)
+  cd_parte: string | null;
+  cd_processo: string | null;
   tp_lado: LadoParte;
   nm_parte: string;
   ds_telefone: string | null;
@@ -366,7 +380,7 @@ export interface ParteAutoatendimento {
   ds_rg: string | null;
   dt_nascimento: string | null;
   ds_endereco: string | null;
-  ds_numero_processo: string;
+  ds_numero_processo: string | null;
   documentos: {
     cd_documento: string;
     tp_categoria_intake: CategoriaDocIntake | null;
@@ -471,6 +485,8 @@ export const STATUS_SIGNATARIO_LABEL: Record<StatusSignatario, string> = {
   recusado: "Recusado",
 };
 
+import type { DocMinuta } from "@/lib/minuta-doc";
+
 export interface Minuta {
   cd_minuta: string;
   cd_processo: string;
@@ -480,6 +496,9 @@ export interface Minuta {
   // um texto gerado de um modelo — nunca os dois nulos (ver migration 043).
   ds_storage_url: string | null;
   ds_conteudo: string | null;
+  // Documento do editor (negrito, alinhamento...). Quando existe, é o que
+  // vale pro PDF; ds_conteudo fica como texto puro equivalente.
+  ds_conteudo_json: DocMinuta | null;
   tp_status: StatusMinuta;
   ts_criacao: string;
 }
@@ -599,6 +618,7 @@ export const CAMPOS_MODELO_CONTRATO: {
   {
     grupo: "Imóvel",
     campos: [
+      { token: "{{imovel_descricao}}", descricao: "Descrição do imóvel (da matrícula: unidade, vaga, áreas, fração ideal)" },
       { token: "{{imovel_endereco}}", descricao: "Endereço do imóvel" },
       { token: "{{imovel_matricula}}", descricao: "Matrícula" },
       { token: "{{imovel_iptu}}", descricao: "Inscrição municipal (IPTU)" },
@@ -788,6 +808,9 @@ export const CAMPO_OCR_LABEL: Record<string, string> = {
   cpf_conjuge_1: "CPF do cônjuge 1",
   cpf_conjuge_2: "CPF do cônjuge 2",
   nome_mae: "Nome da mãe",
+  razao_social_lida: "Razão social",
+  nire: "NIRE",
+  tipo_societario: "Tipo societário",
   nome_pai: "Nome do pai",
   cnh_registro: "Registro da CNH",
   cep: "CEP",

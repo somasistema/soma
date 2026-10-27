@@ -7,12 +7,18 @@ import { CARTORIOS_IMOVEIS } from "@/types/database";
 // tool_choice forçado, opcional (sem ANTHROPIC_API_KEY não roda), e só
 // completa campo vazio — nunca sobrescreve o que alguém digitou.
 const MODELO = "claude-haiku-4-5";
+// Matrícula escaneada: letra miúda e a descrição vai literal pro contrato
+// (medidas), então a leitura da imagem usa o modelo maior. Ele não aceita
+// tool_choice forçado; com uma ferramenta só e a instrução, chama sozinho.
+const MODELO_IMAGEM = "claude-sonnet-5-5";
 
 export type DadosImovelLidos = {
   endereco: string | null;
   matricula: string | null;
   inscricaoMunicipal: string | null;
   cartorioCodigo: string | null;
+  // Parágrafo "IMÓVEL:" da matrícula (unidade, vaga, áreas, fração ideal)
+  descricao: string | null;
 };
 
 const FERRAMENTA = {
@@ -24,7 +30,8 @@ const FERRAMENTA = {
     properties: {
       endereco: {
         type: ["string", "null"],
-        description: "Endereço completo do imóvel (rua, número, complemento, bairro, cidade/UF). Null se não aparecer.",
+        description:
+          "Endereço completo do imóvel (rua, número, complemento, bairro, cidade/UF), só de IPTU/cadastro municipal. Na matrícula use null (o endereço fica na descrição). Null se não aparecer.",
       },
       matricula: {
         type: ["string", "null"],
@@ -42,8 +49,13 @@ const FERRAMENTA = {
         type: ["string", "null"],
         description: "Cidade do cartório de registro de imóveis (ex: 'Salvador').",
       },
+      descricao: {
+        type: ["string", "null"],
+        description:
+          "SOMENTE na matrícula/certidão de matrícula: a descrição do imóvel copiada do campo 'IMÓVEL:', do início ('APARTAMENTO de nº…', 'CASA…', 'LOTE…') até a fração ideal inclusive (ex: '…correspondendo à fração ideal de 0,13580% ou 43,660m²'), parando aí: não inclua 'Dito empreendimento…', terreno, confrontações, sem o rótulo 'IMÓVEL:', sem cadastro municipal, proprietário, título ou registros. Copie fiel, caractere por caractere, sem corrigir nem resumir; confira cada número de medida duas vezes. Null se o documento não for matrícula.",
+      },
     },
-    required: ["endereco", "matricula", "inscricao_municipal", "cartorio_numero", "cartorio_cidade"],
+    required: ["endereco", "matricula", "inscricao_municipal", "cartorio_numero", "cartorio_cidade", "descricao"],
   },
 };
 
@@ -76,38 +88,45 @@ export async function lerDadosImovelComIA(params: {
 }): Promise<DadosImovelLidos | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
-  const usarImagem = params.texto.trim().length < 200 && params.imagem;
   const mediaType = params.imagem?.mimeType.includes("png")
     ? "image/png"
     : params.imagem?.mimeType.includes("webp")
       ? "image/webp"
       : "image/jpeg";
 
-  const conteudo: Anthropic.ContentBlockParam[] = usarImagem
-    ? [
-        {
-          type: "image",
-          source: { type: "base64", media_type: mediaType, data: params.imagem!.dados.toString("base64") },
-        },
-        { type: "text", text: "Documento brasileiro de imóvel (certidão de ônus/matrícula ou carnê/certidão de IPTU). Extraia os dados de identificação do imóvel." },
-      ]
-    : [
-        {
-          type: "text",
-          text:
-            "Texto de um documento brasileiro de imóvel (certidão de ônus/matrícula ou carnê/certidão de IPTU), " +
-            "lido por OCR. Extraia os dados de identificação do imóvel.\n\n" +
-            params.texto.slice(0, 14000),
-        },
-      ];
+  // Matrícula escaneada tem só a capa em texto nativo: com imagem, manda
+  // a imagem junto do texto pra IA ler o corpo da matrícula.
+  const conteudo: Anthropic.ContentBlockParam[] = [
+    ...(params.imagem
+      ? [
+          {
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: mediaType as "image/png" | "image/webp" | "image/jpeg",
+              data: params.imagem.dados.toString("base64"),
+            },
+          },
+        ]
+      : []),
+    {
+      type: "text",
+      text:
+        "Documento brasileiro de imóvel (certidão de ônus/matrícula ou carnê/certidão de IPTU). " +
+        "Extraia os dados de identificação do imóvel chamando a ferramenta reportar_dados_imovel." +
+        (params.texto.trim()
+          ? "\n\nTexto extraído do documento:\n" + params.texto.slice(0, 14000)
+          : ""),
+    },
+  ];
 
   try {
     const client = new Anthropic();
     const response = await client.messages.create({
-      model: MODELO,
-      max_tokens: 512,
+      model: params.imagem ? MODELO_IMAGEM : MODELO,
+      max_tokens: 1024,
       tools: [FERRAMENTA],
-      tool_choice: { type: "tool", name: "reportar_dados_imovel" },
+      tool_choice: params.imagem ? { type: "auto" } : { type: "tool", name: "reportar_dados_imovel" },
       messages: [{ role: "user", content: conteudo }],
     });
 
@@ -120,6 +139,7 @@ export async function lerDadosImovelComIA(params: {
       inscricao_municipal: string | null;
       cartorio_numero: number | null;
       cartorio_cidade: string | null;
+      descricao: string | null;
     };
 
     return {
@@ -127,6 +147,7 @@ export async function lerDadosImovelComIA(params: {
       matricula: limpar(input.matricula),
       inscricaoMunicipal: limpar(input.inscricao_municipal),
       cartorioCodigo: codigoCartorio(input.cartorio_numero, limpar(input.cartorio_cidade)),
+      descricao: limpar(input.descricao)?.replace(/^im[óo]vel:\s*/i, "").replace(/\s+/g, " ") ?? null,
     };
   } catch (erro) {
     console.error("[ocr] falha na leitura dos dados do imóvel:", erro);
@@ -143,7 +164,7 @@ export async function aplicarDadosImovel(
   const { data: atual } = await supabase
     .schema("soma")
     .from("processo_negocio")
-    .select("ds_imovel_endereco, ds_imovel_matricula, ds_imovel_iptu, ds_imovel_cartorio")
+    .select("ds_imovel_endereco, ds_imovel_matricula, ds_imovel_iptu, ds_imovel_cartorio, ds_imovel_descricao")
     .eq("cd_processo", cdProcesso)
     .maybeSingle();
 
@@ -152,6 +173,7 @@ export async function aplicarDadosImovel(
   if (!atual?.ds_imovel_matricula && dados.matricula) patch.ds_imovel_matricula = dados.matricula;
   if (!atual?.ds_imovel_iptu && dados.inscricaoMunicipal) patch.ds_imovel_iptu = dados.inscricaoMunicipal;
   if (!atual?.ds_imovel_cartorio && dados.cartorioCodigo) patch.ds_imovel_cartorio = dados.cartorioCodigo;
+  if (!atual?.ds_imovel_descricao && dados.descricao) patch.ds_imovel_descricao = dados.descricao;
 
   if (Object.keys(patch).length === 0) return;
 

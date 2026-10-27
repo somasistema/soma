@@ -2,7 +2,7 @@ import { semMarcacao } from "@/lib/minuta-marcacao";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Minuta, Processo } from "@/types/database";
 import { getProvedorAssinatura } from "./index";
-import { minutaTextoParaPdf } from "./minuta-pdf";
+import { minutaDocParaPdf, minutaTextoParaPdf } from "./minuta-pdf";
 import { resolverSignatarios } from "./signatarios";
 import type { ArquivoParaAssinar } from "./tipos";
 
@@ -81,7 +81,9 @@ export async function enviarContratoParaAssinatura(cdContrato: string): Promise<
         nome: `contrato-${processo.ds_numero_processo}.pdf`,
         // A minuta guarda a marcação dos campos (vermelho na tela) — o
         // contrato pra assinatura vai limpo.
-        conteudo: await minutaTextoParaPdf(titulo, semMarcacao(minuta.ds_conteudo)),
+        conteudo: minuta.ds_conteudo_json
+          ? await minutaDocParaPdf(minuta.ds_conteudo_json)
+          : await minutaTextoParaPdf(titulo, semMarcacao(minuta.ds_conteudo)),
         tipo: "application/pdf",
       };
     } else {

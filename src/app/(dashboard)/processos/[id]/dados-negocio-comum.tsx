@@ -1,6 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { checklistDaPessoa, formatarDataIso, parDaParte } from "@/lib/checklist-partes";
+import { rotuloDocumentoFiscal } from "@/lib/documento-fiscal";
 import { getSiteUrl } from "@/lib/mercadopago";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda, formatarPercentual } from "@/lib/utils";
 import {
@@ -19,12 +20,12 @@ import {
 import { DocumentoAnexarButton } from "./documento-anexar-button";
 import { LinkParteButton } from "./link-parte-button";
 
-type DocComUrl = Pick<
+export type DocComUrl = Pick<
   Documento,
   "cd_documento" | "cd_parte" | "tp_categoria_intake" | "nm_arquivo" | "ds_storage_url"
 > & { urlAssinada: string | null };
 
-function Linha({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
+export function Linha({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   if (valor === null || valor === undefined || valor === "") return null;
   return (
     <div className="flex justify-between gap-4 border-t border-border py-1.5 text-sm first:border-t-0">
@@ -34,15 +35,15 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   );
 }
 
-function simNao(v: boolean | null) {
+export function simNao(v: boolean | null) {
   if (v === null) return null;
   return v ? "Sim" : "Não";
 }
 
-const moeda = (v: number | null | undefined) => (v == null ? null : formatarMoeda(Number(v)));
+export const moeda = (v: number | null | undefined) => (v == null ? null : formatarMoeda(Number(v)));
 
 // "R$ 9.625,00 (55%)" — o que existir dos dois.
-function valorComPercentual(valor: number | null | undefined, percentual: number | null | undefined) {
+export function valorComPercentual(valor: number | null | undefined, percentual: number | null | undefined) {
   if (valor == null && percentual == null) return null;
   if (valor == null) return formatarPercentual(Number(percentual));
   if (percentual == null) return formatarMoeda(Number(valor));
@@ -63,7 +64,7 @@ function Selo({ ok }: { ok: boolean }) {
 
 // Uma linha do checklist: links dos arquivos, botão pra anexar mais um
 // (frente e verso) e OK/Falta.
-function ItemDocumento({
+export function ItemDocumento({
   rotulo,
   observacao,
   arquivos,
@@ -102,7 +103,7 @@ function ItemDocumento({
   );
 }
 
-function ParteCard({
+export function ParteCard({
   parte,
   todasPartes,
   cdProcesso,
@@ -127,14 +128,17 @@ function ParteCard({
     .filter((p) => p.tp_lado === parte.tp_lado)
     .sort((a, b) => a.nr_ordem - b.nr_ordem);
   const posicao = ladoDaParte.findIndex((p) => p.cd_parte === parte.cd_parte);
+  const empresa = temChecklist && rotuloDocumentoFiscal(parte.ds_cpf) === "CNPJ";
   const vinculo =
     posicao > 0 && temChecklist
-      ? (parte.tp_vinculo ?? "conjuge") === "conjuge"
+      ? parte.tp_vinculo === "representante"
+        ? `representante de ${ladoDaParte[0].nm_parte}`
+        : (parte.tp_vinculo ?? "conjuge") === "conjuge"
         ? `cônjuge de ${ladoDaParte[posicao - 1].nm_parte}`
         : parte.tp_vinculo === "companheiro"
           ? `companheiro(a) de ${ladoDaParte[posicao - 1].nm_parte}`
           : parte.tp_vinculo === "anuente"
-            ? `anuente em ${ladoDaParte[posicao - 1].nm_parte}`
+            ? `anuente em ${ladoDaParte[posicao > 0 && ladoDaParte[0].ds_cpf && rotuloDocumentoFiscal(ladoDaParte[0].ds_cpf) === "CNPJ" ? 0 : posicao - 1].nm_parte}`
             : "outra pessoa"
       : null;
 
@@ -162,8 +166,20 @@ function ParteCard({
         )}
       </div>
       <div className="mt-1 flex flex-col">
-        <Linha rotulo="CPF" valor={parte.ds_cpf} />
+        <Linha rotulo={rotuloDocumentoFiscal(parte.ds_cpf)} valor={parte.ds_cpf} />
         <Linha rotulo="RG" valor={parte.ds_rg} />
+        <Linha rotulo="NIRE" valor={parte.ds_nire} />
+        <Linha rotulo="Tipo societário" valor={parte.ds_tipo_societario} />
+        <Linha
+          rotulo="Representação"
+          valor={
+            empresa
+              ? parte.ds_representacao === "isolada"
+                ? "Isoladamente"
+                : "Em conjunto"
+              : null
+          }
+        />
         <Linha rotulo="Nascimento" valor={formatarDataIso(parte.dt_nascimento)} />
         <Linha rotulo="Telefone" valor={parte.ds_telefone} />
         <Linha rotulo="E-mail" valor={parte.ds_email} />
@@ -176,7 +192,7 @@ function ParteCard({
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">
         {temChecklist &&
-          checklistDaPessoa(par?.vinculo ?? null).map((item) => {
+          checklistDaPessoa(par?.vinculo ?? null, empresa).map((item) => {
             const arquivos = [
               ...meus.filter((d) => d.tp_categoria_intake === item.categoria),
               ...(item.compartilhado
@@ -230,7 +246,7 @@ function ParteCard({
   );
 }
 
-const PLURAL_LADO: Record<LadoParte, string> = {
+export const PLURAL_LADO: Record<LadoParte, string> = {
   vendedor: "Vendedores",
   comprador: "Compradores",
   corretor: "Corretores",
@@ -248,13 +264,9 @@ const ORDEM_LADO: LadoParte[] = [
   "cliente",
 ];
 
-export async function DadosNegocioSection({
-  cdProcesso,
-  numeroProcesso,
-}: {
-  cdProcesso: string;
-  numeroProcesso: string;
-}) {
+// Dados compartilhados pelas abas Partes e Imóvel — `cache` evita repetir
+// as consultas quando as duas (ou o resumo) pedem na mesma requisição.
+export const carregarDadosNegocio = cache(async (cdProcesso: string) => {
   const supabase = await createClient();
   const linkBase = getSiteUrl();
 
@@ -321,142 +333,15 @@ export async function DadosNegocioSection({
   const temAlgo = negocio || todasPartes.length > 0 || (corretores ?? []).length > 0;
   const cartorio = CARTORIOS_IMOVEIS.find((c) => c.codigo === negocio?.ds_imovel_cartorio);
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Dados do negócio</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {!temAlgo && (
-          <p className="text-sm text-muted-foreground">
-            Nenhum dado do negócio informado na abertura do processo.
-          </p>
-        )}
-
-        {grupos.map((grupo) => (
-          <div key={grupo.lado} className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-foreground">
-              {grupo.partes.length > 1 ? PLURAL_LADO[grupo.lado] : LADO_PARTE_LABEL[grupo.lado]}
-            </p>
-            {grupo.partes.map((p) => (
-              <ParteCard
-                key={p.cd_parte}
-                parte={p}
-                todasPartes={todasPartes}
-                cdProcesso={cdProcesso}
-                numeroProcesso={numeroProcesso}
-                linkPreenchimento={
-                  linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
-                }
-                docsPorParte={docsPorParte}
-              />
-            ))}
-          </div>
-        ))}
-
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-foreground">Imóvel</p>
-          <div className="rounded-radius border border-border p-3">
-            {negocio && (
-              <>
-                <Linha rotulo="Endereço" valor={negocio.ds_imovel_endereco} />
-                <Linha rotulo="Matrícula" valor={negocio.ds_imovel_matricula} />
-                <Linha rotulo="Inscrição municipal (IPTU)" valor={negocio.ds_imovel_iptu} />
-                <Linha rotulo="Cartório de imóveis" valor={cartorio?.rotulo} />
-                <Linha rotulo="Valor do imóvel" valor={moeda(negocio.vl_imovel)} />
-                <Linha
-                  rotulo="Forma de pagamento"
-                  valor={
-                    negocio.tp_pagamento === "financiado"
-                      ? "Financiado"
-                      : negocio.tp_pagamento === "a_vista"
-                        ? "À vista"
-                        : null
-                  }
-                />
-                <Linha rotulo="Sinal" valor={moeda(negocio.vl_sinal)} />
-                <Linha rotulo="Entrada" valor={moeda(negocio.vl_entrada)} />
-                <Linha
-                  rotulo="Usa FGTS?"
-                  valor={
-                    negocio.sn_usa_fgts === null
-                      ? null
-                      : negocio.sn_usa_fgts
-                        ? `Sim${negocio.vl_fgts != null ? ` — ${formatarMoeda(Number(negocio.vl_fgts))}` : ""}`
-                        : "Não"
-                  }
-                />
-                <Linha rotulo="Saldo financiado" valor={moeda(negocio.vl_financiamento)} />
-                <Linha rotulo="Saldo para quitação" valor={moeda(negocio.vl_saldo_quitacao)} />
-                <Linha rotulo="Banco" valor={negocio.ds_banco} />
-                <Linha rotulo="Possui inquilino?" valor={simNao(negocio.sn_possui_inquilino)} />
-                <Linha rotulo="Está ocupado?" valor={simNao(negocio.sn_ocupado)} />
-                <Linha rotulo="Entrega das chaves" valor={negocio.ds_entrega_chaves} />
-                <Linha rotulo="O que fica no imóvel" valor={negocio.ds_itens_imovel} />
-              </>
-            )}
-
-            <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">
-              Documentos do imóvel
-            </p>
-            {CATEGORIAS_DOC_IMOVEL.map((categoria) => {
-              const arquivos = docsImovel.filter((d) => d.tp_categoria_intake === categoria);
-              return (
-                <ItemDocumento
-                  key={categoria}
-                  rotulo={CATEGORIA_DOC_INTAKE_LABEL[categoria]}
-                  arquivos={arquivos}
-                  anexar={
-                    <DocumentoAnexarButton
-                      cdProcesso={cdProcesso}
-                      cdParte={null}
-                      tpLado={null}
-                      tpCategoria={categoria}
-                      rotuloCategoria={CATEGORIA_DOC_INTAKE_LABEL[categoria]}
-                      rotuloBotao={arquivos.length > 0 ? "+ arquivo" : "Anexar"}
-                    />
-                  }
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {(negocio || (corretores ?? []).length > 0) && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-foreground">Honorários</p>
-            <div className="rounded-radius border border-border p-3">
-              <Linha
-                rotulo="Valor total"
-                valor={
-                  negocio?.vl_honorarios_total != null
-                    ? `${formatarMoeda(Number(negocio.vl_honorarios_total))}${
-                        negocio.pc_honorarios_total != null
-                          ? ` (${formatarPercentual(Number(negocio.pc_honorarios_total))} do imóvel)`
-                          : ""
-                      }`
-                    : null
-                }
-              />
-              <Linha rotulo="Quando" valor={negocio?.ds_honorarios_quando} />
-              <Linha
-                rotulo="Honorários da imobiliária"
-                valor={valorComPercentual(
-                  negocio?.vl_honorarios_imobiliaria,
-                  negocio?.pc_honorarios_imobiliaria
-                )}
-              />
-              {(corretores ?? []).map((c) => (
-                <Linha
-                  key={c.cd_processo_corretor}
-                  rotulo={`Corretor — ${c.nm_corretor}`}
-                  valor={valorComPercentual(c.vl_honorario, c.pc_honorario) ?? "—"}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+  return {
+    linkBase,
+    negocio,
+    corretores: corretores ?? [],
+    todasPartes,
+    grupos,
+    docsImovel,
+    docsPorParte,
+    temAlgo,
+    cartorio,
+  };
+});
