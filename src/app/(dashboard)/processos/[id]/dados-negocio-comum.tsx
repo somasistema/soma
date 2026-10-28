@@ -184,6 +184,12 @@ export function ParteCard({
         <Linha rotulo="Telefone" valor={parte.ds_telefone} />
         <Linha rotulo="E-mail" valor={parte.ds_email} />
         <Linha rotulo="Profissão" valor={parte.ds_profissao} />
+        <Linha
+          rotulo="Vive em união estável?"
+          valor={temChecklist && parte.sn_uniao_estavel !== null && parte.sn_uniao_estavel !== undefined
+            ? parte.sn_uniao_estavel ? "Sim" : "Não"
+            : null}
+        />
         <Linha rotulo="Endereço" valor={parte.ds_endereco} />
         <Linha rotulo="Conta bancária" valor={parte.ds_conta_bancaria} />
         <Linha rotulo="Observações" valor={parte.ds_documentos_obs} />
@@ -192,7 +198,7 @@ export function ParteCard({
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">
         {temChecklist &&
-          checklistDaPessoa(par?.vinculo ?? null, empresa).map((item) => {
+          checklistDaPessoa(par?.vinculo ?? null, empresa, parte.sn_uniao_estavel === true).map((item) => {
             const arquivos = [
               ...meus.filter((d) => d.tp_categoria_intake === item.categoria),
               ...(item.compartilhado

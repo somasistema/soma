@@ -5,10 +5,18 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { decidirPeloLink } from "./actions";
 
-export function DecisaoForm({ token }: { token: string }) {
+// somenteComentario: a minuta já foi recusada por alguém e está sendo ajustada;
+// a pessoa não aceita, mas pode escrever o que quer alterar.
+export function DecisaoForm({
+  token,
+  somenteComentario = false,
+}: {
+  token: string;
+  somenteComentario?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [recusando, setRecusando] = useState(false);
+  const [recusando, setRecusando] = useState(somenteComentario);
   const [motivo, setMotivo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
 
@@ -28,7 +36,7 @@ export function DecisaoForm({ token }: { token: string }) {
     return (
       <div className="flex flex-col gap-3">
         <label className="text-sm font-medium text-foreground" htmlFor="motivo">
-          Por que você está recusando? (obrigatório)
+          Por que você está recusando ou o que quer alterar? (obrigatório)
         </label>
         <textarea
           id="motivo"
@@ -46,9 +54,11 @@ export function DecisaoForm({ token }: { token: string }) {
           >
             {pending ? "Enviando..." : "Confirmar recusa"}
           </Button>
-          <Button type="button" variant="outline" disabled={pending} onClick={() => setRecusando(false)}>
-            Voltar
-          </Button>
+          {!somenteComentario && (
+            <Button type="button" variant="outline" disabled={pending} onClick={() => setRecusando(false)}>
+              Voltar
+            </Button>
+          )}
         </div>
         {erro && <p className="text-sm text-status-reprovado">{erro}</p>}
       </div>
@@ -66,7 +76,7 @@ export function DecisaoForm({ token }: { token: string }) {
           {pending ? "Enviando..." : "Aceitar a minuta"}
         </Button>
         <Button type="button" variant="outline" disabled={pending} onClick={() => setRecusando(true)}>
-          Recusar
+          Recusar / pedir alteração
         </Button>
       </div>
       {erro && <p className="text-sm text-status-reprovado">{erro}</p>}

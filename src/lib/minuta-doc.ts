@@ -20,9 +20,30 @@ export type DocNo = {
 
 export type DocMinuta = { type: "doc"; content: DocNo[] };
 
+const NEGRITO: DocMarca[] = [{ type: "bold" }];
+
 function noTexto(texto: string, valor: boolean, marcas: DocMarca[] = []): DocNo {
   const todas = valor ? [...marcas, { type: "valor" }] : marcas;
   return todas.length > 0 ? { type: "text", text: texto, marks: todas } : { type: "text", text: texto };
+}
+
+// As partes do contrato ficam em negrito em todo o texto, como no documento
+// original: PROMITENTE VENDEDOR / COMPRADOR (e plurais).
+const PARTE_CONTRATO = /PROMITENTES?\s+(?:VENDEDOR|COMPRADOR)(?:ES|AS?)?/g;
+
+function nosComPartesEmNegrito(texto: string, valor: boolean, marcas: DocMarca[]): DocNo[] {
+  if (marcas.some((m) => m.type === "bold")) return [noTexto(texto, valor, marcas)];
+  const nos: DocNo[] = [];
+  let ultimo = 0;
+  for (const m of texto.matchAll(PARTE_CONTRATO)) {
+    const i = m.index ?? 0;
+    if (i > ultimo) nos.push(noTexto(texto.slice(ultimo, i), valor, marcas));
+    nos.push(noTexto(m[0], valor, [...marcas, ...NEGRITO]));
+    ultimo = i + m[0].length;
+  }
+  if (ultimo === 0) return [noTexto(texto, valor, marcas)];
+  if (ultimo < texto.length) nos.push(noTexto(texto.slice(ultimo), valor, marcas));
+  return nos;
 }
 
 // Uma linha (sem \n) -> nós de texto, com a marca "valor" nos trechos
@@ -32,7 +53,7 @@ function linhaParaNos(linha: string, marcas: DocMarca[]): DocNo[] {
   let dentro = false;
   let buffer = "";
   const descarrega = () => {
-    if (buffer) nos.push(noTexto(buffer, dentro, marcas));
+    if (buffer) nos.push(...nosComPartesEmNegrito(buffer, dentro, marcas));
     buffer = "";
   };
   for (const ch of linha) {
@@ -63,8 +84,6 @@ function blocoParaParagrafo(bloco: string, marcas: DocMarca[], align?: string): 
   if (align) no.attrs = { textAlign: align };
   return no;
 }
-
-const NEGRITO: DocMarca[] = [{ type: "bold" }];
 
 export function textoParaDoc(texto: string): DocMinuta {
   const blocos = texto

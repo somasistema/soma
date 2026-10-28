@@ -321,6 +321,10 @@ export interface ProcessoNegocio {
   sn_ocupado: boolean | null;
   ds_entrega_chaves: string | null;
   ds_itens_imovel: string | null;
+  // Imóvel com financiamento/hipoteca em aberto (lido da matrícula por IA); null = não se sabe.
+  sn_imovel_financiado: boolean | null;
+  // Prazo p/ assinar o financiamento (cláusula 3.2); null = padrão "60 (sessenta) dias corridos".
+  ds_prazo_financiamento: string | null;
   ds_imovel_endereco: string | null;
   ds_imovel_matricula: string | null;
   ds_imovel_iptu: string | null;
@@ -357,6 +361,8 @@ export interface ProcessoParte {
   dt_nascimento: string | null;
   ds_endereco: string | null;
   tp_vinculo: VinculoParte | null;
+  // Resposta do cliente no link: vive em união estável? (null = não respondeu; migration 072)
+  sn_uniao_estavel: boolean | null;
   // Empresa (CNPJ no campo ds_cpf)
   ds_nire: string | null;
   ds_tipo_societario: string | null;
@@ -380,6 +386,7 @@ export interface ParteAutoatendimento {
   ds_rg: string | null;
   dt_nascimento: string | null;
   ds_endereco: string | null;
+  sn_uniao_estavel: boolean | null;
   ds_numero_processo: string | null;
   documentos: {
     cd_documento: string;

@@ -48,7 +48,10 @@ export type ItemChecklist = { categoria: CategoriaDocIntake; compartilhado: bool
 // também (uma pro casal).
 export function checklistDaPessoa(
   vinculo: "conjuge" | "companheiro" | null,
-  empresa = false
+  empresa = false,
+  // Respondeu "sim" à pergunta de união estável no link: precisa da declaração,
+  // mesmo sem o(a) companheiro(a) cadastrado(a) como segunda pessoa.
+  uniaoEstavel = false
 ): ItemChecklist[] {
   // Empresa (CNPJ): contrato social/JUCEB e certidões — não tem identidade nem estado civil.
   if (empresa) {
@@ -63,7 +66,9 @@ export function checklistDaPessoa(
     { categoria: "comprovante_residencia", compartilhado: vinculo !== null },
     ...(vinculo === "companheiro"
       ? [{ categoria: "uniao_estavel" as const, compartilhado: true }]
-      : []),
+      : uniaoEstavel
+        ? [{ categoria: "uniao_estavel" as const, compartilhado: false }]
+        : []),
   ];
 }
 

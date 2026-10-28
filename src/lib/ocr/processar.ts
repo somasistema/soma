@@ -149,6 +149,8 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
         inscricaoMunicipal: null,
         cartorioCodigo: null,
         descricao: null,
+        financiado: null,
+        financiadoMotivo: null,
       };
       await aplicarDadosImovel(supabase, documento.cd_processo, dadosImovel).catch((e) =>
         console.error("[ocr] falha ao preencher dados do imóvel:", e)

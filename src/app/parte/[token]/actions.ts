@@ -119,6 +119,7 @@ export async function salvarMeusDados(
     ds_rg: string;
     dt_nascimento: string;
     ds_endereco: string;
+    sn_uniao_estavel: string; // "true" | "false" | "" (não respondeu)
   }
 ): Promise<ParteActionState> {
   const supabase = createPublicClient();

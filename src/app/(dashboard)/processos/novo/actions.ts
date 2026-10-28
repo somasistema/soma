@@ -67,6 +67,8 @@ export interface NegocioInput {
   sn_ocupado: string;
   ds_entrega_chaves: string;
   ds_itens_imovel: string;
+  sn_imovel_financiado: string; // "true" | "false" | "" (lido da matrícula)
+  ds_prazo_financiamento: string;
   ds_imovel_endereco: string;
   ds_imovel_matricula: string;
   ds_imovel_iptu: string;

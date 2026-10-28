@@ -19,6 +19,12 @@ export type DadosImovelLidos = {
   cartorioCodigo: string | null;
   // Parágrafo "IMÓVEL:" da matrícula (unidade, vaga, áreas, fração ideal)
   descricao: string | null;
+  // Matrícula/certidão de ônus: true = há financiamento/hipoteca/alienação
+  // fiduciária em aberto (o contrato mantém "EXCETO FINANCIAMENTO"); false =
+  // livre ou tudo cancelado (a ressalva sai); null = não deu pra saber.
+  financiado: boolean | null;
+  // Frase curta do que a IA viu (ex: "R-3 alienação fiduciária à Caixa, sem cancelamento").
+  financiadoMotivo: string | null;
 };
 
 const FERRAMENTA = {
@@ -54,8 +60,27 @@ const FERRAMENTA = {
         description:
           "SOMENTE na matrícula/certidão de matrícula: a descrição do imóvel copiada do campo 'IMÓVEL:', do início ('APARTAMENTO de nº…', 'CASA…', 'LOTE…') até a fração ideal inclusive (ex: '…correspondendo à fração ideal de 0,13580% ou 43,660m²'), parando aí: não inclua 'Dito empreendimento…', terreno, confrontações, sem o rótulo 'IMÓVEL:', sem cadastro municipal, proprietário, título ou registros. Copie fiel, caractere por caractere, sem corrigir nem resumir; confira cada número de medida duas vezes. Null se o documento não for matrícula.",
       },
+      imovel_financiado: {
+        type: ["boolean", "null"],
+        description:
+          "SOMENTE na matrícula/certidão de matrícula ou certidão de ônus. Analise TODOS os registros (R-) e averbações (AV-) em ordem. true = existe ônus de financiamento ainda em aberto: hipoteca ou alienação fiduciária registrada (R-) SEM averbação posterior de cancelamento/baixa/quitação/liberação. false = a matrícula não registra nenhuma hipoteca/alienação fiduciária, ou todas foram canceladas/baixadas por averbação posterior (imóvel quitado), ou a certidão diz que não há ônus. null = o documento não é matrícula/certidão de ônus (ex: IPTU) ou não dá pra concluir. Penhora, arresto e usufruto NÃO contam aqui (só financiamento/hipoteca/alienação fiduciária).",
+      },
+      imovel_financiado_motivo: {
+        type: ["string", "null"],
+        description:
+          "Uma frase curta explicando a conclusão de imovel_financiado, citando os registros (ex: 'R-3 alienação fiduciária à Caixa Econômica Federal, sem cancelamento' ou 'Matrícula só tem abertura e averbação de convenção de condomínio; sem hipoteca nem alienação fiduciária'). Null se imovel_financiado for null.",
+      },
     },
-    required: ["endereco", "matricula", "inscricao_municipal", "cartorio_numero", "cartorio_cidade", "descricao"],
+    required: [
+      "endereco",
+      "matricula",
+      "inscricao_municipal",
+      "cartorio_numero",
+      "cartorio_cidade",
+      "descricao",
+      "imovel_financiado",
+      "imovel_financiado_motivo",
+    ],
   },
 };
 
@@ -124,7 +149,7 @@ export async function lerDadosImovelComIA(params: {
     const client = new Anthropic();
     const response = await client.messages.create({
       model: params.imagem ? MODELO_IMAGEM : MODELO,
-      max_tokens: 1024,
+      max_tokens: 1536,
       tools: [FERRAMENTA],
       tool_choice: params.imagem ? { type: "auto" } : { type: "tool", name: "reportar_dados_imovel" },
       messages: [{ role: "user", content: conteudo }],
@@ -140,9 +165,15 @@ export async function lerDadosImovelComIA(params: {
       cartorio_numero: number | null;
       cartorio_cidade: string | null;
       descricao: string | null;
+      imovel_financiado: boolean | null;
+      imovel_financiado_motivo: string | null;
     };
 
+    const financiado = typeof input.imovel_financiado === "boolean" ? input.imovel_financiado : null;
+
     return {
+      financiado,
+      financiadoMotivo: financiado === null ? null : limpar(input.imovel_financiado_motivo),
       endereco: limpar(input.endereco),
       matricula: limpar(input.matricula),
       inscricaoMunicipal: limpar(input.inscricao_municipal),
@@ -164,11 +195,16 @@ export async function aplicarDadosImovel(
   const { data: atual } = await supabase
     .schema("soma")
     .from("processo_negocio")
-    .select("ds_imovel_endereco, ds_imovel_matricula, ds_imovel_iptu, ds_imovel_cartorio, ds_imovel_descricao")
+    .select(
+      "ds_imovel_endereco, ds_imovel_matricula, ds_imovel_iptu, ds_imovel_cartorio, ds_imovel_descricao, sn_imovel_financiado"
+    )
     .eq("cd_processo", cdProcesso)
     .maybeSingle();
 
-  const patch: Record<string, string> = {};
+  const patch: Record<string, string | boolean> = {};
+  if (atual?.sn_imovel_financiado == null && dados.financiado !== null) {
+    patch.sn_imovel_financiado = dados.financiado;
+  }
   if (!atual?.ds_imovel_endereco && dados.endereco) patch.ds_imovel_endereco = dados.endereco;
   if (!atual?.ds_imovel_matricula && dados.matricula) patch.ds_imovel_matricula = dados.matricula;
   if (!atual?.ds_imovel_iptu && dados.inscricaoMunicipal) patch.ds_imovel_iptu = dados.inscricaoMunicipal;

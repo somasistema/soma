@@ -85,6 +85,8 @@ export async function lerDocumento(params: {
       inscricaoMunicipal: null,
       cartorioCodigo: null,
       descricao: null,
+      financiado: null,
+      financiadoMotivo: null,
     };
   }
 

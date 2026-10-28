@@ -5,8 +5,9 @@
 // PDF de conferência (o PDF de assinatura sai sem cores).
 //
 // Números normais (5.000,00 / 2026 / 100) não casam: um zero só vale se
-// não vier colado em outro dígito.
-export const LACUNA = /\[[^\]\n]{3,}\]|\b[Xx]{2,}\b|_{3,}|\b0º|(?<!\d[.,]?)0{2,}(?:[.,\-]0+)*(?![\d])/g;
+// não vier colado em outro dígito. Sublinhado só é lacuna se for curto (campo
+// em branco, ~10 "_"); a linha de assinatura (40 "_") não é.
+export const LACUNA = /\[[^\]\n]{3,}\]|\b[Xx]{2,}\b|(?<!_)_{3,19}(?!_)|\b0º|(?<!\d[.,]?)0{2,}(?:[.,\-]0+)*(?![\d])/g;
 
 export type Trecho = { texto: string; lacuna: boolean };
 

@@ -23,6 +23,7 @@ type ConviteMinuta = {
   tp_status_minuta: "em_aprovacao" | "aprovada" | "reprovada";
   versao_atual: boolean;
   pode_decidir: boolean;
+  pode_comentar: boolean;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -116,6 +117,15 @@ export default async function AprovarMinutaPage({
               Esta versão da minuta foi substituída por uma mais nova. Procure o e-mail mais recente
               da SOMA com o novo link.
             </p>
+          ) : convite.pode_comentar ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                Outra parte já recusou esta minuta e a equipe está ajustando. Você também pode
+                recusar e dizer o que quer alterar: o motivo chega à equipe e você receberá um novo
+                link quando houver uma nova versão.
+              </p>
+              <DecisaoForm token={token} somenteComentario />
+            </div>
           ) : convite.tp_status_minuta === "reprovada" ? (
             <p className="text-sm text-muted-foreground">
               Esta minuta foi recusada por uma das partes e está sendo ajustada pela equipe. Você

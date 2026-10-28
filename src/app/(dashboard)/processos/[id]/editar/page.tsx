@@ -150,6 +150,8 @@ export default async function EditarProcessoPage({
     sn_possui_inquilino: simNao(n?.sn_possui_inquilino),
     sn_ocupado: simNao(n?.sn_ocupado),
     ds_entrega_chaves: texto(n?.ds_entrega_chaves),
+    sn_imovel_financiado: simNao(n?.sn_imovel_financiado),
+    ds_prazo_financiamento: texto(n?.ds_prazo_financiamento),
     ds_itens_imovel: texto(n?.ds_itens_imovel),
     ds_imovel_endereco: texto(n?.ds_imovel_endereco),
     ds_imovel_matricula: texto(n?.ds_imovel_matricula),

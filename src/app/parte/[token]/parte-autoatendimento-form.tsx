@@ -251,10 +251,15 @@ export function ParteAutoatendimentoForm({
   const [rg, setRg] = useState(parte.ds_rg ?? "");
   const [nascimento, setNascimento] = useState((parte.dt_nascimento ?? "").slice(0, 10));
   const [endereco, setEndereco] = useState(parte.ds_endereco ?? "");
+  const [uniao, setUniao] = useState(
+    parte.sn_uniao_estavel === null || parte.sn_uniao_estavel === undefined
+      ? ""
+      : String(parte.sn_uniao_estavel)
+  );
 
   const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
   const parceiro = parte.parceiro ?? null;
-  const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null);
+  const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null, false, uniao === "true");
   const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake);
 
   // A leitura do documento completou campos: mostra na hora, só no que
@@ -306,6 +311,7 @@ export function ParteAutoatendimentoForm({
         ds_rg: rg,
         dt_nascimento: nascimento,
         ds_endereco: endereco,
+        sn_uniao_estavel: uniao,
       });
       if (!r.sucesso) {
         setMsg({ ok: false, texto: r.erro });
@@ -333,6 +339,27 @@ export function ParteAutoatendimentoForm({
           <CampoTexto id="rg" label="RG" value={rg} onChange={setRg} />
           <CampoTexto id="nasc" label="Data de nascimento" tipo="date" value={nascimento} onChange={setNascimento} />
           <CampoTexto id="profissao" label="Profissão" value={profissao} onChange={setProfissao} />
+          {temChecklist && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="uniao">Você vive em união estável?</Label>
+              <select
+                id="uniao"
+                value={uniao}
+                onChange={(e) => setUniao(e.target.value)}
+                className="h-9 w-full rounded-radius border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <option value="">Selecione</option>
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+              {uniao === "true" && (
+                <p className="text-xs text-muted-foreground">
+                  Anexe abaixo a declaração de união estável. A equipe também vai pedir os dados do(a)
+                  companheiro(a).
+                </p>
+              )}
+            </div>
+          )}
           <CampoTexto
             id="tel"
             label="Telefone"

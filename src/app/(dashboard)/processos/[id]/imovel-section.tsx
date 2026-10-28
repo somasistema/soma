@@ -62,6 +62,11 @@ export async function ImovelSection({ cdProcesso }: { cdProcesso: string }) {
                 <Linha rotulo="Possui inquilino?" valor={simNao(negocio.sn_possui_inquilino)} />
                 <Linha rotulo="Está ocupado?" valor={simNao(negocio.sn_ocupado)} />
                 <Linha rotulo="Entrega das chaves" valor={negocio.ds_entrega_chaves} />
+                <Linha
+                  rotulo="Imóvel com financiamento em aberto?"
+                  valor={negocio.sn_imovel_financiado === null ? null : negocio.sn_imovel_financiado ? "Sim" : "Não"}
+                />
+                <Linha rotulo="Prazo p/ assinar o financiamento" valor={negocio.ds_prazo_financiamento} />
                 <Linha rotulo="O que fica no imóvel" valor={negocio.ds_itens_imovel} />
               </>
             )}

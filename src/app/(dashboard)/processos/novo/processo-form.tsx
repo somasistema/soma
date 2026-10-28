@@ -255,6 +255,8 @@ type DadosImovelLido = {
   inscricaoMunicipal: string | null;
   descricao?: string | null;
   cartorioCodigo: string | null;
+  financiado?: boolean | null;
+  financiadoMotivo?: string | null;
 } | null;
 
 // Botões de anexo: cada arquivo é lido na hora (OCR + IA) e o resultado
@@ -1080,6 +1082,8 @@ export function ProcessoForm({
     sn_ocupado: "",
     ds_entrega_chaves: "",
     ds_itens_imovel: "",
+    sn_imovel_financiado: "",
+    ds_prazo_financiamento: "",
     ds_imovel_endereco: "",
     ds_imovel_matricula: "",
     ds_imovel_iptu: "",
@@ -1097,6 +1101,9 @@ export function ProcessoForm({
     pc_honorarios_imobiliaria: "",
   },
   );
+
+  // O que a IA viu na matrícula sobre financiamento/hipoteca (mostrado ao lado do campo).
+  const [motivoOnus, setMotivoOnus] = useState<string | null>(null);
 
   function patchNegocio(patch: Partial<NegocioInput>) {
     setNegocio((n) => ({ ...n, ...patch }));
@@ -1438,6 +1445,11 @@ export function ProcessoForm({
                   patch.ds_imovel_cartorio = dados.cartorioCodigo;
                   preenchidos.push("cartório");
                 }
+                if (typeof dados?.financiado === "boolean" && !negocio.sn_imovel_financiado) {
+                  patch.sn_imovel_financiado = String(dados.financiado);
+                  preenchidos.push("financiamento do imóvel");
+                  setMotivoOnus(dados.financiadoMotivo ?? null);
+                }
                 if (preenchidos.length > 0) patchNegocio(patch);
                 return preenchidos;
               }}
@@ -1497,11 +1509,34 @@ export function ProcessoForm({
           <Campo label="Está ocupado?">
             <SimNao value={negocio.sn_ocupado} onChange={(v) => patchNegocio({ sn_ocupado: v })} />
           </Campo>
-          <Campo label="Entrega das chaves" className="sm:col-span-2">
+          <Campo label="Prazo de entrega das chaves (após a quitação)" className="sm:col-span-2">
             <Input
-              placeholder="Ex: 30 dias após o recurso final"
+              placeholder="Ex: 24 (vinte e quatro) horas corridas"
               value={negocio.ds_entrega_chaves}
               onChange={(e) => patchNegocio({ ds_entrega_chaves: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Entra na cláusula sexta: &quot;no prazo máximo de … APÓS a quitação do valor total&quot;.
+            </p>
+          </Campo>
+          <Campo label="Imóvel com financiamento/hipoteca em aberto?" className="sm:col-span-2">
+            <SimNao
+              value={negocio.sn_imovel_financiado}
+              onChange={(v) => patchNegocio({ sn_imovel_financiado: v })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {motivoOnus
+                ? `Lido da matrícula: ${motivoOnus} `
+                : "Preenchido pela leitura da matrícula. "}
+              &quot;Sim&quot; ou em branco mantém &quot;EXCETO FINANCIAMENTO&quot; na cláusula quarta;
+              &quot;Não&quot; tira.
+            </p>
+          </Campo>
+          <Campo label="Prazo para assinar o contrato de financiamento (3.2)" className="sm:col-span-2">
+            <Input
+              placeholder="60 (sessenta) dias corridos"
+              value={negocio.ds_prazo_financiamento}
+              onChange={(e) => patchNegocio({ ds_prazo_financiamento: e.target.value })}
             />
           </Campo>
           <Campo label="O que fica no imóvel (por cômodo)" className="sm:col-span-2">
