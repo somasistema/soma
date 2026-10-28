@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { CampoLido } from "./parsers";
+import { cpfValido, type CampoLido } from "./parsers";
 
 // Conferência do resultado do OCR local (Tesseract) por IA — não
 // substitui o Tesseract, só confere: manda a imagem do documento +
@@ -11,6 +11,7 @@ import type { CampoLido } from "./parsers";
 // não precisa do modelo mais caro (ver memória do projeto: decisão
 // registrada de custo, ~R$0,005 por documento).
 const MODELO = "claude-haiku-4-5";
+const MODELO_PRECISO = "claude-sonnet-5-5";
 
 export type ResultadoValidacaoIA = {
   tipoConfere: boolean;
@@ -164,7 +165,7 @@ const FERRAMENTA_LEITURA = {
             nm_campo: {
               type: "string",
               description:
-                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). rg (número do documento de identidade: RG, campo 'Doc. identidade' da CNH ou número da carteira profissional da OAB), sexo ('M' ou 'F'). Em contrato social, alteração contratual ou certidão da Junta Comercial (empresa) use: razao_social, cnpj, nire, tipo_societario (ex: 'sociedade empresária limitada'), endereco (sede) — e nunca preencha 'cpf' com CPF de sócio. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
+                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). rg (número do documento de identidade: RG, campo 'Doc. identidade' da CNH ou número da carteira profissional da OAB), sexo ('M' ou 'F'). Em contrato social, alteração contratual ou certidão da Junta Comercial (empresa) use: razao_social, cnpj, nire, tipo_societario (ex: 'sociedade empresária limitada'), endereco (sede) — e nunca preencha 'cpf' com CPF de sócio. ESTADO CIVIL (campo estado_civil, em minúsculas, SEMPRE preencha em certidão de nascimento, casamento, divórcio ou óbito): é o estado civil que o documento comprova pro titular — 'solteiro' (certidão de nascimento SEM averbação de casamento), 'casado' (certidão de casamento sem averbação de divórcio; ou certidão de nascimento com averbação de casamento), 'divorciado' (certidão de casamento ou de nascimento COM averbação de divórcio, sentença ou escritura de divórcio), 'viúvo' (certidão de casamento com averbação de óbito do cônjuge, ou certidão de óbito do cônjuge), 'separado' (separação judicial sem divórcio). Leia as averbações/anotações à margem com atenção: são elas que mudam o estado civil. Numa certidão de casamento de um casal, o valor vale pros dois. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
             },
             ds_valor: { type: "string" },
             confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
@@ -185,13 +186,16 @@ export async function lerDocumentoComIA(params: {
   texto?: string | null;
   // Leitura completa quando o OCR já achou campos (identidade/certidão).
   complemento?: boolean;
+  // Documento em que o detalhe pequeno decide o resultado (averbação à margem de
+  // certidão): usa o modelo maior. Ele não aceita tool_choice forçado.
+  preciso?: boolean;
 }): Promise<ResultadoLeituraIA | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
   const client = new Anthropic();
 
   const mime = params.mimeType ?? "image/jpeg";
-  const mediaType = mime.includes("png")
+  const mediaType: "image/png" | "image/webp" | "image/jpeg" = mime.includes("png")
     ? "image/png"
     : mime.includes("webp")
       ? "image/webp"
@@ -201,32 +205,43 @@ export async function lerDocumentoComIA(params: {
 
   try {
     const response = await client.messages.create({
-      model: MODELO,
-      max_tokens: 4096,
+      model: params.preciso ? MODELO_PRECISO : MODELO,
+      max_tokens: params.preciso ? 8000 : 4096,
       tools: [FERRAMENTA_LEITURA],
-      tool_choice: { type: "tool", name: "reportar_leitura" },
+      tool_choice: params.preciso ? { type: "auto" } : { type: "tool", name: "reportar_leitura" },
       messages: [
         {
           role: "user",
           content: [
-            params.imagem
-              ? {
-                  type: "image" as const,
-                  source: {
-                    type: "base64" as const,
-                    media_type: mediaType,
-                    data: params.imagem.toString("base64"),
+            ...(params.imagem
+              ? [
+                  {
+                    type: "image" as const,
+                    source: {
+                      type: "base64" as const,
+                      media_type: mediaType,
+                      data: params.imagem.toString("base64"),
+                    },
                   },
-                }
-              : {
-                  type: "text" as const,
-                  text: `Texto extraído de um documento brasileiro:\n\n${(params.texto ?? "").slice(0, 14000)}`,
-                },
+                ]
+              : []),
+            // O texto do OCR cobre o documento inteiro (todas as páginas); a imagem é só a
+            // 1ª página. Averbações e o verso costumam estar só no texto.
+            ...(params.texto?.trim()
+              ? [
+                  {
+                    type: "text" as const,
+                    text: params.imagem
+                      ? `Texto lido por OCR do documento inteiro (pode ter erros; inclui páginas que a imagem não mostra, como o verso e as averbações):\n\n${params.texto.slice(0, 14000)}`
+                      : `Texto extraído de um documento brasileiro:\n\n${params.texto.slice(0, 14000)}`,
+                  },
+                ]
+              : []),
             {
               type: "text",
               text:
                 params.complemento
-                  ? "Este é um documento brasileiro de identificação ou de estado civil. Leia a imagem e extraia o tipo do documento e todos os dados relevantes, com os nomes de campo pedidos."
+                  ? "Este é um documento brasileiro de identificação ou de estado civil. Leia o documento e extraia o tipo e todos os dados relevantes, com os nomes de campo pedidos, chamando a ferramenta reportar_leitura."
                   : "Este é um documento brasileiro. A leitura automática (OCR) não conseguiu extrair nenhum " +
                     "campo dele (provavelmente por causa do fundo com padrão de segurança/textura). Leia a " +
                     "imagem e extraia o tipo do documento e os dados relevantes.",
@@ -252,4 +267,52 @@ export async function lerDocumentoComIA(params: {
     console.error("[ocr] falha na leitura de resgate por IA:", erro);
     return null;
   }
+}
+
+// Leitura de documento de PESSOA (identidade, certidão de estado civil...) com
+// conferência do resultado:
+//  - certidão de estado civil / união estável: já vai pro modelo maior (a averbação
+//    à margem decide o resultado);
+//  - identidade: lê com o modelo rápido; se o nome não veio ou o CPF não passa no
+//    dígito verificador (foto ruim, número lido errado), relê com o modelo maior;
+//    se o CPF continuar inválido, ele fica com confiança baixa — a equipe confere.
+const CATEGORIAS_PRECISAS = ["estado_civil", "uniao_estavel"];
+
+type ParamsLeitura = Parameters<typeof lerDocumentoComIA>[0];
+
+function valorDe(leitura: ResultadoLeituraIA | null, campo: string): string | null {
+  return leitura?.campos.find((c) => c.nm_campo === campo)?.ds_valor?.trim() || null;
+}
+
+function leituraSuspeita(leitura: ResultadoLeituraIA | null): boolean {
+  if (!leitura) return true;
+  const cpf = valorDe(leitura, "cpf");
+  return !valorDe(leitura, "nome") || (cpf !== null && !cpfValido(cpf));
+}
+
+export async function lerDocumentoPessoalComIA(
+  params: Omit<ParamsLeitura, "preciso"> & { categoria: string }
+): Promise<ResultadoLeituraIA | null> {
+  const { categoria, ...base } = params;
+  const preciso = CATEGORIAS_PRECISAS.includes(categoria);
+
+  let leitura = await lerDocumentoComIA({ ...base, preciso });
+
+  if (!preciso && categoria === "identidade" && leituraSuspeita(leitura)) {
+    const segunda = await lerDocumentoComIA({ ...base, preciso: true });
+    if (segunda && (!leituraSuspeita(segunda) || !leitura || leitura.campos.length < segunda.campos.length)) {
+      leitura = segunda;
+    }
+  }
+
+  // CPF que não fecha: mantém o valor, mas sinaliza baixa confiança.
+  if (leitura) {
+    leitura = {
+      ...leitura,
+      campos: leitura.campos.map((c) =>
+        c.nm_campo === "cpf" && !cpfValido(c.ds_valor) ? { ...c, confianca: Math.min(c.confianca, 25) } : c
+      ),
+    };
+  }
+  return leitura;
 }

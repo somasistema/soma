@@ -4,7 +4,7 @@ import { normalizarNomesCampos } from "./ler-documento";
 import { aplicarDadosImovel, lerDadosImovelComIA } from "./dados-imovel";
 import { extrairTexto } from "./extrair";
 import { extrairCampos, type CampoLido } from "./parsers";
-import { lerDocumentoComIA, validarOcrComIA } from "./validar-ia";
+import { lerDocumentoPessoalComIA, validarOcrComIA } from "./validar-ia";
 
 const BUCKET = "documentos";
 
@@ -92,10 +92,11 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
       documento.tp_categoria_intake === "contrato_social";
 
     if ((campos.length === 0 || alimentaMinuta) && (imagemPrincipal || texto.trim())) {
-      const leitura = await lerDocumentoComIA({
-        imagem: imagemPrincipal?.dados ?? null,
-        mimeType: imagemPrincipal?.mimeType ?? null,
-        texto: imagemPrincipal ? null : texto,
+      const leitura = await lerDocumentoPessoalComIA({
+        categoria: documento.tp_categoria_intake ?? "",
+        imagem: (imagemPrincipal ?? imagemPaginaPdf)?.dados ?? null,
+        mimeType: (imagemPrincipal ?? imagemPaginaPdf)?.mimeType ?? null,
+        texto,
         complemento: campos.length > 0,
       });
       if (leitura && leitura.campos.length > 0) {

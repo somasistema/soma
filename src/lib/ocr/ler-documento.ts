@@ -2,7 +2,7 @@ import { classificarDocumento } from "./classificar";
 import { lerDadosImovelComIA, type DadosImovelLidos } from "./dados-imovel";
 import { extrairTexto } from "./extrair";
 import { extrairCampos, type CampoLido } from "./parsers";
-import { lerDocumentoComIA } from "./validar-ia";
+import { lerDocumentoPessoalComIA } from "./validar-ia";
 
 export type LeituraDocumento = {
   tipoDetectado: string;
@@ -58,10 +58,13 @@ export async function lerDocumento(params: {
 
   const pessoal = CATEGORIAS_PESSOAIS.includes(params.categoria);
   if ((campos.length === 0 || pessoal) && (imagemPrincipal || texto.trim())) {
-    const leitura = await lerDocumentoComIA({
-      imagem: imagemPrincipal?.dados ?? null,
-      mimeType: imagemPrincipal?.mimeType ?? null,
-      texto: imagemPrincipal ? null : texto,
+    const leitura = await lerDocumentoPessoalComIA({
+      categoria: params.categoria,
+      // PDF com texto digital não tem imagem principal: usa a 1ª página rasterizada
+      // (a camada de texto de uma CNH-e traz só a assinatura, não os dados).
+      imagem: (imagemPrincipal ?? imagemPaginaPdf)?.dados ?? null,
+      mimeType: (imagemPrincipal ?? imagemPaginaPdf)?.mimeType ?? null,
+      texto,
       complemento: campos.length > 0,
     });
     if (leitura && leitura.campos.length > 0) {
