@@ -23,7 +23,6 @@ type ConviteMinuta = {
   tp_status_minuta: "em_aprovacao" | "aprovada" | "reprovada";
   versao_atual: boolean;
   pode_decidir: boolean;
-  pode_comentar: boolean;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -94,7 +93,16 @@ export default async function AprovarMinutaPage({
           <h2 className="mb-3 text-base font-semibold text-foreground">Sua resposta</h2>
 
           {convite.pode_decidir ? (
-            <DecisaoForm token={token} />
+            <div className="flex flex-col gap-3">
+              {convite.tp_status_minuta === "reprovada" && (
+                <p className="text-sm text-muted-foreground">
+                  Outra parte já recusou esta minuta e a equipe está ajustando. Mesmo assim, você
+                  pode aceitar ou recusar: a sua resposta fica registrada e você receberá um novo
+                  link quando houver uma nova versão.
+                </p>
+              )}
+              <DecisaoForm token={token} />
+            </div>
           ) : convite.tp_status === "aprovada" ? (
             <p className="flex items-start gap-2 text-sm text-foreground">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-aceito" />
@@ -117,15 +125,6 @@ export default async function AprovarMinutaPage({
               Esta versão da minuta foi substituída por uma mais nova. Procure o e-mail mais recente
               da SOMA com o novo link.
             </p>
-          ) : convite.pode_comentar ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                Outra parte já recusou esta minuta e a equipe está ajustando. Você também pode
-                recusar e dizer o que quer alterar: o motivo chega à equipe e você receberá um novo
-                link quando houver uma nova versão.
-              </p>
-              <DecisaoForm token={token} somenteComentario />
-            </div>
           ) : convite.tp_status_minuta === "reprovada" ? (
             <p className="text-sm text-muted-foreground">
               Esta minuta foi recusada por uma das partes e está sendo ajustada pela equipe. Você

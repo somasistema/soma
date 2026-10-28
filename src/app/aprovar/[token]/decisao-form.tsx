@@ -5,18 +5,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { decidirPeloLink } from "./actions";
 
-// somenteComentario: a minuta já foi recusada por alguém e está sendo ajustada;
-// a pessoa não aceita, mas pode escrever o que quer alterar.
-export function DecisaoForm({
-  token,
-  somenteComentario = false,
-}: {
-  token: string;
-  somenteComentario?: boolean;
-}) {
+export function DecisaoForm({ token }: { token: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [recusando, setRecusando] = useState(somenteComentario);
+  const [recusando, setRecusando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [erro, setErro] = useState<string | null>(null);
 
@@ -54,11 +46,9 @@ export function DecisaoForm({
           >
             {pending ? "Enviando..." : "Confirmar recusa"}
           </Button>
-          {!somenteComentario && (
-            <Button type="button" variant="outline" disabled={pending} onClick={() => setRecusando(false)}>
-              Voltar
-            </Button>
-          )}
+          <Button type="button" variant="outline" disabled={pending} onClick={() => setRecusando(false)}>
+            Voltar
+          </Button>
         </div>
         {erro && <p className="text-sm text-status-reprovado">{erro}</p>}
       </div>
