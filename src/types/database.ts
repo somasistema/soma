@@ -363,6 +363,8 @@ export interface ProcessoParte {
   tp_vinculo: VinculoParte | null;
   // Resposta do cliente no link: vive em união estável? (null = não respondeu; migration 072)
   sn_uniao_estavel: boolean | null;
+  // Casado(a), união estável ou sem vínculo, respondido no link (migration 074)
+  ds_situacao_conjugal: "casado" | "uniao_estavel" | "sem_vinculo" | null;
   // Empresa (CNPJ no campo ds_cpf)
   ds_nire: string | null;
   ds_tipo_societario: string | null;
@@ -387,6 +389,7 @@ export interface ParteAutoatendimento {
   dt_nascimento: string | null;
   ds_endereco: string | null;
   sn_uniao_estavel: boolean | null;
+  ds_situacao_conjugal?: "casado" | "uniao_estavel" | "sem_vinculo" | null;
   ds_numero_processo: string | null;
   documentos: {
     cd_documento: string;

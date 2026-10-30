@@ -69,10 +69,16 @@ export async function DocumentosSection({ cdProcesso }: { cdProcesso: string }) 
       <CardContent className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
           Lista de tudo que foi anexado no processo (inclusive pelo checklist das partes e do
-          imóvel). Use o envio abaixo pra documentos que não estão no checklist. Documento ilegível:
+          imóvel). No envio abaixo, escolha de quem é o documento — ele entra no checklist da pessoa e
+          a leitura completa os dados dela. Documento ilegível:
           rejeite-o aqui e anexe de novo no item do checklist (botão &quot;+ arquivo&quot;).
         </p>
-        <DocumentoUploadForm cdProcesso={cdProcesso} />
+        <DocumentoUploadForm
+          cdProcesso={cdProcesso}
+          pessoas={[...partes.entries()]
+            .filter(([, p]) => p.tp_lado === "vendedor" || p.tp_lado === "comprador")
+            .map(([cd_parte, p]) => ({ cd_parte, nm_parte: p.nm_parte, tp_lado: p.tp_lado }))}
+        />
 
         {documentosComUrl.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum documento enviado ainda.</p>

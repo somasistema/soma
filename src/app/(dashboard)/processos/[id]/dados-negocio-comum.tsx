@@ -185,10 +185,18 @@ export function ParteCard({
         <Linha rotulo="E-mail" valor={parte.ds_email} />
         <Linha rotulo="Profissão" valor={parte.ds_profissao} />
         <Linha
-          rotulo="Vive em união estável?"
-          valor={temChecklist && parte.sn_uniao_estavel !== null && parte.sn_uniao_estavel !== undefined
-            ? parte.sn_uniao_estavel ? "Sim" : "Não"
-            : null}
+          rotulo="Situação (respondida no link)"
+          valor={
+            !temChecklist
+              ? null
+              : parte.ds_situacao_conjugal === "casado"
+                ? "Casado(a) — pedir também os documentos do(a) cônjuge"
+                : parte.ds_situacao_conjugal === "uniao_estavel" || parte.sn_uniao_estavel === true
+                  ? "União estável"
+                  : parte.ds_situacao_conjugal === "sem_vinculo"
+                    ? "Solteiro(a), divorciado(a) ou viúvo(a)"
+                    : null
+          }
         />
         <Linha rotulo="Endereço" valor={parte.ds_endereco} />
         <Linha rotulo="Conta bancária" valor={parte.ds_conta_bancaria} />

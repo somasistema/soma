@@ -2,7 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { preencherParteComLeitura } from "@/lib/ocr/preencher-parte";
 import { processarOcr } from "@/lib/ocr/processar";
 import { sanitizarNomeArquivo } from "@/lib/utils";
 import type { StatusDocumento } from "@/types/database";
@@ -70,6 +71,22 @@ export async function uploadDocumento(formData: FormData): Promise<DocumentoActi
   // (falha fica registrada em soma.documento_ocr) — não trava o envio.
   await processarOcr(documentoCriado.cd_documento);
 
+  // Documento de uma pessoa do processo: o que a leitura achou completa os campos
+  // que ainda estão vazios nela (e daí vai pra minuta). Nunca sobrescreve o que já foi digitado.
+  if (cdParte && tpCategoriaIntake) {
+    try {
+      await preencherParteComLeitura(
+        createServiceRoleClient(),
+        cdParte,
+        documentoCriado.cd_documento,
+        tpCategoriaIntake
+      );
+    } catch (erro) {
+      console.error("[documento] falha ao completar os dados da pessoa:", erro);
+    }
+  }
+
+  revalidatePath(`/processos/${cdProcesso}`, "layout");
   return { sucesso: true };
 }
 

@@ -251,11 +251,12 @@ export function ParteAutoatendimentoForm({
   const [rg, setRg] = useState(parte.ds_rg ?? "");
   const [nascimento, setNascimento] = useState((parte.dt_nascimento ?? "").slice(0, 10));
   const [endereco, setEndereco] = useState(parte.ds_endereco ?? "");
-  const [uniao, setUniao] = useState(
-    parte.sn_uniao_estavel === null || parte.sn_uniao_estavel === undefined
-      ? ""
-      : String(parte.sn_uniao_estavel)
+  // Respostas antigas (só "união estável? sim/não"): o "sim" vira união estável; o "não" fica
+  // sem resposta, porque não dá pra saber se a pessoa é casada ou solteira.
+  const [situacao, setSituacao] = useState<string>(
+    parte.ds_situacao_conjugal ?? (parte.sn_uniao_estavel === true ? "uniao_estavel" : "")
   );
+  const uniao = situacao === "uniao_estavel" ? "true" : situacao ? "false" : "";
 
   const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
   const parceiro = parte.parceiro ?? null;
@@ -312,6 +313,7 @@ export function ParteAutoatendimentoForm({
         dt_nascimento: nascimento,
         ds_endereco: endereco,
         sn_uniao_estavel: uniao,
+        ds_situacao_conjugal: situacao,
       });
       if (!r.sucesso) {
         setMsg({ ok: false, texto: r.erro });
@@ -324,6 +326,56 @@ export function ParteAutoatendimentoForm({
 
   return (
     <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Meus documentos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-2 text-sm text-foreground">
+            <strong>Comece por aqui:</strong> depois de anexar, lemos os documentos e preenchemos os
+            seus dados abaixo — você só confere e completa o que faltar.
+          </p>
+          <p className="mb-2 text-sm text-muted-foreground">
+            Anexe foto ou PDF. Se o documento tiver frente e verso, mande os dois. Mandou errado?
+            Remova no X e anexe de novo.
+          </p>
+          {temChecklist ? (
+            itens.map((item) => (
+              <LinhaDocumento
+                key={item.categoria}
+                token={token}
+                aoPreencher={aoPreencher}
+                categoria={item.categoria}
+                arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === item.categoria)}
+                parceiro={
+                  item.compartilhado && parceiro
+                    ? {
+                        nome: parceiro.nm_parte,
+                        arquivos: parceiro.documentos
+                          .filter((d) => d.tp_categoria_intake === item.categoria)
+                          .map((d) => d.nm_arquivo),
+                      }
+                    : null
+                }
+              />
+            ))
+          ) : (
+            <DocumentosAvulsos token={token} arquivos={avulsos} />
+          )}
+          {temChecklist && situacao === "casado" && !parceiro && (
+            <div className="mt-3 flex flex-col gap-2 rounded-radius border border-dashed border-border p-3">
+              <p className="text-sm font-medium text-foreground">Documentos do(a) cônjuge</p>
+              <p className="text-xs text-muted-foreground">
+                Como você é casado(a), anexe aqui também a identidade (RG ou CNH) e, se for outro, o
+                comprovante de endereço do(a) seu(sua) cônjuge. A equipe cadastra os dados dele(a) a
+                partir desses documentos.
+              </p>
+              <DocumentosAvulsos token={token} arquivos={avulsos} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Meus dados</CardTitle>
@@ -341,21 +393,29 @@ export function ParteAutoatendimentoForm({
           <CampoTexto id="profissao" label="Profissão" value={profissao} onChange={setProfissao} />
           {temChecklist && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="uniao">Você vive em união estável?</Label>
+              <Label htmlFor="situacao">Qual é a sua situação?</Label>
               <select
-                id="uniao"
-                value={uniao}
-                onChange={(e) => setUniao(e.target.value)}
+                id="situacao"
+                value={situacao}
+                onChange={(e) => setSituacao(e.target.value)}
                 className="h-9 w-full rounded-radius border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 <option value="">Selecione</option>
-                <option value="true">Sim</option>
-                <option value="false">Não</option>
+                <option value="casado">Casado(a)</option>
+                <option value="uniao_estavel">Vivo em união estável</option>
+                <option value="sem_vinculo">Solteiro(a), divorciado(a) ou viúvo(a) — sem união estável</option>
               </select>
-              {uniao === "true" && (
+              {situacao === "casado" && (
                 <p className="text-xs text-muted-foreground">
-                  Anexe abaixo a declaração de união estável. A equipe também vai pedir os dados do(a)
-                  companheiro(a).
+                  Anexe também os documentos do(a) seu(sua) cônjuge (identidade e comprovante de
+                  endereço) na seção &quot;Documentos do(a) cônjuge&quot; lá em cima. A certidão de
+                  casamento vale pros dois.
+                </p>
+              )}
+              {situacao === "uniao_estavel" && (
+                <p className="text-xs text-muted-foreground">
+                  Anexe a declaração de união estável na seção de documentos. A equipe também vai
+                  pedir os dados do(a) companheiro(a).
                 </p>
               )}
             </div>
@@ -397,41 +457,6 @@ export function ParteAutoatendimentoForm({
               </p>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Meus documentos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-2 text-sm text-muted-foreground">
-            Anexe foto ou PDF. Se o documento tiver frente e verso, mande os dois. Mandou errado?
-            Remova no X e anexe de novo.
-          </p>
-          {temChecklist ? (
-            itens.map((item) => (
-              <LinhaDocumento
-                key={item.categoria}
-                token={token}
-                aoPreencher={aoPreencher}
-                categoria={item.categoria}
-                arquivos={parte.documentos.filter((d) => d.tp_categoria_intake === item.categoria)}
-                parceiro={
-                  item.compartilhado && parceiro
-                    ? {
-                        nome: parceiro.nm_parte,
-                        arquivos: parceiro.documentos
-                          .filter((d) => d.tp_categoria_intake === item.categoria)
-                          .map((d) => d.nm_arquivo),
-                      }
-                    : null
-                }
-              />
-            ))
-          ) : (
-            <DocumentosAvulsos token={token} arquivos={avulsos} />
-          )}
         </CardContent>
       </Card>
 

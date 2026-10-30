@@ -5,6 +5,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerTableBody, StaggerRow } from "@/components/motion/stagger-list";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { tituloDasPartes } from "@/lib/nomes-partes";
 import { cn, formatarData } from "@/lib/utils";
 import { TIPO_PROCESSO_LABEL, type Processo } from "@/types/database";
 
@@ -23,13 +24,29 @@ export default async function ProcessosPage() {
     .order("ts_criacao", { ascending: false })
     .returns<Processo[]>();
 
+  const { data: partes } = await supabase
+    .schema("soma")
+    .from("processo_parte")
+    .select("cd_processo, nm_parte, tp_lado, nr_ordem")
+    .in("cd_processo", (processos ?? []).map((p) => p.cd_processo))
+    .in("tp_lado", ["vendedor", "comprador"])
+    .order("nr_ordem")
+    .returns<{ cd_processo: string; nm_parte: string; tp_lado: string; nr_ordem: number }[]>();
+
+  const partesPorProcesso = new Map<string, { nm_parte: string; tp_lado: string }[]>();
+  for (const p of partes ?? []) {
+    const l = partesPorProcesso.get(p.cd_processo) ?? [];
+    l.push(p);
+    partesPorProcesso.set(p.cd_processo, l);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <FadeIn className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Processos</h1>
         {PODE_CRIAR_PROCESSO.has(usuario.tp_role) && (
           <Link href="/processos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
-            Novo processo (Contrato)
+            Novo processo (Venda)
           </Link>
         )}
       </FadeIn>
@@ -37,12 +54,13 @@ export default async function ProcessosPage() {
       {processos && processos.length > 0 ? (
         <FadeIn delay={0.06} className="overflow-hidden rounded-2xl border border-border bg-card">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-muted text-left text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-medium">Número</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
                   <th className="px-4 py-3 font-medium">Cliente</th>
+                  <th className="px-4 py-3 font-medium">Partes</th>
                   <th className="px-4 py-3 font-medium">Criado em</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -56,6 +74,9 @@ export default async function ProcessosPage() {
                     <td className="px-4 py-3">{processo.ds_numero_processo}</td>
                     <td className="px-4 py-3">{TIPO_PROCESSO_LABEL[processo.tp_processo]}</td>
                     <td className="px-4 py-3">{processo.nm_comprador_convidado ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {tituloDasPartes(partesPorProcesso.get(processo.cd_processo) ?? []) || "—"}
+                    </td>
                     <td className="px-4 py-3">{formatarData(processo.ts_criacao)}</td>
                     <td className="px-4 py-3 text-right">
                       <Link

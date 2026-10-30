@@ -620,7 +620,7 @@ function ParteFields({
         </div>
       )}
 
-      {parte.modo && !edicao && (
+      {parte.modo && (!edicao || !parte.cd_parte) && (
         <button
           type="button"
           onClick={() => onChange({ modo: undefined, cd_token_parte: undefined })}
@@ -721,7 +721,7 @@ function ParteFields({
               </div>
               <p className="text-xs text-muted-foreground">
                 Tudo o que o cliente preencher e anexar fica guardado e entra no processo quando
-                você clicar em <strong>Criar processo</strong>.
+                você clicar em <strong>{edicao ? "Salvar alterações" : "Criar processo"}</strong>.
               </p>
             </div>
           )}
@@ -737,7 +737,6 @@ function ParteFields({
 
       {parte.modo === "manual" && (
         <>
-          {!edicao && (
           <div className="rounded-radius border border-dashed border-border p-3">
             <p className="mb-2 text-xs text-muted-foreground">
               Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e
@@ -762,7 +761,6 @@ function ParteFields({
               }
             />
           </div>
-          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo label={empresa ? "Razão social" : "Nome"} className="sm:col-span-2">
@@ -1297,7 +1295,7 @@ export function ProcessoForm({
             onClick={() =>
               setLista([
                 ...lista,
-                { ...parteVazia(lado, "conjuge"), ...(edicao ? { modo: "manual" as const } : {}) },
+                parteVazia(lado, "conjuge"),
               ])
             }
           >
