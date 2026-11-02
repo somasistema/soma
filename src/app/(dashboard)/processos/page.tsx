@@ -45,9 +45,17 @@ export default async function ProcessosPage() {
       <FadeIn className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-serif-doc text-2xl font-semibold text-foreground">Processos</h1>
         {PODE_CRIAR_PROCESSO.has(usuario.tp_role) && (
-          <Link href="/processos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
-            Novo processo (Venda)
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/processos/novo" className={cn(buttonVariants({ variant: "default" }), "font-bold")}>
+              Novo processo (Venda)
+            </Link>
+            <Link
+              href="/processos/novo?tipo=aluguel"
+              className={cn(buttonVariants({ variant: "outline" }), "font-bold")}
+            >
+              Novo processo (Aluguel)
+            </Link>
+          </div>
         )}
       </FadeIn>
 
@@ -72,7 +80,14 @@ export default async function ProcessosPage() {
                     className="border-t border-border transition-colors hover:bg-muted/50"
                   >
                     <td className="px-4 py-3">{processo.ds_numero_processo}</td>
-                    <td className="px-4 py-3">{TIPO_PROCESSO_LABEL[processo.tp_processo]}</td>
+                    <td className="px-4 py-3">
+                      {TIPO_PROCESSO_LABEL[processo.tp_processo]}
+                      {processo.tp_processo === "contrato" && processo.tp_contrato === "locacao" && (
+                        <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          Aluguel
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{processo.nm_comprador_convidado ?? "—"}</td>
                     <td className="px-4 py-3">
                       {tituloDasPartes(partesPorProcesso.get(processo.cd_processo) ?? []) || "—"}

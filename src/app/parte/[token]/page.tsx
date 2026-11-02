@@ -4,7 +4,7 @@ import { EyeOff, FileText, Lock, ShieldCheck, Sparkles, UserCheck } from "lucide
 import { FadeIn } from "@/components/motion/fade-in";
 import { Logo } from "@/components/logo";
 import { createPublicClient } from "@/lib/supabase/public";
-import { LADO_PARTE_LABEL, type ParteAutoatendimento } from "@/types/database";
+import { rotuloLadoParte, type ParteAutoatendimento } from "@/types/database";
 import { ParteAutoatendimentoForm } from "./parte-autoatendimento-form";
 
 // anexarMeuDocumento roda o OCR na mesma requisição do server action.
@@ -70,7 +70,7 @@ export default async function PartePage({ params }: { params: Promise<{ token: s
     notFound();
   }
 
-  const papel = LADO_PARTE_LABEL[parte.tp_lado] ?? parte.tp_lado;
+  const papel = rotuloLadoParte(parte.tp_lado, parte.tp_contrato) ?? parte.tp_lado;
   const nomeProvisorio = (parte.nm_parte ?? "").includes("aguardando preenchimento");
   const primeiroNome = nomeProvisorio ? null : parte.nm_parte?.trim().split(/\s+/)[0];
   // Link gerado antes de o processo ser criado ainda não tem número.

@@ -51,7 +51,9 @@ export function checklistDaPessoa(
   empresa = false,
   // Respondeu "sim" à pergunta de união estável no link: precisa da declaração,
   // mesmo sem o(a) companheiro(a) cadastrado(a) como segunda pessoa.
-  uniaoEstavel = false
+  uniaoEstavel = false,
+  // Locatário (inquilino) manda só identidade e comprovante de residência.
+  semEstadoCivil = false
 ): ItemChecklist[] {
   // Empresa (CNPJ): contrato social/JUCEB e certidões — não tem identidade nem estado civil.
   if (empresa) {
@@ -62,7 +64,9 @@ export function checklistDaPessoa(
   }
   return [
     { categoria: "identidade", compartilhado: false },
-    { categoria: "estado_civil", compartilhado: vinculo === "conjuge" },
+    ...(semEstadoCivil
+      ? []
+      : [{ categoria: "estado_civil" as const, compartilhado: vinculo === "conjuge" }]),
     { categoria: "comprovante_residencia", compartilhado: vinculo !== null },
     ...(vinculo === "companheiro"
       ? [{ categoria: "uniao_estavel" as const, compartilhado: true }]

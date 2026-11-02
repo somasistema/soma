@@ -74,6 +74,8 @@ async function corretoresDoProcesso(
     .order("nr_ordem");
 
   if (!linhas || linhas.length === 0) {
+    // Locação pode não ter corretor: então não há essa frente.
+    if (processo.tp_contrato === "locacao" && !processo.cd_corretor) return [];
     // Processo antigo, sem cadastro de corretor: usa a conta do usuário.
     const conta = await usuario(supabase, processo.cd_corretor);
     return [exigirEmail("corretor", conta, "nenhum corretor informado no processo.")];

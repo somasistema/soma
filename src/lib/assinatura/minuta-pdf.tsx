@@ -1,4 +1,4 @@
-import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
 import { textoParaDoc, type DocMinuta, type DocNo } from "@/lib/minuta-doc";
 import { dividirLacunas } from "@/lib/minuta-lacunas";
@@ -145,4 +145,64 @@ export async function minutaParaPdf(
 ): Promise<Buffer | null> {
   const doc = minuta.ds_conteudo_json ?? (minuta.ds_conteudo ? textoParaDoc(minuta.ds_conteudo) : null);
   return doc ? minutaDocParaPdf(doc, opcoes) : null;
+}
+
+export type AmbienteVistoria = {
+  nome: string;
+  descricao: string | null;
+  fotos: Buffer[];
+};
+
+const estilosVistoria = StyleSheet.create({
+  ambiente: { marginTop: 6, marginBottom: 4 },
+  tituloAmbiente: { fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  linha: { marginBottom: 3, textAlign: "justify" },
+  fotos: { flexDirection: "row", flexWrap: "wrap", marginTop: 6, marginBottom: 10 },
+  foto: { width: "48%", height: 150, objectFit: "cover", marginRight: "2%", marginBottom: 6 },
+});
+
+// Termo de Vistoria: texto do modelo (antes e depois dos ambientes) + cada ambiente com a
+// descrição e as fotos. As fotos entram já reduzidas (JPEG), pra o PDF não pesar.
+export async function vistoriaParaPdf(
+  partes: { antes: DocMinuta; depois: DocMinuta },
+  ambientes: AmbienteVistoria[]
+): Promise<Buffer> {
+  const sem: Opcoes = {};
+  return renderToBuffer(
+    <Document>
+      <Page size="A4" style={styles.page} wrap>
+        {(partes.antes.content ?? []).map((no, i) => blocoPdf(no, i, sem))}
+        {ambientes.map((a, n) => (
+          <View key={n} style={estilosVistoria.ambiente}>
+            <Text style={estilosVistoria.tituloAmbiente}>
+              {`2.${n + 1} - ${a.nome.toUpperCase()}`}
+            </Text>
+            {(a.descricao ?? "")
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .map((l, i) => (
+                <Text key={i} style={estilosVistoria.linha}>
+                  {l}
+                </Text>
+              ))}
+            {a.fotos.length > 0 && (
+              <View style={estilosVistoria.fotos} wrap>
+                {a.fotos.map((f, i) => (
+                  // eslint-disable-next-line jsx-a11y/alt-text -- Image do react-pdf, não é <img>
+                  <Image key={i} src={f} style={estilosVistoria.foto} />
+                ))}
+              </View>
+            )}
+          </View>
+        ))}
+        {(partes.depois.content ?? []).map((no, i) => blocoPdf(no, i + 1000, sem))}
+        <Text
+          style={styles.rodape}
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          fixed
+        />
+      </Page>
+    </Document>
+  );
 }

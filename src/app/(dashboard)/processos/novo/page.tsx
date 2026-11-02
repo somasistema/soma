@@ -11,7 +11,13 @@ export const maxDuration = 60;
 
 const PODE_CRIAR_PROCESSO = new Set(["master", "juridico"]);
 
-export default async function NovoProcessoPage() {
+export default async function NovoProcessoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tipo?: string }>;
+}) {
+  const { tipo } = await searchParams;
+  const aluguel = tipo === "aluguel";
   const usuario = await getUsuarioAtual();
   if (!PODE_CRIAR_PROCESSO.has(usuario.tp_role)) {
     redirect("/processos");
@@ -41,13 +47,14 @@ export default async function NovoProcessoPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-serif-doc text-2xl font-semibold text-foreground">
-        Novo processo (Contrato)
+        {aluguel ? "Novo processo (Aluguel)" : "Novo processo (Venda)"}
       </h1>
       <ProcessoForm
         imobiliarias={imobiliarias ?? []}
         corretoresCadastro={corretores ?? []}
         partesAnteriores={partesAnteriores}
         siteUrl={getSiteUrl()}
+        tipo={aluguel ? "locacao" : "venda"}
       />
     </div>
   );

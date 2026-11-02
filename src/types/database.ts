@@ -221,9 +221,40 @@ export interface Processo {
   nm_comprador_convidado: string | null;
   ds_telefone_comprador_convidado: string | null;
   tp_etapa_contrato: TipoEtapaContrato | null;
+  // Venda (padrão) ou locação/aluguel (migration 075)
+  tp_contrato: TipoContrato;
   ts_criacao: string;
   ts_atualizacao: string;
 }
+
+export type TipoContrato = "venda" | "locacao";
+
+// Dados do aluguel (soma.processo_locacao, migration 075).
+export interface ProcessoLocacao {
+  cd_processo: string;
+  vl_aluguel: number | null;
+  vl_condominio: number | null;
+  vl_iptu: number | null;
+  nr_prazo_meses: number | null;
+  dt_inicio: string | null;
+  dt_entrega_chaves: string | null;
+  nr_dia_vencimento: number | null;
+  sn_agua_no_condominio: boolean | null;
+  tp_seguro_incendio: "ja_possui" | "locador" | "locatario" | "dividido" | "nao_contratado" | null;
+  tp_garantia: "caucao" | "sem_garantia" | null;
+  nr_caucao_meses: number | null;
+  sn_caucao_com_taxas: boolean | null;
+  ds_pix_locador: string | null;
+  ds_titular_conta: string | null;
+  sn_pintura_nova: boolean | null;
+  sn_vistoria_soma: boolean | null;
+  ds_observacoes: string | null;
+}
+
+export const TIPO_CONTRATO_LABEL: Record<TipoContrato, string> = {
+  venda: "Venda",
+  locacao: "Aluguel",
+};
 
 // --- Dados do negócio capturados na abertura (migration 048) --------
 
@@ -246,6 +277,16 @@ export const LADO_PARTE_LABEL: Record<LadoParte, string> = {
   adm: "Administrador",
   cliente: "Cliente",
 };
+
+// Na locação o locador é gravado como "vendedor" e o locatário como "comprador"
+// (mesma tabela, mesmos links e checklist): só o rótulo muda.
+export function rotuloLadoParte(lado: LadoParte, tpContrato?: TipoContrato | null): string {
+  if (tpContrato === "locacao") {
+    if (lado === "vendedor") return "Locador";
+    if (lado === "comprador") return "Locatário";
+  }
+  return LADO_PARTE_LABEL[lado];
+}
 
 // Papéis que têm checklist fixo de documentos.
 export const LADOS_COM_CHECKLIST: LadoParte[] = ["vendedor", "comprador"];
@@ -390,6 +431,8 @@ export interface ParteAutoatendimento {
   ds_endereco: string | null;
   sn_uniao_estavel: boolean | null;
   ds_situacao_conjugal?: "casado" | "uniao_estavel" | "sem_vinculo" | null;
+  // Venda ou aluguel (migration 075); null em link gerado antes de o processo existir
+  tp_contrato?: TipoContrato | null;
   ds_numero_processo: string | null;
   documentos: {
     cd_documento: string;
@@ -469,6 +512,18 @@ export const PAPEL_APROVACAO_LABEL: Record<TipoPapelAprovacao, string> = {
   imobiliaria: "Imobiliária",
   juridico: "Jurídico",
 };
+
+// Na locação, vendedor/comprador viram locador/locatário.
+export function rotuloPapelAprovacao(
+  papel: TipoPapelAprovacao,
+  tpContrato?: TipoContrato | null
+): string {
+  if (tpContrato === "locacao") {
+    if (papel === "vendedor") return "Locador";
+    if (papel === "comprador") return "Locatário";
+  }
+  return PAPEL_APROVACAO_LABEL[papel];
+}
 
 export type StatusMinuta = "em_aprovacao" | "aprovada" | "reprovada";
 export type StatusAprovacaoMinuta = "pendente" | "aprovada" | "reprovada";

@@ -31,6 +31,7 @@ import {
   criarProcesso,
   type CorretorInput,
   type DocumentoDaParte,
+  type LocacaoInput,
   type NegocioInput,
   type ParteInput,
 } from "./actions";
@@ -80,6 +81,8 @@ export type InicialProcessoForm = {
   baseTotal: Base;
   baseImobiliaria: Base;
   imobiliariaParticipa: boolean;
+  // Só no aluguel
+  locacao?: LocacaoInput;
 };
 
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
@@ -1025,13 +1028,219 @@ function CorretorRow({
   );
 }
 
+const LOCACAO_VAZIA: LocacaoInput = {
+  vl_aluguel: "",
+  vl_condominio: "",
+  vl_iptu: "",
+  nr_prazo_meses: "",
+  dt_inicio: "",
+  dt_entrega_chaves: "",
+  nr_dia_vencimento: "",
+  sn_agua_no_condominio: "",
+  tp_seguro_incendio: "",
+  tp_garantia: "caucao",
+  nr_caucao_meses: "2",
+  sn_caucao_com_taxas: "",
+  ds_pix_locador: "",
+  ds_titular_conta: "",
+  sn_pintura_nova: "",
+  sn_vistoria_soma: "",
+  ds_observacoes: "",
+};
+
+// Dados do aluguel: valores, prazo, garantia, seguro e vistoria.
+function LocacaoCard({
+  loc,
+  onChange,
+}: {
+  loc: LocacaoInput;
+  onChange: (patch: Partial<LocacaoInput>) => void;
+}) {
+  const aluguel = num(loc.vl_aluguel) ?? 0;
+  const total = aluguel + (num(loc.vl_condominio) ?? 0) + (num(loc.vl_iptu) ?? 0);
+  const meses = Number(loc.nr_caucao_meses) || 0;
+  const baseCaucao = loc.sn_caucao_com_taxas === "true" ? total : loc.sn_caucao_com_taxas === "false" ? aluguel : null;
+  const caucao = baseCaucao !== null && meses > 0 ? Math.round(baseCaucao * meses * 100) / 100 : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Locação</CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <p className="rounded-radius border border-border bg-muted/40 p-3 text-xs text-muted-foreground sm:col-span-2">
+          A SOMA elabora o contrato e emite as certidões do serviço contratado. Ela{" "}
+          <strong>não realiza análise de renda nem consultas ao SPC/Serasa</strong>. Recomenda-se que o
+          locatário comprove renda de pelo menos 3 vezes o valor total da locação (aluguel +
+          condomínio + IPTU) — é uma recomendação, não uma exigência legal.
+        </p>
+
+        <Campo label="Aluguel mensal (sem taxas)">
+          <CurrencyInput value={loc.vl_aluguel} onChange={(v) => onChange({ vl_aluguel: v })} />
+        </Campo>
+        <Campo label="Condomínio mensal">
+          <CurrencyInput value={loc.vl_condominio} onChange={(v) => onChange({ vl_condominio: v })} />
+        </Campo>
+        <Campo label="IPTU mensal">
+          <CurrencyInput value={loc.vl_iptu} onChange={(v) => onChange({ vl_iptu: v })} />
+        </Campo>
+        <Campo label="Total mensal (aluguel + condomínio + IPTU)">
+          <Calculado valor={total > 0 ? total : null} />
+        </Campo>
+
+        <Campo label="Prazo do contrato (meses)">
+          <Input
+            type="number"
+            min={1}
+            placeholder="Ex: 12, 24, 36"
+            value={loc.nr_prazo_meses}
+            onChange={(e) => onChange({ nr_prazo_meses: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Dia de vencimento do aluguel">
+          <Input
+            type="number"
+            min={1}
+            max={31}
+            placeholder="Ex: 10"
+            value={loc.nr_dia_vencimento}
+            onChange={(e) => onChange({ nr_dia_vencimento: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Data prevista de entrada no imóvel (início)">
+          <Input
+            type="date"
+            value={loc.dt_inicio}
+            onChange={(e) => onChange({ dt_inicio: e.target.value })}
+          />
+        </Campo>
+        <Campo label="Entrega das chaves (se for outra data)">
+          <Input
+            type="date"
+            value={loc.dt_entrega_chaves}
+            onChange={(e) => onChange({ dt_entrega_chaves: e.target.value })}
+          />
+        </Campo>
+        <p className="text-xs text-muted-foreground sm:col-span-2">
+          Em regra, nas locações com garantia o aluguel é pago depois do período de uso. Se foi
+          combinado pagamento antecipado, avise nas observações: a cobrança antecipada de aluguel não
+          é livremente permitida quando existe garantia.
+        </p>
+
+        <Campo label="A água está incluída no condomínio?">
+          <SimNao
+            value={loc.sn_agua_no_condominio}
+            onChange={(v) => onChange({ sn_agua_no_condominio: v })}
+          />
+        </Campo>
+        <Campo label="Seguro-incêndio">
+          <Select
+            value={loc.tp_seguro_incendio}
+            onChange={(e) =>
+              onChange({ tp_seguro_incendio: e.target.value as LocacaoInput["tp_seguro_incendio"] })
+            }
+          >
+            <option value="">—</option>
+            <option value="ja_possui">O imóvel já possui seguro</option>
+            <option value="locador">Contratado e pago pelo locador</option>
+            <option value="locatario">Contratado e pago pelo locatário</option>
+            <option value="dividido">Custo dividido entre os dois</option>
+            <option value="nao_contratado">Não contratado (ajuste entre as partes)</option>
+          </Select>
+        </Campo>
+
+        <Campo label="Garantia locatícia">
+          <Select
+            value={loc.tp_garantia}
+            onChange={(e) => onChange({ tp_garantia: e.target.value as LocacaoInput["tp_garantia"] })}
+          >
+            <option value="caucao">Caução em dinheiro</option>
+            <option value="sem_garantia">Sem garantia</option>
+          </Select>
+        </Campo>
+        {loc.tp_garantia === "caucao" && (
+          <>
+            <Campo label="Caução equivale a quantos aluguéis?">
+              <Select
+                value={loc.nr_caucao_meses}
+                onChange={(e) => onChange({ nr_caucao_meses: e.target.value })}
+              >
+                <option value="1">1 aluguel</option>
+                <option value="2">2 aluguéis</option>
+                <option value="3">3 aluguéis</option>
+              </Select>
+            </Campo>
+            <Campo label="Valor negociado considerando o aluguel…">
+              <Select
+                value={loc.sn_caucao_com_taxas}
+                onChange={(e) => onChange({ sn_caucao_com_taxas: e.target.value })}
+              >
+                <option value="">—</option>
+                <option value="false">SEM taxas (só o aluguel)</option>
+                <option value="true">COM taxas (aluguel + condomínio + IPTU)</option>
+              </Select>
+            </Campo>
+            <Campo label="Valor da caução (calculado)">
+              <Calculado valor={caucao} />
+            </Campo>
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              A caução em dinheiro é limitada a 3 aluguéis (Lei do Inquilinato) e não pode ser
+              exigida junto com outra modalidade de garantia.
+            </p>
+          </>
+        )}
+
+        <Campo label="Chave PIX do locador (se houver)">
+          <Input value={loc.ds_pix_locador} onChange={(e) => onChange({ ds_pix_locador: e.target.value })} />
+        </Campo>
+        <Campo label="Titular da conta (se não for o locador)">
+          <Input
+            placeholder="Nome e CPF/CNPJ do titular"
+            value={loc.ds_titular_conta}
+            onChange={(e) => onChange({ ds_titular_conta: e.target.value })}
+          />
+        </Campo>
+        <p className="text-xs text-muted-foreground sm:col-span-2">
+          Banco, agência e conta do locador ficam em <strong>Conta bancária</strong>, no cadastro do
+          locador acima.
+        </p>
+
+        <Campo label="O imóvel será entregue pintado?">
+          <SimNao value={loc.sn_pintura_nova} onChange={(v) => onChange({ sn_pintura_nova: v })} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sim = o locatário devolve COM pintura. Não = sem obrigação de nova pintura.
+          </p>
+        </Campo>
+        <Campo label="A SOMA elabora o Termo de Vistoria?">
+          <SimNao value={loc.sn_vistoria_soma} onChange={(v) => onChange({ sn_vistoria_soma: v })} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Não = será feito por terceiro. Os móveis e itens que ficam no imóvel vão em &quot;O que
+            fica no imóvel&quot;, acima.
+          </p>
+        </Campo>
+
+        <Campo label="Observações" className="sm:col-span-2">
+          <textarea
+            className={TEXTAREA_CLASS}
+            value={loc.ds_observacoes}
+            onChange={(e) => onChange({ ds_observacoes: e.target.value })}
+          />
+        </Campo>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function ProcessoForm({
   imobiliarias,
   corretoresCadastro,
   partesAnteriores,
   siteUrl,
   edicao,
+  tipo = "venda",
 }: {
+  // Venda (padrão) ou aluguel. Na edição, vale o que o processo já é.
+  tipo?: "venda" | "locacao";
   // Preenchido na tela de edição (/processos/[id]/editar)
   edicao?: { cdProcesso: string; inicial: InicialProcessoForm };
   imobiliarias: Imobiliaria[];
@@ -1041,6 +1250,10 @@ export function ProcessoForm({
 }) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+
+  // Aluguel: o locador é gravado como "vendedor" e o locatário como "comprador".
+  const ehLocacao = tipo === "locacao" || !!edicao?.inicial.locacao;
+  const [loc, setLoc] = useState<LocacaoInput>(edicao?.inicial.locacao ?? LOCACAO_VAZIA);
 
   // Imobiliária é opcional — venda sem imobiliária (só corretores).
   const [cdImobiliaria, setCdImobiliaria] = useState(edicao?.inicial.cd_imobiliaria ?? "");
@@ -1135,11 +1348,12 @@ export function ProcessoForm({
 
   // Honorários: total em R$ ou % do imóvel; imobiliária e corretores em
   // R$ ou % do total. O campo digitado por último manda.
+  const vlReferencia = ehLocacao ? num(loc.vl_aluguel) : vlImovel;
   const total = derivar(
     baseTotal,
     negocio.vl_honorarios_total,
     negocio.pc_honorarios_total,
-    vlImovel,
+    vlReferencia,
   );
   const totalNum = num(total.valor);
   const imobiliaria = imobiliariaParticipa
@@ -1167,6 +1381,18 @@ export function ProcessoForm({
     if (!nmSolicitante.trim()) {
       setErro("Informe quem solicitou o contrato.");
       return;
+    }
+    if (ehLocacao) {
+      const dia = loc.nr_dia_vencimento ? Number(loc.nr_dia_vencimento) : null;
+      if (dia !== null && (!Number.isInteger(dia) || dia < 1 || dia > 31)) {
+        setErro("O dia de vencimento do aluguel deve ficar entre 1 e 31.");
+        return;
+      }
+      const meses = Number(loc.nr_caucao_meses);
+      if (loc.tp_garantia === "caucao" && !(meses >= 1 && meses <= 3)) {
+        setErro("A caução em dinheiro vale de 1 a 3 aluguéis.");
+        return;
+      }
     }
 
     const comNomeProvisorio = (p: ParteInput, rotulo: string, i: number): ParteInput =>
@@ -1251,6 +1477,7 @@ export function ProcessoForm({
         partes,
         corretores: corretoresFinal,
         documentos_imovel: docsImovel,
+        ...(ehLocacao ? { locacao: loc } : {}),
       };
       const resultado = edicao
         ? await atualizarDadosProcesso(edicao.cdProcesso, payload)
@@ -1265,7 +1492,13 @@ export function ProcessoForm({
     lista: ParteInput[],
     setLista: (v: ParteInput[]) => void,
   ) {
-    const rotulo = lado === "vendedor" ? "Vendedor" : "Comprador";
+    const rotulo = ehLocacao
+      ? lado === "vendedor"
+        ? "Locador"
+        : "Locatário"
+      : lado === "vendedor"
+        ? "Vendedor"
+        : "Comprador";
     return (
       <Card>
         <CardHeader>
@@ -1300,8 +1533,7 @@ export function ProcessoForm({
             }
           >
             <Plus className="h-4 w-4" />
-            Adicionar {lado === "vendedor" ? "vendedor" : "comprador"} (cônjuge, companheiro ou
-            outra pessoa)
+            Adicionar {rotulo.toLowerCase()} (cônjuge, companheiro ou outra pessoa)
           </Button>
         </CardContent>
       </Card>
@@ -1363,14 +1595,14 @@ export function ProcessoForm({
             />
           </Campo>
           <p className="text-xs text-muted-foreground sm:col-span-2">
-            O solicitante só identifica o processo na lista — não entra no contrato. Vendedores e
-            compradores são cadastrados abaixo.
+            O solicitante só identifica o processo na lista — não entra no contrato.{" "}
+            {ehLocacao ? "Locadores e locatários" : "Vendedores e compradores"} são cadastrados abaixo.
           </p>
         </CardContent>
       </Card>
 
-      {cardPartes("Vendedores", "vendedor", vendedores, setVendedores)}
-      {cardPartes("Compradores", "comprador", compradores, setCompradores)}
+      {cardPartes(ehLocacao ? "Locadores (proprietários)" : "Vendedores", "vendedor", vendedores, setVendedores)}
+      {cardPartes(ehLocacao ? "Locatários (inquilinos)" : "Compradores", "comprador", compradores, setCompradores)}
 
       <Card>
         <CardHeader>
@@ -1498,6 +1730,8 @@ export function ProcessoForm({
               ))}
             </Select>
           </Campo>
+          {!ehLocacao && (
+            <>
           <Campo label="Possui inquilino?">
             <SimNao
               value={negocio.sn_possui_inquilino}
@@ -1537,6 +1771,8 @@ export function ProcessoForm({
               onChange={(e) => patchNegocio({ ds_prazo_financiamento: e.target.value })}
             />
           </Campo>
+            </>
+          )}
           <Campo label="O que fica no imóvel (por cômodo)" className="sm:col-span-2">
             <textarea
               className={TEXTAREA_CLASS}
@@ -1548,6 +1784,9 @@ export function ProcessoForm({
         </CardContent>
       </Card>
 
+      {ehLocacao ? (
+        <LocacaoCard loc={loc} onChange={(patch) => setLoc((l) => ({ ...l, ...patch }))} />
+      ) : (
       <Card>
         <CardHeader>
           <CardTitle>Valores e pagamento</CardTitle>
@@ -1630,10 +1869,11 @@ export function ProcessoForm({
           )}
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Honorários</CardTitle>
+          <CardTitle>{ehLocacao ? "Comissão de intermediação" : "Honorários"}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-xs text-muted-foreground">
@@ -1651,7 +1891,7 @@ export function ProcessoForm({
                 }}
               />
             </Campo>
-            <Campo label="% do imóvel">
+            <Campo label={ehLocacao ? "% do aluguel" : "% do imóvel"}>
               <PercentInput
                 value={total.percentual}
                 onChange={(v) => {
@@ -1661,9 +1901,9 @@ export function ProcessoForm({
               />
             </Campo>
           </div>
-          {baseTotal === "percentual" && vlImovel === null && (
+          {baseTotal === "percentual" && vlReferencia === null && (
             <p className="-mt-2 text-xs text-status-reprovado">
-              Informe o valor do imóvel pra calcular o total a partir do percentual.
+              Informe {ehLocacao ? "o aluguel" : "o valor do imóvel"} pra calcular o total a partir do percentual.
             </p>
           )}
 

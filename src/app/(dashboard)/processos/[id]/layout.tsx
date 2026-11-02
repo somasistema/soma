@@ -6,7 +6,7 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { getUsuarioAtual, temPermissao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatarMoeda } from "@/lib/utils";
-import { ETAPA_CONTRATO_LABEL, TIPO_PROCESSO_LABEL } from "@/types/database";
+import { ETAPA_CONTRATO_LABEL, TIPO_CONTRATO_LABEL, TIPO_PROCESSO_LABEL } from "@/types/database";
 import { EtapasProgresso } from "./etapas-progresso";
 import { ExcluirProcessoButton } from "./excluir-processo-button";
 import { ProcessoAbas, type AbaProcesso } from "./processo-abas";
@@ -41,7 +41,7 @@ export default async function ProcessoLayout({
 
   const contrato = processo.tp_processo === "contrato";
 
-  const [podeExcluir, { data: partes }, { data: negocio }, { count: pendenciasAbertas }] =
+  const [podeExcluir, { data: partes }, { data: negocio }, { data: locacao }, { count: pendenciasAbertas }] =
     await Promise.all([
       temPermissao(usuario, "processos", "excluir"),
       supabase
@@ -60,6 +60,12 @@ export default async function ProcessoLayout({
         .maybeSingle<{ vl_imovel: number | null }>(),
       supabase
         .schema("soma")
+        .from("processo_locacao")
+        .select("vl_aluguel, sn_vistoria_soma")
+        .eq("cd_processo", id)
+        .maybeSingle<{ vl_aluguel: number | null; sn_vistoria_soma: boolean | null }>(),
+      supabase
+        .schema("soma")
         .from("pendencias")
         .select("cd_pendencia", { count: "exact", head: true })
         .eq("cd_processo", id)
@@ -75,6 +81,9 @@ export default async function ProcessoLayout({
           { href: `${base}/imovel`, rotulo: "Imóvel e valores" },
           { href: `${base}/documentos`, rotulo: "Documentos" },
           { href: `${base}/minuta`, rotulo: "Minuta e contrato" },
+          ...(processo.tp_contrato === "locacao" && locacao?.sn_vistoria_soma !== false
+            ? [{ href: `${base}/vistoria`, rotulo: "Vistoria" }]
+            : []),
         ]
       : []),
     { href: `${base}/orcamentos`, rotulo: "Orçamentos" },
@@ -95,6 +104,7 @@ export default async function ProcessoLayout({
             </h1>
             <p className="text-sm text-muted-foreground">
               {TIPO_PROCESSO_LABEL[processo.tp_processo]}
+              {contrato ? ` (${TIPO_CONTRATO_LABEL[processo.tp_contrato ?? "venda"]})` : ""}
               {processo.tp_etapa_contrato
                 ? ` · ${ETAPA_CONTRATO_LABEL[processo.tp_etapa_contrato]}`
                 : ""}
@@ -124,17 +134,29 @@ export default async function ProcessoLayout({
             <EtapasProgresso etapa={processo.tp_etapa_contrato} />
             <dl className="grid grid-cols-1 gap-2 rounded-radius border border-border bg-card p-3 text-sm sm:grid-cols-3">
               <div>
-                <dt className="text-xs text-muted-foreground">Vendedor(es)</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {processo.tp_contrato === "locacao" ? "Locador(es)" : "Vendedor(es)"}
+                </dt>
                 <dd className="text-foreground">{nomes(vendedores)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Comprador(es)</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {processo.tp_contrato === "locacao" ? "Locatário(s)" : "Comprador(es)"}
+                </dt>
                 <dd className="text-foreground">{nomes(compradores)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Valor do imóvel</dt>
+                <dt className="text-xs text-muted-foreground">
+                  {processo.tp_contrato === "locacao" ? "Aluguel mensal" : "Valor do imóvel"}
+                </dt>
                 <dd className="text-foreground">
-                  {negocio?.vl_imovel != null ? formatarMoeda(Number(negocio.vl_imovel)) : "—"}
+                  {processo.tp_contrato === "locacao"
+                    ? locacao?.vl_aluguel != null
+                      ? formatarMoeda(Number(locacao.vl_aluguel))
+                      : "—"
+                    : negocio?.vl_imovel != null
+                      ? formatarMoeda(Number(negocio.vl_imovel))
+                      : "—"}
                 </dd>
               </div>
             </dl>

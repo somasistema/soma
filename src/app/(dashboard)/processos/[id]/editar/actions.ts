@@ -44,6 +44,16 @@ export async function atualizarDadosProcesso(
     return { erro: error.message };
   }
 
+  if (input.locacao) {
+    const { error: erroLocacao } = await supabase
+      .schema("soma")
+      .rpc("fn_salvar_dados_locacao", { p_cd_processo: cdProcesso, p_dados: input.locacao });
+    if (erroLocacao) {
+      console.error("Erro ao salvar dados da locação:", erroLocacao);
+      return { erro: erroLocacao.message };
+    }
+  }
+
   const documentos: DocumentoRascunho[] = [
     ...input.partes.flatMap((p) =>
       p.tp_lado === "vendedor" || p.tp_lado === "comprador"

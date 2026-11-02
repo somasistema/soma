@@ -260,7 +260,8 @@ export function ParteAutoatendimentoForm({
 
   const temChecklist = LADOS_COM_CHECKLIST.includes(parte.tp_lado);
   const parceiro = parte.parceiro ?? null;
-  const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null, false, uniao === "true");
+  const locatario = parte.tp_contrato === "locacao" && parte.tp_lado === "comprador";
+  const itens = checklistDaPessoa(parceiro?.tp_vinculo ?? null, false, uniao === "true", locatario);
   const avulsos = parte.documentos.filter((d) => !d.tp_categoria_intake);
 
   // A leitura do documento completou campos: mostra na hora, só no que

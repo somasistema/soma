@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import { LADO_PARTE_LABEL } from "@/types/database";
+import { rotuloLadoParte, type TipoContrato } from "@/types/database";
 import { carregarDadosNegocio, ParteCard, PLURAL_LADO } from "./dados-negocio-comum";
 
 // A imobiliária do processo: o e-mail dela (cadastro em Configurações) é pra
@@ -48,16 +48,18 @@ async function ImobiliariaDoProcesso({ cdProcesso }: { cdProcesso: string }) {
 export async function PartesSection({
   cdProcesso,
   numeroProcesso,
+  tpContrato = "venda",
 }: {
   cdProcesso: string;
   numeroProcesso: string;
+  tpContrato?: TipoContrato;
 }) {
   const { linkBase, grupos, todasPartes, docsPorParte } = await carregarDadosNegocio(cdProcesso);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Partes do negócio</CardTitle>
+        <CardTitle>{tpContrato === "locacao" ? "Partes da locação" : "Partes do negócio"}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {grupos.length === 0 && (
@@ -68,7 +70,13 @@ export async function PartesSection({
         {grupos.map((grupo) => (
           <div key={grupo.lado} className="flex flex-col gap-2">
             <p className="text-sm font-medium text-foreground">
-              {grupo.partes.length > 1 ? PLURAL_LADO[grupo.lado] : LADO_PARTE_LABEL[grupo.lado]}
+              {grupo.partes.length > 1
+                ? tpContrato === "locacao" && (grupo.lado === "vendedor" || grupo.lado === "comprador")
+                  ? grupo.lado === "vendedor"
+                    ? "Locadores"
+                    : "Locatários"
+                  : PLURAL_LADO[grupo.lado]
+                : rotuloLadoParte(grupo.lado, tpContrato)}
             </p>
             {grupo.partes.map((p) => (
               <ParteCard
@@ -81,6 +89,7 @@ export async function PartesSection({
                   linkBase && p.cd_token_parte ? `${linkBase}/parte/${p.cd_token_parte}` : null
                 }
                 docsPorParte={docsPorParte}
+                tpContrato={tpContrato}
               />
             ))}
           </div>

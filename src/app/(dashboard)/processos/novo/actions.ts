@@ -86,6 +86,27 @@ export interface NegocioInput {
   pc_honorarios_imobiliaria: string; // % do total dos honorários
 }
 
+// Dados do aluguel (soma.processo_locacao, migration 075). Tudo string, como o resto do formulário.
+export interface LocacaoInput {
+  vl_aluguel: string; // aluguel puro, sem taxas
+  vl_condominio: string;
+  vl_iptu: string;
+  nr_prazo_meses: string;
+  dt_inicio: string; // yyyy-mm-dd
+  dt_entrega_chaves: string; // em branco = a data de início
+  nr_dia_vencimento: string;
+  sn_agua_no_condominio: string; // "true" | "false" | ""
+  tp_seguro_incendio: "" | "ja_possui" | "locador" | "locatario" | "dividido" | "nao_contratado";
+  tp_garantia: "" | "caucao" | "sem_garantia";
+  nr_caucao_meses: string; // 1 a 3
+  sn_caucao_com_taxas: string; // "true" (com taxas) | "false" (só o aluguel) | ""
+  ds_pix_locador: string;
+  ds_titular_conta: string;
+  sn_pintura_nova: string; // "true" = entregue pintado (devolve COM pintura)
+  sn_vistoria_soma: string; // "true" = a SOMA elabora o Termo de Vistoria
+  ds_observacoes: string;
+}
+
 export interface CriarProcessoInput {
   cd_imobiliaria: string;
   nm_comprador_convidado: string;
@@ -95,6 +116,8 @@ export interface CriarProcessoInput {
   corretores: CorretorInput[];
   // Documentos do imóvel anexados no cadastro (os das pessoas vão em partes[].docs)
   documentos_imovel?: DocumentoDaParte[];
+  // Só no processo de aluguel
+  locacao?: LocacaoInput;
 }
 
 export type CriarProcessoState = { erro: string } | undefined;
@@ -155,6 +178,18 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
       // O processo já existe; falha em anexar não desfaz — fica no log
       // e a pessoa anexa de novo pela tela do processo.
       if (falhas.length > 0) console.error("[processo] anexos com falha:", falhas);
+    }
+  }
+
+  // Aluguel: prazo, valores, garantia etc. O processo já existe; se isto falhar, a equipe
+  // completa em "Editar dados" (não recria o processo).
+  if (input.locacao) {
+    const { error: erroLocacao } = await supabase
+      .schema("soma")
+      .rpc("fn_salvar_dados_locacao", { p_cd_processo: cd_processo, p_dados: input.locacao });
+    if (erroLocacao) {
+      console.error("Erro ao salvar dados da locação:", erroLocacao);
+      redirect(`/processos/${cd_processo}/editar`);
     }
   }
 

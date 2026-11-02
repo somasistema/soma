@@ -8,5 +8,5 @@ export default async function PartesPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const processo = await exigirProcessoContrato(id);
 
-  return <PartesSection cdProcesso={id} numeroProcesso={processo.ds_numero_processo} />;
+  return <PartesSection cdProcesso={id} numeroProcesso={processo.ds_numero_processo} tpContrato={processo.tp_contrato} />;
 }

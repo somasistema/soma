@@ -16,6 +16,7 @@ import {
   type ProcessoCorretor,
   type ProcessoNegocio,
   type ProcessoParte,
+  type TipoContrato,
 } from "@/types/database";
 import { DocumentoAnexarButton } from "./documento-anexar-button";
 import { LinkParteButton } from "./link-parte-button";
@@ -110,7 +111,9 @@ export function ParteCard({
   numeroProcesso,
   linkPreenchimento,
   docsPorParte,
+  tpContrato = "venda",
 }: {
+  tpContrato?: TipoContrato;
   parte: ProcessoParte;
   todasPartes: ProcessoParte[];
   cdProcesso: string;
@@ -206,7 +209,12 @@ export function ParteCard({
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">
         {temChecklist &&
-          checklistDaPessoa(par?.vinculo ?? null, empresa, parte.sn_uniao_estavel === true).map((item) => {
+          checklistDaPessoa(
+            par?.vinculo ?? null,
+            empresa,
+            parte.sn_uniao_estavel === true,
+            tpContrato === "locacao" && parte.tp_lado === "comprador"
+          ).map((item) => {
             const arquivos = [
               ...meus.filter((d) => d.tp_categoria_intake === item.categoria),
               ...(item.compartilhado

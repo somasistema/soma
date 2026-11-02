@@ -2,7 +2,7 @@ import { resolverDestinatariosMinuta } from "@/lib/assinatura/signatarios";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { enviarEmail } from "@/lib/resend";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { PAPEL_APROVACAO_LABEL, type Minuta, type Processo } from "@/types/database";
+import { rotuloPapelAprovacao, type Minuta, type Processo } from "@/types/database";
 
 export type ResultadoConvites = {
   enviados: number;
@@ -156,7 +156,7 @@ export async function enviarConvitesMinuta(cdMinuta: string): Promise<ResultadoC
       subject: `Minuta do contrato ${processo.ds_numero_processo} — leia e responda`,
       html: emailDaMinuta({
         nome: d.nome,
-        papel: PAPEL_APROVACAO_LABEL[d.tp_papel],
+        papel: rotuloPapelAprovacao(d.tp_papel, processo.tp_contrato),
         numero: processo.ds_numero_processo,
         link: `${site.replace(/\/$/, "")}/aprovar/${convite.cd_convite}`,
       }),

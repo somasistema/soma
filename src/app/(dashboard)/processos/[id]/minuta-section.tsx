@@ -8,7 +8,7 @@ import { textoParaDoc } from "@/lib/minuta-doc";
 import { cn, formatarDataHora } from "@/lib/utils";
 import {
   ETAPA_CONTRATO_LABEL,
-  PAPEL_APROVACAO_LABEL,
+  rotuloPapelAprovacao,
   type Contrato,
   type ContratoSignatario,
   type Minuta,
@@ -261,7 +261,7 @@ export async function MinutaSection({ processo }: { processo: Processo }) {
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">
-                        {PAPEL_APROVACAO_LABEL[papel]}
+                        {rotuloPapelAprovacao(papel, processo.tp_contrato)}
                         {aprovacao.usuarios?.nm_usuario && (
                           <span className="ml-2 text-xs font-normal text-muted-foreground">
                             — {aprovacao.usuarios.nm_usuario}

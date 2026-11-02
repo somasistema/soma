@@ -9,10 +9,11 @@ import type {
   Corretor,
   Imobiliaria,
   ProcessoCorretor,
+  ProcessoLocacao,
   ProcessoNegocio,
   ProcessoParte,
 } from "@/types/database";
-import type { NegocioInput, ParteInput } from "../../novo/actions";
+import type { LocacaoInput, NegocioInput, ParteInput } from "../../novo/actions";
 import {
   ProcessoForm,
   type CorretorLinha,
@@ -75,6 +76,7 @@ export default async function EditarProcessoPage({
     { data: partes },
     { data: negocio },
     { data: corretoresDoProcesso },
+    { data: locacaoDb },
     partesAnteriores,
   ] = await Promise.all([
     supabase
@@ -112,6 +114,12 @@ export default async function EditarProcessoPage({
       .eq("cd_processo", id)
       .order("nr_ordem")
       .returns<ProcessoCorretor[]>(),
+    supabase
+      .schema("soma")
+      .from("processo_locacao")
+      .select("*")
+      .eq("cd_processo", id)
+      .maybeSingle<ProcessoLocacao>(),
     carregarPartesAnteriores(supabase),
   ]);
 
@@ -170,6 +178,30 @@ export default async function EditarProcessoPage({
     pc_honorarios_imobiliaria: numero(n?.pc_honorarios_imobiliaria),
   };
 
+  const lc = locacaoDb;
+  const locacaoForm: LocacaoInput | undefined =
+    processo.tp_contrato === "locacao"
+      ? {
+          vl_aluguel: numero(lc?.vl_aluguel),
+          vl_condominio: numero(lc?.vl_condominio),
+          vl_iptu: numero(lc?.vl_iptu),
+          nr_prazo_meses: numero(lc?.nr_prazo_meses),
+          dt_inicio: texto(lc?.dt_inicio).slice(0, 10),
+          dt_entrega_chaves: texto(lc?.dt_entrega_chaves).slice(0, 10),
+          nr_dia_vencimento: numero(lc?.nr_dia_vencimento),
+          sn_agua_no_condominio: simNao(lc?.sn_agua_no_condominio),
+          tp_seguro_incendio: (lc?.tp_seguro_incendio ?? "") as LocacaoInput["tp_seguro_incendio"],
+          tp_garantia: (lc?.tp_garantia ?? "caucao") as LocacaoInput["tp_garantia"],
+          nr_caucao_meses: numero(lc?.nr_caucao_meses) || "2",
+          sn_caucao_com_taxas: simNao(lc?.sn_caucao_com_taxas),
+          ds_pix_locador: texto(lc?.ds_pix_locador),
+          ds_titular_conta: texto(lc?.ds_titular_conta),
+          sn_pintura_nova: simNao(lc?.sn_pintura_nova),
+          sn_vistoria_soma: simNao(lc?.sn_vistoria_soma),
+          ds_observacoes: texto(lc?.ds_observacoes),
+        }
+      : undefined;
+
   const inicial: InicialProcessoForm = {
     cd_imobiliaria: texto(processo.cd_imobiliaria),
     nm_solicitante: texto(processo.nm_comprador_convidado),
@@ -186,6 +218,7 @@ export default async function EditarProcessoPage({
         : "valor",
     imobiliariaParticipa:
       n?.vl_honorarios_imobiliaria != null || n?.pc_honorarios_imobiliaria != null,
+    locacao: locacaoForm,
   };
 
   return (
