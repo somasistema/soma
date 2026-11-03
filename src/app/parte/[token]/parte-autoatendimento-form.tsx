@@ -17,12 +17,8 @@ import {
   type CategoriaDocIntake,
   type ParteAutoatendimento,
 } from "@/types/database";
-import {
-  anexarMeuDocumento,
-  removerMeuDocumento,
-  salvarMeusDados,
-  type DadosPreenchidos,
-} from "./actions";
+import type { DadosPreenchidos } from "@/lib/ocr/preencher-parte";
+import { anexarMeuDocumento, removerMeuDocumento, salvarMeusDados } from "./actions";
 
 // Arquivo listado na tela. sn_meu = false: mandado por outra pessoa
 // (ex: o outro vendedor), só aparece — não dá pra remover daqui.

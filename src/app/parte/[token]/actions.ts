@@ -9,8 +9,6 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sanitizarNomeArquivo } from "@/lib/utils";
 import { CATEGORIA_DOC_INTAKE_LABEL, type CategoriaDocIntake, type ParteAutoatendimento } from "@/types/database";
 
-export type { DadosPreenchidos };
-
 export type ParteActionState =
   | { sucesso: true; preenchido?: DadosPreenchidos }
   | { sucesso: false; erro: string };
