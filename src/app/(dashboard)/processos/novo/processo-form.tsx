@@ -1257,6 +1257,14 @@ export function ProcessoForm({
 
   // Imobiliária é opcional — venda sem imobiliária (só corretores).
   const [cdImobiliaria, setCdImobiliaria] = useState(edicao?.inicial.cd_imobiliaria ?? "");
+  const imobiliariaEscolhida = imobiliarias.find((i) => i.cd_imobiliaria === cdImobiliaria);
+  const faltasDaImobiliaria = imobiliariaEscolhida
+    ? [
+        !imobiliariaEscolhida.ds_cnpj?.trim() && "CNPJ",
+        !imobiliariaEscolhida.ds_creci?.trim() && "CRECI",
+        !imobiliariaEscolhida.ds_endereco?.trim() && "endereço",
+      ].filter((x): x is string => !!x)
+    : [];
   const [nmSolicitante, setNmSolicitante] = useState(edicao?.inicial.nm_solicitante ?? "");
   const [dsTelefone, setDsTelefone] = useState(edicao?.inicial.ds_telefone ?? "");
 
@@ -1575,6 +1583,17 @@ export function ProcessoForm({
                 </option>
               ))}
             </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Imobiliária da venda/locação (aparece no contrato, na comissão). A SOMA não recebe
+              valores: não escolha a SOMA aqui — deixe em branco se não houver imobiliária.
+            </p>
+            {imobiliariaEscolhida && faltasDaImobiliaria.length > 0 && (
+              <p className="mt-1 text-xs text-status-reprovado">
+                Cadastro de {imobiliariaEscolhida.nm_imobiliaria} sem {faltasDaImobiliaria.join(", ")}:
+                a qualificação dela no contrato vai sair com lacunas. Complete em Configurações ›
+                Imobiliárias.
+              </p>
+            )}
           </Campo>
           <div className="hidden sm:block" />
           <Campo label="Quem solicitou o contrato" htmlFor="nm_solicitante">

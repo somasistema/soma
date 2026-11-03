@@ -37,7 +37,7 @@ const FERRAMENTA = {
       endereco: {
         type: ["string", "null"],
         description:
-          "Endereço completo do imóvel (rua, número, complemento, bairro, cidade/UF), só de IPTU/cadastro municipal. Na matrícula use null (o endereço fica na descrição). Null se não aparecer.",
+          "Endereço completo do imóvel (rua, número, complemento, bairro, cidade/UF), só de IPTU/cadastro municipal. Formato: 'Rua X, nº 02, Casa, Bairro, Cidade/UF, CEP 00.000-000' (CEP só se aparecer). O número é o da porta (campos 'Nº', 'Nº Porta'; '0' ou 'S/N' não é número se houver número de porta). Inclua o complemento escrito por extenso: 'CS'/'CASA' = Casa, 'AP'/'APTO' = Apartamento, e Bloco, Lote, Quadra, Sala quando aparecerem. Na matrícula use null (o endereço fica na descrição). Null se não aparecer.",
       },
       matricula: {
         type: ["string", "null"],
@@ -58,7 +58,7 @@ const FERRAMENTA = {
       descricao: {
         type: ["string", "null"],
         description:
-          "SOMENTE na matrícula/certidão de matrícula: a descrição do imóvel copiada do campo 'IMÓVEL:', do início ('APARTAMENTO de nº…', 'CASA…', 'LOTE…') até a fração ideal inclusive (ex: '…correspondendo à fração ideal de 0,13580% ou 43,660m²'), parando aí: não inclua 'Dito empreendimento…', terreno, confrontações, sem o rótulo 'IMÓVEL:', sem cadastro municipal, proprietário, título ou registros. Copie fiel, caractere por caractere, sem corrigir nem resumir; confira cada número de medida duas vezes. Null se o documento não for matrícula.",
+          "SOMENTE na matrícula/certidão de matrícula: a descrição do imóvel, do início ('APARTAMENTO de nº…', 'CASA…', 'LOTE…') sem o rótulo 'IMÓVEL:', sem cadastro municipal, proprietário, título ou registros. APARTAMENTO/SALA em condomínio: copie do campo 'IMÓVEL:' até a fração ideal inclusive (ex: '…correspondendo à fração ideal de 0,13580% ou 43,660m²'), parando aí: não inclua 'Dito empreendimento…', terreno nem confrontações. CASA/LOTE (imóvel com terreno próprio): inclua também o terreno e as confrontações (frente, lados, fundo) e a área total do terreno, UMA ÚNICA VEZ — o texto da matrícula às vezes se repete entre o registro e as averbações; nunca repita trechos. AVERBAÇÕES POSTERIORES que alteram a edificação (reforma, ampliação, construção, habite-se, demolição, nova denominação/endereço) prevalecem sobre o texto original: use a área construída e a composição (pavimentos e cômodos) da averbação MAIS RECENTE no lugar das do registro original, e cite a origem entre parênteses, ex: '…com área construída de 197,50m² (conforme averbação de reforma e ampliação AV-4/107.915), composta de dois pavimentos, sendo o pavimento térreo composto de…'. Se a averbação mudou o endereço, escreva 'atualmente identificada como <novo endereço>'. Copie os números de medida fielmente e confira cada um duas vezes; não resuma a composição dos cômodos. Null se o documento não for matrícula.",
       },
       imovel_financiado: {
         type: ["boolean", "null"],
@@ -149,7 +149,7 @@ export async function lerDadosImovelComIA(params: {
     const client = new Anthropic();
     const response = await client.messages.create({
       model: params.imagem ? MODELO_IMAGEM : MODELO,
-      max_tokens: 1536,
+      max_tokens: 3000,
       tools: [FERRAMENTA],
       tool_choice: params.imagem ? { type: "auto" } : { type: "tool", name: "reportar_dados_imovel" },
       messages: [{ role: "user", content: conteudo }],

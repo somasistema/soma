@@ -98,6 +98,7 @@ export async function processarOcr(cdDocumento: string): Promise<void> {
         mimeType: (imagemPrincipal ?? imagemPaginaPdf)?.mimeType ?? null,
         texto,
         complemento: campos.length > 0,
+        paginaPdf: !imagemPrincipal && !!imagemPaginaPdf,
       });
       if (leitura && leitura.campos.length > 0) {
         const daIA: CampoLido[] = normalizarNomesCampos(leitura.campos)

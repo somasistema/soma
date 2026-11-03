@@ -165,7 +165,7 @@ const FERRAMENTA_LEITURA = {
             nm_campo: {
               type: "string",
               description:
-                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). rg (número do documento de identidade: RG, campo 'Doc. identidade' da CNH ou número da carteira profissional da OAB), sexo ('M' ou 'F'). Em contrato social, alteração contratual ou certidão da Junta Comercial (empresa) use: razao_social, cnpj, nire, tipo_societario (ex: 'sociedade empresária limitada'), endereco (sede) — e nunca preencha 'cpf' com CPF de sócio. ESTADO CIVIL (campo estado_civil, em minúsculas, SEMPRE preencha em certidão de nascimento, casamento, divórcio ou óbito): é o estado civil que o documento comprova pro titular — 'solteiro' (certidão de nascimento SEM averbação de casamento), 'casado' (certidão de casamento sem averbação de divórcio; ou certidão de nascimento com averbação de casamento), 'divorciado' (certidão de casamento ou de nascimento COM averbação de divórcio, sentença ou escritura de divórcio), 'viúvo' (certidão de casamento com averbação de óbito do cônjuge, ou certidão de óbito do cônjuge), 'separado' (separação judicial sem divórcio). Leia as averbações/anotações à margem com atenção: são elas que mudam o estado civil. Numa certidão de casamento de um casal, o valor vale pros dois. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
+                "Nome do campo em snake_case. Use EXATAMENTE estes nomes quando o dado existir: nome, cpf, rg, data_nascimento, naturalidade (cidade/UF onde a pessoa nasceu — nunca o local de emissão do documento), nacionalidade, nome_pai, nome_mae, estado_civil, regime_bens (ex: 'comunhão parcial de bens'), data_casamento, endereco (endereço completo do titular em comprovante de residência: rua, número, bairro, cidade/UF). rg (número do documento de identidade: RG, campo 'Doc. identidade' da CNH ou número da carteira profissional da OAB), sexo ('M' ou 'F'; em identidade preencha SEMPRE — se o documento não traz o sexo, deduza pelo primeiro nome). Em contrato social, alteração contratual ou certidão da Junta Comercial (empresa) use: razao_social, cnpj, nire, tipo_societario (ex: 'sociedade empresária limitada'), endereco (sede) — e nunca preencha 'cpf' com CPF de sócio. ESTADO CIVIL (campo estado_civil, em minúsculas, SEMPRE preencha em certidão de nascimento, casamento, divórcio ou óbito): é o estado civil que o documento comprova pro titular — 'solteiro' (certidão de nascimento SEM averbação de casamento), 'casado' (certidão de casamento sem averbação de divórcio; ou certidão de nascimento com averbação de casamento), 'divorciado' (certidão de casamento ou de nascimento COM averbação de divórcio, sentença ou escritura de divórcio), 'viúvo' (certidão de casamento com averbação de óbito do cônjuge, ou certidão de óbito do cônjuge), 'separado' (separação judicial sem divórcio). Leia as averbações/anotações à margem com atenção: são elas que mudam o estado civil. Numa certidão de casamento de um casal, o valor vale pros dois. Em certidão de casamento use nome_conjuge_1/nome_conjuge_2 e cpf_conjuge_1/cpf_conjuge_2 (nunca 'cpf'), e também naturalidade_conjuge_1/naturalidade_conjuge_2 (cidade/UF onde cada cônjuge nasceu, formato 'Cidade/UF', na mesma ordem dos nomes) e data_casamento (dd/mm/aaaa). Outros dados do documento (data_emissao, orgao_emissor, categoria...) com nome livre.",
             },
             ds_valor: { type: "string" },
             confianca: { type: "number", description: "0 a 100 (nunca fração de 0 a 1)." },
@@ -290,11 +290,75 @@ function leituraSuspeita(leitura: ResultadoLeituraIA | null): boolean {
   return !valorDe(leitura, "nome") || (cpf !== null && !cpfValido(cpf));
 }
 
+// Identidade em PDF digital (CNH-e): o cartão ocupa só um canto da página A4, então CPF e RG
+// chegam miúdos demais pra IA ler. Se faltarem, recorta o cartão e amplia numa nova leitura.
+type Recorte = { esq: number; topo: number; larg: number; alt: number };
+const RECORTES_CARTAO: Recorte[] = [
+  { esq: 0.02, topo: 0.05, larg: 0.52, alt: 0.3 }, // CNH-e do gov.br: cartão na coluna da esquerda, no topo
+  { esq: 0, topo: 0.03, larg: 1, alt: 0.5 }, // metade de cima da página
+];
+
+function faltaCpfOuRg(leitura: ResultadoLeituraIA | null): boolean {
+  const cpf = valorDe(leitura, "cpf");
+  return !cpf || !cpfValido(cpf) || !valorDe(leitura, "rg");
+}
+
+async function recortarEAmpliar(imagem: Buffer, r: Recorte): Promise<Buffer | null> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const { width, height } = await sharp(imagem).metadata();
+    if (!width || !height) return null;
+    return await sharp(imagem)
+      .extract({
+        left: Math.round(width * r.esq),
+        top: Math.round(height * r.topo),
+        width: Math.min(width - Math.round(width * r.esq), Math.round(width * r.larg)),
+        height: Math.min(height - Math.round(height * r.topo), Math.round(height * r.alt)),
+      })
+      .resize({ width: 2000 })
+      .sharpen()
+      .jpeg({ quality: 90 })
+      .toBuffer();
+  } catch (erro) {
+    console.error("[ocr] falha ao recortar o cartão:", erro);
+    return null;
+  }
+}
+
+// Completa a leitura base com o que a leitura ampliada achou: campo que faltava entra;
+// CPF que não fechava é trocado por um que fecha.
+function mesclarLeitura(base: ResultadoLeituraIA | null, extra: ResultadoLeituraIA | null): ResultadoLeituraIA | null {
+  if (!extra) return base;
+  if (!base) return extra;
+  const campos = [...base.campos];
+  for (const c of extra.campos) {
+    const i = campos.findIndex((x) => x.nm_campo === c.nm_campo);
+    if (i < 0) campos.push(c);
+    else if (c.nm_campo === "cpf" && !cpfValido(campos[i].ds_valor) && cpfValido(c.ds_valor)) campos[i] = c;
+  }
+  return { ...base, campos };
+}
+
 export async function lerDocumentoPessoalComIA(
-  params: Omit<ParamsLeitura, "preciso"> & { categoria: string }
+  params: Omit<ParamsLeitura, "preciso"> & {
+    categoria: string;
+    // A imagem é a 1ª página de um PDF digital (não uma foto do documento).
+    paginaPdf?: boolean;
+  }
 ): Promise<ResultadoLeituraIA | null> {
-  const { categoria, ...base } = params;
+  const { categoria, paginaPdf, ...base } = params;
   const preciso = CATEGORIAS_PRECISAS.includes(categoria);
+
+  // CNH-e em PDF: o cartão é um canto da página A4 e a leitura da página inteira erra dígitos e
+  // nomes (data de nascimento, filiação, CPF). Lê primeiro o cartão recortado e ampliado; se vier
+  // completo (nome, CPF que fecha e RG), é essa leitura que vale.
+  if (categoria === "identidade" && paginaPdf && base.imagem) {
+    const ampliada = await recortarEAmpliar(base.imagem, RECORTES_CARTAO[0]);
+    if (ampliada) {
+      const zoom = await lerDocumentoComIA({ imagem: ampliada, mimeType: "image/jpeg", preciso: true });
+      if (zoom && valorDe(zoom, "nome") && !faltaCpfOuRg(zoom)) return zoom;
+    }
+  }
 
   let leitura = await lerDocumentoComIA({ ...base, preciso });
 
@@ -302,6 +366,16 @@ export async function lerDocumentoPessoalComIA(
     const segunda = await lerDocumentoComIA({ ...base, preciso: true });
     if (segunda && (!leituraSuspeita(segunda) || !leitura || leitura.campos.length < segunda.campos.length)) {
       leitura = segunda;
+    }
+  }
+
+  if (categoria === "identidade" && paginaPdf && base.imagem && faltaCpfOuRg(leitura)) {
+    for (const recorte of RECORTES_CARTAO) {
+      const ampliada = await recortarEAmpliar(base.imagem, recorte);
+      if (!ampliada) continue;
+      const zoom = await lerDocumentoComIA({ imagem: ampliada, mimeType: "image/jpeg", preciso: true });
+      leitura = mesclarLeitura(leitura, zoom);
+      if (!faltaCpfOuRg(leitura)) break;
     }
   }
 

@@ -7,6 +7,8 @@
 
 const STX = String.fromCharCode(2);
 const ETX = String.fromCharCode(3);
+// Dentro de um valor marcado (STX...ETX), o EOT na frente indica nome de parte: sai sublinhado.
+const EOT = String.fromCharCode(4);
 
 export type DocMarca = { type: string; attrs?: Record<string, unknown> };
 
@@ -21,6 +23,7 @@ export type DocNo = {
 export type DocMinuta = { type: "doc"; content: DocNo[] };
 
 const NEGRITO: DocMarca[] = [{ type: "bold" }];
+const SUBLINHADO: DocMarca[] = [{ type: "underline" }];
 
 function noTexto(texto: string, valor: boolean, marcas: DocMarca[] = []): DocNo {
   const todas = valor ? [...marcas, { type: "valor" }] : marcas;
@@ -53,7 +56,12 @@ function linhaParaNos(linha: string, marcas: DocMarca[]): DocNo[] {
   let dentro = false;
   let buffer = "";
   const descarrega = () => {
-    if (buffer) nos.push(...nosComPartesEmNegrito(buffer, dentro, marcas));
+    if (buffer) {
+      const nome = dentro && buffer.startsWith(EOT);
+      nos.push(
+        ...nosComPartesEmNegrito(nome ? buffer.slice(1) : buffer, dentro, nome ? [...marcas, ...SUBLINHADO] : marcas)
+      );
+    }
     buffer = "";
   };
   for (const ch of linha) {
@@ -93,7 +101,7 @@ export function textoParaDoc(texto: string): DocMinuta {
     .filter((b) => b.trim().length > 0);
 
   const content = blocos.map((bloco, i) => {
-    const limpo = bloco.replace(new RegExp(`[${STX}${ETX}]`, "g"), "").trim();
+    const limpo = bloco.replace(new RegExp(`[${STX}${ETX}${EOT}]`, "g"), "").trim();
     // Título do instrumento e cabeçalhos de cláusula, como nos contratos.
     if (i === 0 && limpo.length < 140 && limpo === limpo.toUpperCase()) {
       return blocoParaParagrafo(bloco, NEGRITO, "center");
@@ -111,7 +119,9 @@ function textoDoNo(no: DocNo): string {
   if (no.type === "hardBreak") return "\n";
   if (no.type === "text") {
     const t = no.text ?? "";
-    return no.marks?.some((m) => m.type === "valor") ? STX + t + ETX : t;
+    if (!no.marks?.some((m) => m.type === "valor")) return t;
+    // nome de parte (valor sublinhado) mantém o EOT pra voltar a sublinhar
+    return STX + (no.marks.some((m) => m.type === "underline") ? EOT : "") + t + ETX;
   }
   return (no.content ?? []).map(textoDoNo).join("");
 }

@@ -6,14 +6,19 @@ import { dividirLacunas } from "@/lib/minuta-lacunas";
 
 const STX = String.fromCharCode(2);
 const ETX = String.fromCharCode(3);
+// EOT na frente do valor = nome de parte (sublinhado)
+const EOT = String.fromCharCode(4);
 const MARCA = new RegExp(STX + "([^" + ETX + "]*)" + ETX);
-const MARCAS = new RegExp("[" + STX + ETX + "]", "g");
+const MARCAS = new RegExp("[" + STX + ETX + EOT + "]", "g");
 
 export function renderMarcado(texto: string) {
   return texto.split(MARCA).map((parte, i) =>
     i % 2 === 1 ? (
-      <span key={i} className="font-semibold text-status-reprovado">
-        {parte}
+      <span
+        key={i}
+        className={`font-semibold text-status-reprovado${parte.startsWith(EOT) ? " underline" : ""}`}
+      >
+        {parte.replace(EOT, "")}
       </span>
     ) : (
       <span key={i}>
