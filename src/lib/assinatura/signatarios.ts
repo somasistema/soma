@@ -159,7 +159,16 @@ async function pessoasDasFrentes(
   // Imobiliária — representante com conta; senão o e-mail do cadastro dela.
   // Processo sem imobiliária não tem assinatura dessa frente.
   let imobiliaria: Pessoa | null = null;
-  if (processo.cd_imobiliaria) {
+  const { data: cadastroImob } = processo.cd_imobiliaria
+    ? await supabase
+        .schema("soma")
+        .from("imobiliarias")
+        .select("sn_qualifica_contrato")
+        .eq("cd_imobiliaria", processo.cd_imobiliaria)
+        .maybeSingle()
+    : { data: null };
+  // SOMA SOLUTI (sn_qualifica_contrato = false) não é parte do contrato: não assina.
+  if (processo.cd_imobiliaria && cadastroImob?.sn_qualifica_contrato !== false) {
     const { data } = await supabase
       .schema("soma")
       .from("usuarios")

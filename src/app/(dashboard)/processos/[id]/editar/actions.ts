@@ -33,6 +33,7 @@ export async function atualizarDadosProcesso(
       const resto = { ...p };
       delete resto.docs;
       delete resto.modo;
+      delete resto.tipo_pessoa;
       if (p.modo !== "link" || p.cd_parte) delete resto.cd_token_parte;
       return resto;
     }),

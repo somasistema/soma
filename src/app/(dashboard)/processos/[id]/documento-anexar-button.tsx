@@ -3,6 +3,7 @@
 import { Paperclip } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { prepararArquivo } from "@/lib/arquivo-cliente";
 import { Button } from "@/components/ui/button";
 import { CATEGORIAS_DOC_IMOVEL, type CategoriaDocIntake, type LadoParte } from "@/types/database";
 import { uploadDocumento } from "../../orcamentos/[id]/documentos-actions";
@@ -41,15 +42,20 @@ export function DocumentoAnexarButton({
     if (!arquivo) return;
     setErro(null);
 
-    const fd = new FormData();
-    fd.set("cd_processo", cdProcesso);
-    if (cdParte) fd.set("cd_parte", cdParte);
-    fd.set("tp_perfil_alvo", perfil);
-    fd.set("tp_categoria_intake", tpCategoria);
-    fd.set("nm_tipo_documento", rotuloCategoria);
-    fd.set("arquivo", arquivo);
-
     startTransition(async () => {
+      const preparado = await prepararArquivo(arquivo);
+      if ("erro" in preparado) {
+        if (inputRef.current) inputRef.current.value = "";
+        setErro(preparado.erro);
+        return;
+      }
+      const fd = new FormData();
+      fd.set("cd_processo", cdProcesso);
+      if (cdParte) fd.set("cd_parte", cdParte);
+      fd.set("tp_perfil_alvo", perfil);
+      fd.set("tp_categoria_intake", tpCategoria);
+      fd.set("nm_tipo_documento", rotuloCategoria);
+      fd.set("arquivo", preparado.arquivo);
       const r = await uploadDocumento(fd);
       if (inputRef.current) inputRef.current.value = "";
       if (!r.sucesso) {

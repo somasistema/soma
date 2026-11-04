@@ -17,6 +17,7 @@ function dadosIniciais(imob?: Imobiliaria): ImobiliariaDados {
     ds_endereco: imob?.ds_endereco ?? "",
     ds_telefone: imob?.ds_telefone ?? "",
     ds_email: imob?.ds_email ?? "",
+    sn_qualifica_contrato: imob?.sn_qualifica_contrato ?? true,
   };
 }
 
@@ -46,7 +47,7 @@ export function ImobiliariaForm({
   }
 
   const campo = (
-    id: Exclude<keyof ImobiliariaDados, "cd_imobiliaria">,
+    id: Exclude<keyof ImobiliariaDados, "cd_imobiliaria" | "sn_qualifica_contrato">,
     label: string,
     extra?: { tipo?: string; placeholder?: string; telefone?: boolean; largo?: boolean }
   ) => (
@@ -80,6 +81,21 @@ export function ImobiliariaForm({
         {campo("ds_telefone", "Telefone", { tipo: "tel", placeholder: "(71) 99999-9999", telefone: true })}
         {campo("ds_email", "E-mail", { tipo: "email" })}
       </div>
+      <label className="flex items-start gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4"
+          checked={dados.sn_qualifica_contrato}
+          onChange={(e) => setDados((d) => ({ ...d, sn_qualifica_contrato: e.target.checked }))}
+        />
+        <span>
+          Qualificar no contrato
+          <span className="block text-xs text-muted-foreground">
+            Desmarque para a própria SOMA SOLUTI: ela não é qualificada no contrato nem recebe
+            valores (escolhê-la no processo equivale a não ter imobiliária).
+          </span>
+        </span>
+      </label>
       {erro && <p className="text-sm text-status-reprovado">{erro}</p>}
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" disabled={pending} onClick={salvar}>

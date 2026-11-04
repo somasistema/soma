@@ -31,7 +31,9 @@ function ImobiliariaRow({ imobiliaria, editavel }: { imobiliaria: Imobiliaria; e
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{imobiliaria.nm_imobiliaria}</p>
-          {detalhes.length > 0 ? (
+          {!imobiliaria.sn_qualifica_contrato ? (
+            <p className="text-xs text-muted-foreground">Não é qualificada no contrato (própria SOMA).</p>
+          ) : detalhes.length > 0 ? (
             <p className="text-xs text-muted-foreground">{detalhes.join(" · ")}</p>
           ) : (
             <p className="text-xs text-status-pendente">

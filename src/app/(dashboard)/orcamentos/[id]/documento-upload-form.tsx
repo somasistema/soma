@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { prepararArquivo } from "@/lib/arquivo-cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +73,15 @@ export function DocumentoUploadForm({
     }
 
     startTransition(async () => {
+      const original = formData.get("arquivo");
+      if (original instanceof File && original.size > 0) {
+        const preparado = await prepararArquivo(original);
+        if ("erro" in preparado) {
+          setErro(preparado.erro);
+          return;
+        }
+        formData.set("arquivo", preparado.arquivo);
+      }
       const resultado = await uploadDocumento(formData);
 
       if (!resultado.sucesso) {

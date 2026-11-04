@@ -119,6 +119,8 @@ export interface Imobiliaria {
   // Qualificação no contrato (migration 057).
   ds_creci: string | null;
   ds_endereco: string | null;
+  // false = a própria SOMA: não é qualificada no contrato nem recebe valores (migration 081)
+  sn_qualifica_contrato: boolean;
   sn_ativo: boolean;
   ts_criacao: string;
 }
@@ -727,6 +729,49 @@ export const CAMPOS_MODELO_CONTRATO: {
       { token: "{{corretor_1_honorario}}", descricao: "Honorário (R$) — também _honorario_extenso" },
       { token: "{{corretor_1_percentual}}", descricao: "% dos honorários" },
       { token: "{{corretor_1_cpf}}", descricao: "CPF (do cadastro de corretores) — também _creci, _pix, _nascimento, _telefone, _email, _conta" },
+    ],
+  },
+  {
+    grupo: "Dados lidos dos documentos",
+    campos: [
+      { token: "{{vendedor_1_naturalidade}}", descricao: "Cidade/UF onde nasceu (da CNH/RG; senão da certidão de casamento)" },
+      { token: "{{vendedor_1_filiacao}}", descricao: "Pai e mãe (\"A e B\") — também _nome_pai e _nome_mae" },
+      { token: "{{vendedor_2_regime_bens}}", descricao: "Regime de bens, da certidão de casamento" },
+      { token: "{{vendedor_1_estado_civil}}", descricao: "Estado civil, da certidão" },
+      { token: "{{vendedor_conta_titular}}", descricao: "Nome de quem tem a conta bancária usada na cláusula do preço (vale também pra comprador)" },
+    ],
+  },
+  {
+    grupo: "Concordância de gênero",
+    campos: [
+      { token: "{{vendedor_1_g_brasileiro}}", descricao: "brasileiro / brasileira" },
+      { token: "{{vendedor_1_g_nascido}}", descricao: "nascido / nascida" },
+      { token: "{{vendedor_1_g_portador}}", descricao: "portador / portadora" },
+      { token: "{{vendedor_1_g_inscrito}}", descricao: "inscrito / inscrita" },
+      { token: "{{vendedor_1_g_domiciliado}}", descricao: "domiciliado / domiciliada" },
+      { token: "{{vendedor_1_g_casado}}", descricao: "casado / casada" },
+      { token: "{{comprador_1_g_solteiro}}", descricao: "solteiro / solteira (também _g_ dos outros, em vendedor e comprador)" },
+      { token: "{{corretor_1_g_corretor}}", descricao: "corretor / corretora (também _g_brasileiro, _g_inscrito, _g_domiciliado)" },
+    ],
+  },
+  {
+    grupo: "Aluguel (locação)",
+    campos: [
+      { token: "{{locacao_prazo}}", descricao: "Prazo, ex: 36 (trinta e seis) meses — também _prazo_meses" },
+      { token: "{{locacao_inicio}}", descricao: "Início da locação — também _fim, _chaves" },
+      { token: "{{locacao_aluguel}}", descricao: "Aluguel sem taxas (R$) — também _extenso" },
+      { token: "{{locacao_condominio}}", descricao: "Condomínio (R$) — também _extenso" },
+      { token: "{{locacao_iptu}}", descricao: "IPTU (R$) — também _extenso" },
+      { token: "{{locacao_aluguel_total}}", descricao: "Aluguel + condomínio + IPTU — também _extenso" },
+      { token: "{{locacao_taxas}}", descricao: "Texto: \"IPTU e condomínio (com água)\"" },
+      { token: "{{locacao_dia_vencimento}}", descricao: "Dia do vencimento, ex: 10 (dez)" },
+      { token: "{{locacao_primeiro_pagamento}}", descricao: "Data do 1º pagamento — também _ultimo_pagamento" },
+      { token: "{{locacao_pix}}", descricao: "PIX do locador — também _titular" },
+      { token: "{{locacao_agua_texto}}", descricao: "Parágrafo pronto sobre a água (incluída no condomínio ou individual)" },
+      { token: "{{locacao_seguro}}", descricao: "Parágrafo pronto do seguro-incêndio" },
+      { token: "{{locacao_devolucao_pintura}}", descricao: "COM pintura / sem obrigação de nova pintura" },
+      { token: "{{#locacao_tem_caucao}}", descricao: "Bloco da cláusula de caução (some se for sem garantia)" },
+      { token: "{{locacao_caucao_valor}}", descricao: "Valor da caução — também _extenso, _meses_txt, _base" },
     ],
   },
 ];

@@ -35,6 +35,9 @@ export interface ParteInput {
   docs?: DocumentoDaParte[];
   // Só na tela: como a pessoa é cadastrada (não vai pro banco)
   modo?: "manual" | "link";
+  // Só na tela: pessoa física (padrão) ou jurídica. Escolher "jurídica" mostra os documentos de
+  // empresa (contrato social, certidões) antes de digitar o CNPJ. Não vai pro banco.
+  tipo_pessoa?: "pf" | "pj";
   // Link pro cliente: token gerado na tela (vai pro banco)
   cd_token_parte?: string;
   // Só na edição: a parte já existe no processo (upsert, não recria)
@@ -141,6 +144,7 @@ export async function criarProcesso(input: CriarProcessoInput): Promise<CriarPro
         const resto = { ...p };
         delete resto.docs;
         delete resto.modo;
+        delete resto.tipo_pessoa;
         if (p.modo !== "link") delete resto.cd_token_parte;
         return resto;
       }),

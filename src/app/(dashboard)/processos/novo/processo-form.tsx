@@ -1,7 +1,7 @@
 "use client";
 
 import { Link2, Paperclip, PenLine, Plus, Trash2, X } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type Dispatch, type SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PercentInput } from "@/components/ui/percent-input";
 import { Select } from "@/components/ui/select";
+import { prepararArquivo } from "@/lib/arquivo-cliente";
+import { mesmaPessoa } from "@/lib/nomes-semelhantes";
+import { criarImobiliaria } from "@/app/(dashboard)/configuracoes/imobiliarias/actions";
 import { formatarMoeda, formatarTelefone } from "@/lib/utils";
 import {
   CARTORIOS_IMOVEIS,
@@ -36,9 +39,51 @@ import {
   type ParteInput,
 } from "./actions";
 import { consultarConvite, salvarConvite } from "./convites";
-import { lerDocumentoRascunho } from "./documentos-rascunho";
+import { lerDocumentoRascunho, lerPdfVariosDocumentos, type DocumentoDoLote } from "./documentos-rascunho";
 import { LinkParteButton } from "../[id]/link-parte-button";
 import { atualizarDadosProcesso } from "../[id]/editar/actions";
+
+// Empresa: CNPJ digitado ou "pessoa jurídica" escolhida na tela.
+const ehEmpresa = (p: ParteInput) => tipoDocumentoFiscal(p.ds_cpf) === "cnpj" || p.tipo_pessoa === "pj";
+
+// Duas linhas que parecem a mesma pessoa (mesmo CPF/CNPJ, ou mesmo primeiro nome e sobrenomes em
+// comum). Acontece quando o mesmo PDF/documento é anexado em duas pessoas: a qualificação sai
+// repetida no contrato. Marido e mulher não disparam: o primeiro nome é diferente.
+function pessoasParecidas(a: ParteInput, b: ParteInput): boolean {
+  const da = a.ds_cpf.replace(/\D/g, "");
+  const db = b.ds_cpf.replace(/\D/g, "");
+  if (da.length >= 11 && da === db) return true;
+  return !!a.nm_parte.trim() && !!b.nm_parte.trim() && mesmaPessoa(a.nm_parte, b.nm_parte);
+}
+
+export function avisosDeDuplicidade(
+  lados: { rotulo: string; lista: ParteInput[] }[],
+): { lados: number[]; texto: string }[] {
+  const itens = lados.flatMap((l, li) =>
+    l.lista.map((p, i) => ({
+      li,
+      p,
+      papel: l.lista.length > 1 ? `${l.rotulo} ${i + 1}` : l.rotulo,
+    })),
+  );
+  const avisos: { lados: number[]; texto: string }[] = [];
+  for (let a = 0; a < itens.length; a++) {
+    for (let b = a + 1; b < itens.length; b++) {
+      if (!pessoasParecidas(itens[a].p, itens[b].p)) continue;
+      const nome = (x: (typeof itens)[number]) => x.p.nm_parte.trim() || "sem nome";
+      avisos.push({
+        lados: [itens[a].li, itens[b].li],
+        texto: `${nome(itens[a])} (${itens[a].papel}) e ${nome(itens[b])} (${itens[b].papel}) parecem ser a mesma pessoa — confira se não foi cadastrada duas vezes.`,
+      });
+    }
+  }
+  return avisos;
+}
+
+// Mudança numa pessoa: campos novos, ou uma função que recebe a pessoa como ela está AGORA. A leitura
+// de documento demora (10 a 60 s) e, quando termina, não pode gravar por cima do que foi digitado
+// nesse meio-tempo (profissão, nome de outra pessoa, outro documento anexado).
+type ParteMudanca = Partial<ParteInput> | ((atual: ParteInput) => Partial<ParteInput>);
 
 // Parte de um processo anterior — sugestão pra não redigitar quem já
 // apareceu em outro negócio (ex: o mesmo vendedor com dois imóveis).
@@ -252,6 +297,62 @@ function aplicarLeituraNaParte(
   return { patch, preenchidos };
 }
 
+// PDF único com vários documentos: cada documento vai pra pessoa certa do lado — pelo nome do titular;
+// identidade sem dono cadastrado ocupa uma linha em branco ou vira uma pessoa nova (cônjuge); certidão
+// e comprovante sem dono conhecido ficam com a primeira pessoa (valem pro casal). Identidades vêm
+// primeiro, pra as pessoas já existirem quando a certidão procurar o titular.
+const ORDEM_DO_LOTE: Record<string, number> = {
+  identidade: 0,
+  contrato_social: 0,
+  estado_civil: 1,
+  uniao_estavel: 1,
+  comprovante_residencia: 2,
+  certidoes: 2,
+};
+
+export function distribuirDocsEmLote(
+  lista: ParteInput[],
+  docs: DocumentoDoLote[],
+  lado: "vendedor" | "comprador",
+): ParteInput[] {
+  const l = lista.map((p) => ({ ...p }));
+  const ordenados = [...docs].sort(
+    (a, b) => (ORDEM_DO_LOTE[a.categoria] ?? 3) - (ORDEM_DO_LOTE[b.categoria] ?? 3),
+  );
+  const porNome = (nomes: string[]) =>
+    l.findIndex((p) => p.nm_parte.trim() && nomes.some((n) => mesmaPessoa(n, p.nm_parte)));
+  const livre = () =>
+    l.findIndex(
+      (p) =>
+        !p.nm_parte.trim() &&
+        !(p.docs ?? []).some((d) => d.categoria === "identidade" || d.categoria === "contrato_social"),
+    );
+  const nova = () => {
+    l.push({ ...parteVazia(lado, l.length > 0 ? "conjuge" : ""), modo: "manual" });
+    return l.length - 1;
+  };
+
+  for (const d of ordenados) {
+    const pessoal = d.categoria === "identidade" || d.categoria === "contrato_social";
+    let i = porNome(d.titulares);
+    if (i < 0 && pessoal) i = livre();
+    if (i < 0) i = pessoal || l.length === 0 ? nova() : 0;
+
+    const p = l[i];
+    const doc: DocumentoDaParte = {
+      categoria: d.categoria,
+      caminho: d.caminho,
+      nome: d.nome,
+      tipo: d.tipo,
+      confianca: d.confianca,
+      campos: d.campos,
+    };
+    const { patch } = aplicarLeituraNaParte(p, d.categoria, d.campos);
+    l[i] = { ...p, ...patch, modo: p.modo ?? "manual", docs: [...(p.docs ?? []), doc] };
+  }
+  return l;
+}
+
 type DadosImovelLido = {
   endereco: string | null;
   matricula: string | null;
@@ -287,11 +388,16 @@ function AnexarDocumentos({
     if (!arquivo) return;
     setAviso(null);
     setLendo(categoria);
-    const fd = new FormData();
-    fd.set("arquivo", arquivo);
-    fd.set("categoria", categoria);
-
     startTransition(async () => {
+      const preparado = await prepararArquivo(arquivo);
+      if ("erro" in preparado) {
+        setLendo(null);
+        setAviso({ ok: false, texto: preparado.erro });
+        return;
+      }
+      const fd = new FormData();
+      fd.set("arquivo", preparado.arquivo);
+      fd.set("categoria", categoria);
       const r = await lerDocumentoRascunho(fd);
       setLendo(null);
       if (!r.sucesso) {
@@ -377,6 +483,67 @@ function AnexarDocumentos({
   );
 }
 
+function AnexarPdfVarios({ aoLer }: { aoLer: (docs: DocumentoDoLote[]) => void }) {
+  const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  function aoSelecionar(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!arquivo) return;
+    setAviso(null);
+    startTransition(async () => {
+      const preparado = await prepararArquivo(arquivo);
+      if ("erro" in preparado) {
+        setAviso({ ok: false, texto: preparado.erro });
+        return;
+      }
+      const fd = new FormData();
+      fd.set("arquivo", preparado.arquivo);
+      const r = await lerPdfVariosDocumentos(fd);
+      if (!r.sucesso) {
+        setAviso({ ok: false, texto: r.erro });
+        return;
+      }
+      aoLer(r.documentos);
+      const lista = r.documentos
+        .map((d) => CATEGORIA_DOC_INTAKE_LABEL[d.categoria] + (d.titulares[0] ? ` — ${d.titulares[0]}` : ""))
+        .join("; ");
+      setAviso({
+        ok: true,
+        texto: `Encontrei ${r.documentos.length} documento(s): ${lista}.${
+          r.ignorados > 0 ? ` ${r.ignorados} página(s) de outro tipo foram ignoradas.` : ""
+        } Confira abaixo — quem ainda não estava cadastrado foi adicionado.`,
+      });
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-radius border border-dashed border-border p-3">
+      <p className="text-xs text-muted-foreground">
+        Recebeu <strong>um PDF só</strong> com os documentos de todos (RG de cada um, certidão,
+        comprovante)? Anexe aqui: o sistema separa por documento, lê e coloca cada um na pessoa certa.
+      </p>
+      <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={aoSelecionar} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 w-fit gap-1.5 text-xs"
+        disabled={pending}
+        onClick={() => inputRef.current?.click()}
+      >
+        <Paperclip className="h-3.5 w-3.5" />
+        {pending ? "Separando e lendo os documentos..." : "Anexar PDF com vários documentos"}
+      </Button>
+      {aviso && (
+        <p className={`text-xs ${aviso.ok ? "text-status-aceito" : "text-status-reprovado"}`}>{aviso.texto}</p>
+      )}
+    </div>
+  );
+}
+
 function OutraParteRow({
   parte,
   anteriores,
@@ -385,7 +552,7 @@ function OutraParteRow({
 }: {
   parte: ParteInput;
   anteriores: ParteAnterior[];
-  onChange: (patch: Partial<ParteInput>) => void;
+  onChange: (patch: ParteMudanca) => void;
   onRemove: () => void;
 }) {
   return (
@@ -467,12 +634,12 @@ function ParteFields({
   // nome da pessoa anterior do mesmo lado (pro seletor de vínculo)
   anteriorNome: string | null;
   anteriores: ParteAnterior[];
-  onChange: (patch: Partial<ParteInput>) => void;
+  onChange: (patch: ParteMudanca) => void;
   onRemove: () => void;
   podeRemover: boolean;
 }) {
   const [aproveitado, setAproveitado] = useState(false);
-  const empresa = anteriorNome === null && tipoDocumentoFiscal(parte.ds_cpf) === "cnpj";
+  const empresa = anteriorNome === null && ehEmpresa(parte);
   const [gerandoLink, startLink] = useTransition();
   const [avisoLink, setAvisoLink] = useState<{ ok: boolean; texto: string } | null>(null);
 
@@ -740,27 +907,52 @@ function ParteFields({
 
       {parte.modo === "manual" && (
         <>
+          {anteriorNome === null && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Tipo:</span>
+              {(["pf", "pj"] as const).map((tipo) => {
+                const ativo = tipo === "pj" ? empresa : !empresa;
+                return (
+                  <button
+                    key={tipo}
+                    type="button"
+                    disabled={tipoDocumentoFiscal(parte.ds_cpf) === "cnpj"}
+                    onClick={() => onChange({ tipo_pessoa: tipo })}
+                    aria-pressed={ativo}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed ${
+                      ativo
+                        ? "border-brand bg-brand/10 text-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {tipo === "pf" ? "Pessoa física" : "Pessoa jurídica (empresa)"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div className="rounded-radius border border-dashed border-border p-3">
             <p className="mb-2 text-xs text-muted-foreground">
-              Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e
-              endereço que estiverem em branco. Os arquivos já ficam no processo.
+              {empresa
+                ? "Anexe os documentos da empresa (contrato social/JUCEB e certidões) — o sistema lê razão social, CNPJ, NIRE e sede. Depois, em Adicionar, cadastre os sócios-administradores. Os arquivos já ficam no processo."
+                : "Anexe os documentos da pessoa — o sistema lê e preenche nome, CPF, RG, nascimento e endereço que estiverem em branco. Os arquivos já ficam no processo."}
             </p>
             <AnexarDocumentos
               categorias={empresa ? CATEGORIAS_DOC_EMPRESA : CATEGORIAS_DOC_PESSOAIS}
               docs={parte.docs ?? []}
               onLido={(doc) => {
-                const { patch, preenchidos } = aplicarLeituraNaParte(
-                  parte,
-                  doc.categoria,
-                  doc.campos,
-                );
-                onChange({ ...patch, docs: [...(parte.docs ?? []), doc] });
+                // o aviso ("preencheu: ...") usa a pessoa de agora; o que é gravado, a de quando a leitura termina
+                const { preenchidos } = aplicarLeituraNaParte(parte, doc.categoria, doc.campos);
+                onChange((atual) => ({
+                  ...aplicarLeituraNaParte(atual, doc.categoria, doc.campos).patch,
+                  docs: [...(atual.docs ?? []), doc],
+                }));
                 return preenchidos;
               }}
               onRemover={(caminho) =>
-                onChange({
-                  docs: (parte.docs ?? []).filter((d) => d.caminho !== caminho),
-                })
+                onChange((atual) => ({
+                  docs: (atual.docs ?? []).filter((d) => d.caminho !== caminho),
+                }))
               }
             />
           </div>
@@ -1231,6 +1423,92 @@ function LocacaoCard({
   );
 }
 
+// Cadastro rápido de imobiliária, sem sair do processo: nome, CNPJ, CRECI-PJ e endereço entram na
+// qualificação dela no contrato. Depois de salvar, ela já fica selecionada.
+function NovaImobiliaria({ aoCriar }: { aoCriar: (imobiliaria: Imobiliaria) => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  const [d, setD] = useState({
+    nm_imobiliaria: "",
+    ds_cnpj: "",
+    ds_creci: "",
+    ds_endereco: "",
+    ds_telefone: "",
+    ds_email: "",
+  });
+
+  function salvar() {
+    setErro(null);
+    startTransition(async () => {
+      const r = await criarImobiliaria(d);
+      if ("erro" in r) {
+        setErro(r.erro);
+        return;
+      }
+      aoCriar(r.imobiliaria);
+      setD({ nm_imobiliaria: "", ds_cnpj: "", ds_creci: "", ds_endereco: "", ds_telefone: "", ds_email: "" });
+      setAberto(false);
+    });
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="mt-1 w-fit text-xs font-medium text-brand underline"
+      >
+        + Cadastrar nova imobiliária
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-3 rounded-radius border border-dashed border-border p-3 sm:col-span-2">
+      <p className="text-sm font-medium text-foreground">Nova imobiliária</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Campo label="Razão social" className="sm:col-span-2">
+          <Input value={d.nm_imobiliaria} onChange={(e) => setD({ ...d, nm_imobiliaria: e.target.value })} />
+        </Campo>
+        <Campo label="CNPJ">
+          <Input placeholder="00.000.000/0000-00" value={d.ds_cnpj} onChange={(e) => setD({ ...d, ds_cnpj: e.target.value })} />
+        </Campo>
+        <Campo label="CRECI-PJ">
+          <Input value={d.ds_creci} onChange={(e) => setD({ ...d, ds_creci: e.target.value })} />
+        </Campo>
+        <Campo label="Endereço (sede)" className="sm:col-span-2">
+          <Input
+            placeholder="Rua, número, bairro, cidade/UF"
+            value={d.ds_endereco}
+            onChange={(e) => setD({ ...d, ds_endereco: e.target.value })}
+          />
+        </Campo>
+        <Campo label="E-mail (recebe a minuta e o contrato)">
+          <Input type="email" value={d.ds_email} onChange={(e) => setD({ ...d, ds_email: e.target.value })} />
+        </Campo>
+        <Campo label="Telefone">
+          <Input
+            type="tel"
+            placeholder="(71) 99999-9999"
+            value={d.ds_telefone}
+            onChange={(e) => setD({ ...d, ds_telefone: formatarTelefone(e.target.value) })}
+          />
+        </Campo>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" onClick={salvar} disabled={pending || d.nm_imobiliaria.trim().length < 2}>
+          {pending ? "Salvando..." : "Salvar imobiliária"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setAberto(false)} disabled={pending}>
+          Cancelar
+        </Button>
+        {erro && <span className="text-xs text-status-reprovado">{erro}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function ProcessoForm({
   imobiliarias,
   corretoresCadastro,
@@ -1257,8 +1535,9 @@ export function ProcessoForm({
 
   // Imobiliária é opcional — venda sem imobiliária (só corretores).
   const [cdImobiliaria, setCdImobiliaria] = useState(edicao?.inicial.cd_imobiliaria ?? "");
-  const imobiliariaEscolhida = imobiliarias.find((i) => i.cd_imobiliaria === cdImobiliaria);
-  const faltasDaImobiliaria = imobiliariaEscolhida
+  const [listaImobiliarias, setListaImobiliarias] = useState<Imobiliaria[]>(imobiliarias);
+  const imobiliariaEscolhida = listaImobiliarias.find((i) => i.cd_imobiliaria === cdImobiliaria);
+  const faltasDaImobiliaria = imobiliariaEscolhida && imobiliariaEscolhida.sn_qualifica_contrato !== false
     ? [
         !imobiliariaEscolhida.ds_cnpj?.trim() && "CNPJ",
         !imobiliariaEscolhida.ds_creci?.trim() && "CRECI",
@@ -1329,12 +1608,15 @@ export function ProcessoForm({
   }
 
   function patchParte(
-    lista: ParteInput[],
-    setLista: (v: ParteInput[]) => void,
+    setLista: Dispatch<SetStateAction<ParteInput[]>>,
     idx: number,
-    patch: Partial<ParteInput>,
+    mudanca: ParteMudanca,
   ) {
-    setLista(lista.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+    setLista((lista) =>
+      lista.map((p, i) =>
+        i === idx ? { ...p, ...(typeof mudanca === "function" ? mudanca(p) : mudanca) } : p,
+      ),
+    );
   }
 
   function patchCorretor(idx: number, patch: Partial<CorretorLinha>) {
@@ -1384,10 +1666,21 @@ export function ProcessoForm({
   const diferenca =
     totalNum !== null && temDistribuicao ? Math.round((totalNum - distribuido) * 100) / 100 : 0;
 
+  const avisosDup = avisosDeDuplicidade([
+    { rotulo: ehLocacao ? "Locador" : "Vendedor", lista: vendedores },
+    { rotulo: ehLocacao ? "Locatário" : "Comprador", lista: compradores },
+  ]);
+
   function salvar() {
     setErro(null);
     if (!nmSolicitante.trim()) {
       setErro("Informe quem solicitou o contrato.");
+      return;
+    }
+    if (
+      avisosDup.length > 0 &&
+      !confirm(`${avisosDup.map((a) => a.texto).join("\n\n")}\n\nSalvar mesmo assim?`)
+    ) {
       return;
     }
     if (ehLocacao) {
@@ -1419,7 +1712,7 @@ export function ProcessoForm({
             i === 0
               ? ("" as const)
               : p.tp_vinculo ||
-                (tipoDocumentoFiscal(vendedores[0].ds_cpf) === "cnpj"
+                (ehEmpresa(vendedores[0])
                   ? ("representante" as const)
                   : ("conjuge" as const)),
         };
@@ -1434,7 +1727,7 @@ export function ProcessoForm({
             i === 0
               ? ("" as const)
               : p.tp_vinculo ||
-                (tipoDocumentoFiscal(compradores[0].ds_cpf) === "cnpj"
+                (ehEmpresa(compradores[0])
                   ? ("representante" as const)
                   : ("conjuge" as const)),
         };
@@ -1498,7 +1791,7 @@ export function ProcessoForm({
     titulo: string,
     lado: "vendedor" | "comprador",
     lista: ParteInput[],
-    setLista: (v: ParteInput[]) => void,
+    setLista: Dispatch<SetStateAction<ParteInput[]>>,
   ) {
     const rotulo = ehLocacao
       ? lado === "vendedor"
@@ -1518,13 +1811,13 @@ export function ProcessoForm({
               key={idx}
               parte={parte}
               titulo={idx === 0 ? rotulo : `${rotulo} ${idx + 1}`}
-              primeiraEhEmpresa={tipoDocumentoFiscal(lista[0].ds_cpf) === "cnpj"}
+              primeiraEhEmpresa={ehEmpresa(lista[0])}
               anteriorNome={idx === 0 ? null : lista[idx - 1].nm_parte}
               anteriores={partesAnteriores}
               siteUrl={siteUrl}
               podeRemover={lista.length > 1}
               edicao={!!edicao}
-              onChange={(patch) => patchParte(lista, setLista, idx, patch)}
+              onChange={(patch) => patchParte(setLista, idx, patch)}
               onRemove={() => setLista(lista.filter((_, i) => i !== idx))}
             />
           ))}
@@ -1543,6 +1836,17 @@ export function ProcessoForm({
             <Plus className="h-4 w-4" />
             Adicionar {rotulo.toLowerCase()} (cônjuge, companheiro ou outra pessoa)
           </Button>
+          <AnexarPdfVarios aoLer={(docs) => setLista((prev) => distribuirDocsEmLote(prev, docs, lado))} />
+          {avisosDup
+            .filter((a) => a.lados.includes(lado === "vendedor" ? 0 : 1))
+            .map((a, i) => (
+              <p
+                key={i}
+                className="rounded-radius border border-status-reprovado/40 bg-status-reprovado/10 px-3 py-2 text-xs text-status-reprovado"
+              >
+                {a.texto}
+              </p>
+            ))}
         </CardContent>
       </Card>
     );
@@ -1577,15 +1881,15 @@ export function ProcessoForm({
               }}
             >
               <option value="">— Sem imobiliária —</option>
-              {imobiliarias.map((imob) => (
+              {listaImobiliarias.map((imob) => (
                 <option key={imob.cd_imobiliaria} value={imob.cd_imobiliaria}>
                   {imob.nm_imobiliaria}
                 </option>
               ))}
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
-              Imobiliária da venda/locação (aparece no contrato, na comissão). A SOMA não recebe
-              valores: não escolha a SOMA aqui — deixe em branco se não houver imobiliária.
+              Imobiliária da venda/locação (aparece no contrato, na comissão). A SOMA SOLUTI não é
+              qualificada no contrato nem recebe valores.
             </p>
             {imobiliariaEscolhida && faltasDaImobiliaria.length > 0 && (
               <p className="mt-1 text-xs text-status-reprovado">
@@ -1594,6 +1898,12 @@ export function ProcessoForm({
                 Imobiliárias.
               </p>
             )}
+            <NovaImobiliaria
+              aoCriar={(nova) => {
+                setListaImobiliarias((l) => [...l, nova].sort((a, b) => a.nm_imobiliaria.localeCompare(b.nm_imobiliaria)));
+                setCdImobiliaria(nova.cd_imobiliaria);
+              }}
+            />
           </Campo>
           <div className="hidden sm:block" />
           <Campo label="Quem solicitou o contrato" htmlFor="nm_solicitante">
@@ -1638,7 +1948,7 @@ export function ProcessoForm({
               key={idx}
               parte={parte}
               anteriores={partesAnteriores}
-              onChange={(patch) => patchParte(outrasPartes, setOutrasPartes, idx, patch)}
+              onChange={(patch) => patchParte(setOutrasPartes, idx, patch)}
               onRemove={() => setOutrasPartes(outrasPartes.filter((_, i) => i !== idx))}
             />
           ))}

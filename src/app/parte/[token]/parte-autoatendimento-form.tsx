@@ -3,6 +3,7 @@
 import { Check, Paperclip, X } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { prepararArquivo } from "@/lib/arquivo-cliente";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentoFiscalInput } from "@/components/ui/documento-fiscal-input";
@@ -91,9 +92,15 @@ function BotaoAnexar({
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
     setErro(null);
-    const fd = new FormData();
-    fd.set("arquivo", arquivo);
     startTransition(async () => {
+      const preparado = await prepararArquivo(arquivo);
+      if ("erro" in preparado) {
+        if (inputRef.current) inputRef.current.value = "";
+        setErro(preparado.erro);
+        return;
+      }
+      const fd = new FormData();
+      fd.set("arquivo", preparado.arquivo);
       const r = await anexarMeuDocumento(token, categoria, fd);
       if (inputRef.current) inputRef.current.value = "";
       if (!r.sucesso) {

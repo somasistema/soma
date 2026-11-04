@@ -3,6 +3,7 @@
 import { Camera, Sparkles, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
+import { prepararArquivo } from "@/lib/arquivo-cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -71,8 +72,13 @@ function Ambiente({ cdProcesso, ambiente }: { cdProcesso: string; ambiente: Ambi
     // Uma por vez: foto de celular é grande e cada chamada tem limite de tamanho.
     for (let i = 0; i < arquivos.length; i++) {
       setEnviando(`Enviando foto ${i + 1} de ${arquivos.length}...`);
+      const preparado = await prepararArquivo(arquivos[i]);
+      if ("erro" in preparado) {
+        setMsg({ ok: false, texto: preparado.erro });
+        break;
+      }
       const fd = new FormData();
-      fd.set("arquivo", arquivos[i]);
+      fd.set("arquivo", preparado.arquivo);
       const r = await enviarFoto(cdProcesso, ambiente.cd_ambiente, fd);
       if (!r.sucesso) {
         setMsg({ ok: false, texto: `${arquivos[i].name}: ${r.erro}` });

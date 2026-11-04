@@ -1,9 +1,12 @@
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { getUsuarioAtual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import type { ModeloContrato } from "@/types/database";
 import { ModelosLista } from "./modelos-lista";
-import { NovoModelo } from "./novo-modelo";
 
 // Leitura pro time interno (mesma RLS da migration 043); edição só
 // Jurídico e Master.
@@ -27,14 +30,27 @@ export default async function ModelosContratoPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Textos-base de contrato. O Jurídico monta e versiona aqui; a partir de um modelo ativo, a
-        minuta de um processo de contrato é gerada com os dados já preenchidos.
-        {editavel
-          ? " Alterar o texto de um modelo sobe uma versão nova."
-          : " Você tem acesso de leitura — abra um modelo pra revisar o texto."}
-      </p>
-      {editavel && <NovoModelo />}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <h2 className="font-serif-doc text-xl font-semibold text-foreground">Modelos de contrato</h2>
+          <p className="text-sm text-muted-foreground">
+            Textos-base de contrato. A minuta de cada processo nasce de um modelo ativo, já com os dados
+            preenchidos.
+            {editavel
+              ? " Alterar o texto sobe uma versão nova e a anterior fica guardada."
+              : " Você tem acesso de leitura — abra um modelo para revisar o texto."}
+          </p>
+        </div>
+        {editavel && (
+          <Link
+            href="/configuracoes/modelos-contrato/novo"
+            className={cn(buttonVariants({ variant: "default" }), "gap-1.5 font-bold")}
+          >
+            <Plus className="h-4 w-4" />
+            Novo modelo
+          </Link>
+        )}
+      </div>
       <ModelosLista modelos={modelos ?? []} editavel={editavel} />
     </div>
   );
