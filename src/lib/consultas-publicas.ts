@@ -24,7 +24,13 @@ export type DadosCnpj = {
   email: string | null;
 };
 
-export const soDigitos = (v: string) => v.replace(/\D/g, "");
+export type DadosCpf = {
+  cpf: string; // 000.000.000-00
+  nome: string;
+  nascimento: string | null; // AAAA-MM-DD, pronto para <input type="date">
+};
+
+export const soDigitos =(v: string) => v.replace(/\D/g, "");
 
 export function formatarCep(valor: string): string {
   const d = soDigitos(valor).slice(0, 8);

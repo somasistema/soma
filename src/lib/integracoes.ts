@@ -138,10 +138,12 @@ export const INTEGRACOES: Integracao[] = [
     id: "api-cpf",
     nome: "API CPF",
     categoria: "Consultas (Fase 3)",
-    situacao: "planejada",
-    usoNoSistema: "Consultar a situação cadastral do CPF das partes.",
+    situacao: "em_uso",
+    usoNoSistema:
+      "Busca nome e data de nascimento pelo CPF da pessoa física, no botão do formulário. Cada consulta gasta um crédito do plano; sem a chave, o botão avisa e o resto segue normal.",
     custo: "Plano grátis para testar; Plus R$ 29,90/mês",
     variaveis: ["API_CPF_TOKEN"],
+    opcional: true,
   },
   {
     id: "apibrasil",

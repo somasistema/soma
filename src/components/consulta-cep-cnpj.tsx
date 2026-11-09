@@ -4,8 +4,8 @@ import { Search } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { consultarCep, consultarCnpj } from "@/lib/consultas-externas";
-import { formatarCep, soDigitos, type DadosCnpj } from "@/lib/consultas-publicas";
+import { consultarCep, consultarCnpj, consultarCpf } from "@/lib/consultas-externas";
+import { formatarCep, soDigitos, type DadosCnpj, type DadosCpf } from "@/lib/consultas-publicas";
 import { documentoFiscalValido } from "@/lib/documento-fiscal";
 
 // Busca o endereço pelo CEP. O CEP só traz rua, bairro e cidade: o número e o complemento a pessoa completa.
@@ -127,6 +127,56 @@ export function BotaoConsultarCnpj({
       </Button>
       {mensagem && (
         <p role="status" className={`mt-1 text-xs ${cor}`}>
+          {mensagem.texto}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Busca nome e data de nascimento pelo CPF. Cada clique gasta um crédito da API, por isso é só por botão.
+export function BotaoConsultarCpf({
+  cpf,
+  onDados,
+  className,
+}: {
+  cpf: string;
+  onDados: (dados: DadosCpf) => void;
+  className?: string;
+}) {
+  const [pendente, startConsulta] = useTransition();
+  const [mensagem, setMensagem] = useState<{ ok: boolean; texto: string } | null>(null);
+  const valido = soDigitos(cpf).length === 11 && documentoFiscalValido(cpf);
+
+  function buscar() {
+    setMensagem(null);
+    startConsulta(async () => {
+      const r = await consultarCpf(cpf);
+      if (!r.ok) {
+        setMensagem({ ok: false, texto: r.erro });
+        return;
+      }
+      onDados(r.dados);
+      setMensagem({ ok: true, texto: "Nome e nascimento carregados nos campos vazios. Confira com o documento." });
+    });
+  }
+
+  return (
+    <div className={className}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5 text-xs"
+        disabled={pendente || !valido}
+        onClick={buscar}
+        title={valido ? "Gasta 1 consulta do plano" : "Digite um CPF válido para buscar"}
+      >
+        <Search className="h-3.5 w-3.5" />
+        {pendente ? "Buscando..." : "Buscar dados do CPF"}
+      </Button>
+      {mensagem && (
+        <p role="status" className={`mt-1 text-xs ${mensagem.ok ? "text-status-aceito" : "text-status-reprovado"}`}>
           {mensagem.texto}
         </p>
       )}

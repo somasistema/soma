@@ -5,7 +5,7 @@ import { useRef, useState, useTransition, type Dispatch, type SetStateAction } f
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { BotaoConsultarCnpj, BuscaCep } from "@/components/consulta-cep-cnpj";
+import { BotaoConsultarCnpj, BotaoConsultarCpf, BuscaCep } from "@/components/consulta-cep-cnpj";
 import { DocumentoFiscalInput } from "@/components/ui/documento-fiscal-input";
 import { tipoDocumentoFiscal } from "@/lib/documento-fiscal";
 import { Input } from "@/components/ui/input";
@@ -991,7 +991,20 @@ function ParteFields({
                       })
                     }
                   />
-                ) : undefined
+                ) : (
+                  <BotaoConsultarCpf
+                    cpf={parte.ds_cpf}
+                    onDados={(d) =>
+                      // Só completa o que está vazio, olhando a pessoa como ela está quando a consulta volta.
+                      onChange((atual) => {
+                        const patch: Partial<ParteInput> = {};
+                        if (!atual.nm_parte.trim() && d.nome) patch.nm_parte = d.nome;
+                        if (!atual.dt_nascimento && d.nascimento) patch.dt_nascimento = d.nascimento;
+                        return patch;
+                      })
+                    }
+                  />
+                )
               }
             />
             {empresa && (
