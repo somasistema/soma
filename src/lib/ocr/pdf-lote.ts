@@ -97,11 +97,18 @@ const FERRAMENTA = {
   },
 };
 
-export async function segmentarComIA(imagens: Buffer[]): Promise<DocumentoSegmentado[] | null> {
-  if (!process.env.ANTHROPIC_API_KEY || imagens.length === 0) return null;
+export type ResultadoSegmentacao = { docs: DocumentoSegmentado[] } | { motivo: "sem_chave" | "falha_ia" | "resposta_invalida" };
+
+export async function segmentarComIA(imagens: Buffer[]): Promise<ResultadoSegmentacao> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("[pdf-lote] ANTHROPIC_API_KEY ausente neste ambiente");
+    return { motivo: "sem_chave" };
+  }
+  if (imagens.length === 0) return { motivo: "resposta_invalida" };
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic();
+    // Uma nova tentativa automática em erro de rede/limite (o SDK já refaz 429 e 5xx).
+    const client = new Anthropic({ maxRetries: 2 });
 
     const conteudo: Parameters<typeof client.messages.create>[0]["messages"][number]["content"] = [];
     imagens.forEach((img, i) => {
@@ -129,9 +136,15 @@ export async function segmentarComIA(imagens: Buffer[]): Promise<DocumentoSegmen
     });
 
     const uso = resposta.content.find((b) => b.type === "tool_use");
-    if (!uso || uso.type !== "tool_use") return null;
+    if (!uso || uso.type !== "tool_use") {
+      console.error("[pdf-lote] a IA respondeu sem a ferramenta (stop_reason:", resposta.stop_reason, ")");
+      return { motivo: "resposta_invalida" };
+    }
     const bruto = (uso.input as { documentos?: unknown }).documentos;
-    if (!Array.isArray(bruto)) return null;
+    if (!Array.isArray(bruto)) {
+      console.error("[pdf-lote] resposta da IA sem a lista de documentos");
+      return { motivo: "resposta_invalida" };
+    }
 
     const total = imagens.length;
     const vistas = new Set<number>();
@@ -155,10 +168,10 @@ export async function segmentarComIA(imagens: Buffer[]): Promise<DocumentoSegmen
     for (let p = 1; p <= total; p++) {
       if (!vistas.has(p)) docs.push({ paginas: [p], categoria: "outro", titulares: [] });
     }
-    return docs;
+    return { docs };
   } catch (erro) {
     console.error("[pdf-lote] falha ao separar os documentos:", erro);
-    return null;
+    return { motivo: "falha_ia" };
   }
 }
 

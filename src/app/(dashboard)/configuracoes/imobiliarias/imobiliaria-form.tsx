@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
+import { BotaoConsultarCnpj, BuscaCep } from "@/components/consulta-cep-cnpj";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,7 +50,7 @@ export function ImobiliariaForm({
   const campo = (
     id: Exclude<keyof ImobiliariaDados, "cd_imobiliaria" | "sn_qualifica_contrato">,
     label: string,
-    extra?: { tipo?: string; placeholder?: string; telefone?: boolean; largo?: boolean }
+    extra?: { tipo?: string; placeholder?: string; telefone?: boolean; largo?: boolean; rodape?: ReactNode }
   ) => (
     <div className={`flex flex-col gap-1.5 ${extra?.largo ? "sm:col-span-2" : ""}`}>
       <Label htmlFor={`${id}-${sufixo}`}>{label}</Label>
@@ -65,6 +66,7 @@ export function ImobiliariaForm({
           }))
         }
       />
+      {extra?.rodape}
     </div>
   );
 
@@ -72,11 +74,33 @@ export function ImobiliariaForm({
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {campo("nm_imobiliaria", "Razão social", { largo: true })}
-        {campo("ds_cnpj", "CNPJ")}
+        {campo("ds_cnpj", "CNPJ", {
+          rodape: (
+            <BotaoConsultarCnpj
+              cnpj={dados.ds_cnpj}
+              onDados={(d) =>
+                // Só completa o que está vazio.
+                setDados((atual) => ({
+                  ...atual,
+                  nm_imobiliaria: atual.nm_imobiliaria.trim() ? atual.nm_imobiliaria : d.razaoSocial,
+                  ds_endereco: atual.ds_endereco.trim() ? atual.ds_endereco : d.endereco,
+                  ds_telefone: atual.ds_telefone.trim() ? atual.ds_telefone : d.telefone ? formatarTelefone(d.telefone) : "",
+                  ds_email: atual.ds_email.trim() ? atual.ds_email : (d.email ?? ""),
+                }))
+              }
+            />
+          ),
+        })}
         {campo("ds_creci", "CRECI-PJ (só o número)", { placeholder: "Ex: 1.617" })}
         {campo("ds_endereco", "Endereço da sede", {
           largo: true,
           placeholder: "Rua, número, sala, bairro, cidade/UF, CEP",
+          rodape: (
+            <BuscaCep
+              atual={dados.ds_endereco}
+              onEndereco={(texto) => setDados((atual) => ({ ...atual, ds_endereco: texto }))}
+            />
+          ),
         })}
         {campo("ds_telefone", "Telefone", { tipo: "tel", placeholder: "(71) 99999-9999", telefone: true })}
         {campo("ds_email", "E-mail", { tipo: "email" })}

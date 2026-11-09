@@ -137,10 +137,17 @@ export async function lerPdfVariosDocumentos(formData: FormData): Promise<Leitur
     return { sucesso: false, erro: `O PDF tem ${render.total} páginas; o limite é ${MAX_PAGINAS_LOTE}. Divida o arquivo em partes.` };
   }
 
-  const separados = await segmentarComIA(render.imagens);
-  if (!separados) {
-    return { sucesso: false, erro: "Não consegui separar os documentos do PDF agora. Anexe cada documento pelo botão do tipo." };
+  const segmentacao = await segmentarComIA(render.imagens);
+  if (!("docs" in segmentacao)) {
+    const porQue =
+      segmentacao.motivo === "sem_chave"
+        ? "A leitura por IA não está ligada neste ambiente (falta a chave da Anthropic no servidor)."
+        : segmentacao.motivo === "falha_ia"
+          ? "O serviço de IA não respondeu agora. Tente de novo em instantes."
+          : "A IA não conseguiu entender a divisão das páginas deste PDF.";
+    return { sucesso: false, erro: `${porQue} Se persistir, anexe cada documento pelo botão do tipo.` };
   }
+  const separados = segmentacao.docs;
 
   const aLer = separados.filter((d) => d.categoria !== "outro");
   const ignorados = separados.length - aLer.length;

@@ -3,6 +3,7 @@ import {
   History,
   MapPin,
   PackageOpen,
+  Plug,
   ScrollText,
   ShieldCheck,
   UserRoundSearch,
@@ -108,6 +109,20 @@ export default function ConfiguracoesPage() {
             <p className="text-sm text-muted-foreground">
               Escolha quais seções do menu cada perfil (Jurídico, Imobiliária, Despachante...)
               pode acessar.
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      <Link href="/configuracoes/integracoes">
+        <Card className="h-full transition-colors hover:border-brand">
+          <CardHeader className="flex-row items-center gap-2 space-y-0">
+            <Plug className="h-5 w-5 text-accent" />
+            <CardTitle>Integrações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              APIs e serviços externos que o sistema usa — o que cada um faz, quanto custa e se está
+              configurado. Só Master vê.
             </p>
           </CardContent>
         </Card>

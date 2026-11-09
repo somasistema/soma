@@ -5,6 +5,7 @@ import { useRef, useState, useTransition, type Dispatch, type SetStateAction } f
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { BotaoConsultarCnpj, BuscaCep } from "@/components/consulta-cep-cnpj";
 import { DocumentoFiscalInput } from "@/components/ui/documento-fiscal-input";
 import { tipoDocumentoFiscal } from "@/lib/documento-fiscal";
 import { Input } from "@/components/ui/input";
@@ -971,7 +972,28 @@ function ParteFields({
                 </span>
               )}
             </Campo>
-            <DocumentoFiscalInput value={parte.ds_cpf} onChange={(v) => onChange({ ds_cpf: v })} />
+            <DocumentoFiscalInput
+              value={parte.ds_cpf}
+              onChange={(v) => onChange({ ds_cpf: v })}
+              rodape={
+                empresa ? (
+                  <BotaoConsultarCnpj
+                    cnpj={parte.ds_cpf}
+                    onDados={(d) =>
+                      // Só completa o que está vazio, olhando a pessoa como ela está quando a consulta volta.
+                      onChange((atual) => {
+                        const patch: Partial<ParteInput> = {};
+                        if (!atual.nm_parte.trim() && d.razaoSocial) patch.nm_parte = d.razaoSocial;
+                        if (!atual.ds_endereco.trim() && d.endereco) patch.ds_endereco = d.endereco;
+                        if (!atual.ds_telefone.trim() && d.telefone) patch.ds_telefone = formatarTelefone(d.telefone);
+                        if (!atual.ds_email.trim() && d.email) patch.ds_email = d.email;
+                        return patch;
+                      })
+                    }
+                  />
+                ) : undefined
+              }
+            />
             {empresa && (
               <>
                 <Campo label="NIRE">
@@ -1057,6 +1079,7 @@ function ParteFields({
                 value={parte.ds_endereco}
                 onChange={(e) => onChange({ ds_endereco: e.target.value })}
               />
+              <BuscaCep atual={parte.ds_endereco} onEndereco={(texto) => onChange({ ds_endereco: texto })} />
             </Campo>
             <Campo label="Conta bancária" className="sm:col-span-2">
               <Input
@@ -1473,6 +1496,18 @@ function NovaImobiliaria({ aoCriar }: { aoCriar: (imobiliaria: Imobiliaria) => v
         </Campo>
         <Campo label="CNPJ">
           <Input placeholder="00.000.000/0000-00" value={d.ds_cnpj} onChange={(e) => setD({ ...d, ds_cnpj: e.target.value })} />
+          <BotaoConsultarCnpj
+            cnpj={d.ds_cnpj}
+            onDados={(dados) =>
+              setD((atual) => ({
+                ...atual,
+                nm_imobiliaria: atual.nm_imobiliaria.trim() ? atual.nm_imobiliaria : dados.razaoSocial,
+                ds_endereco: atual.ds_endereco.trim() ? atual.ds_endereco : dados.endereco,
+                ds_telefone: atual.ds_telefone.trim() ? atual.ds_telefone : dados.telefone ? formatarTelefone(dados.telefone) : "",
+                ds_email: atual.ds_email.trim() ? atual.ds_email : (dados.email ?? ""),
+              }))
+            }
+          />
         </Campo>
         <Campo label="CRECI-PJ">
           <Input value={d.ds_creci} onChange={(e) => setD({ ...d, ds_creci: e.target.value })} />
@@ -1483,6 +1518,7 @@ function NovaImobiliaria({ aoCriar }: { aoCriar: (imobiliaria: Imobiliaria) => v
             value={d.ds_endereco}
             onChange={(e) => setD({ ...d, ds_endereco: e.target.value })}
           />
+          <BuscaCep atual={d.ds_endereco} onEndereco={(texto) => setD((atual) => ({ ...atual, ds_endereco: texto }))} />
         </Campo>
         <Campo label="E-mail (recebe a minuta e o contrato)">
           <Input type="email" value={d.ds_email} onChange={(e) => setD({ ...d, ds_email: e.target.value })} />
@@ -2023,6 +2059,10 @@ export function ProcessoForm({
               placeholder="Rua, número, complemento, bairro, cidade/UF"
               value={negocio.ds_imovel_endereco}
               onChange={(e) => patchNegocio({ ds_imovel_endereco: e.target.value })}
+            />
+            <BuscaCep
+              atual={negocio.ds_imovel_endereco}
+              onEndereco={(texto) => patchNegocio({ ds_imovel_endereco: texto })}
             />
           </Campo>
           <Campo label="Descrição do imóvel (como na matrícula)" className="sm:col-span-2">

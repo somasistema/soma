@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   documentoFiscalValido,
   formatarCpfCnpj,
@@ -19,6 +20,7 @@ export function DocumentoFiscalInput({
   onChange,
   placeholder,
   className,
+  rodape,
 }: {
   id?: string;
   label?: string;
@@ -26,6 +28,8 @@ export function DocumentoFiscalInput({
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  // Conteúdo logo abaixo do aviso de validade (ex: botão "Buscar dados do CNPJ").
+  rodape?: ReactNode;
 }) {
   const tipo = tipoDocumentoFiscal(value);
   const completo = tipo !== null;
@@ -52,6 +56,7 @@ export function DocumentoFiscalInput({
               : "CPF inválido — confira os números"}
         </span>
       )}
+      {rodape}
     </div>
   );
 }
