@@ -1,5 +1,6 @@
 import { checklistDaPessoa, formatarDataIso, parDaParte } from "@/lib/checklist-partes";
-import { rotuloDocumentoFiscal } from "@/lib/documento-fiscal";
+import type { ConsultaPaga } from "@/lib/consultas-pagas";
+import { documentoFiscalValido, rotuloDocumentoFiscal } from "@/lib/documento-fiscal";
 import { getSiteUrl } from "@/lib/mercadopago";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
@@ -18,6 +19,7 @@ import {
   type ProcessoParte,
   type TipoContrato,
 } from "@/types/database";
+import { ConsultasParte } from "./consultas-parte";
 import { DocumentoAnexarButton } from "./documento-anexar-button";
 import { LinkParteButton } from "./link-parte-button";
 
@@ -112,7 +114,10 @@ export function ParteCard({
   linkPreenchimento,
   docsPorParte,
   tpContrato = "venda",
+  consultas = null,
 }: {
+  // Consultas pagas já feitas; null = quem vê não pode consultar (ou o histórico ainda não existe).
+  consultas?: ConsultaPaga[] | null;
   tpContrato?: TipoContrato;
   parte: ProcessoParte;
   todasPartes: ProcessoParte[];
@@ -205,6 +210,16 @@ export function ParteCard({
         <Linha rotulo="Conta bancária" valor={parte.ds_conta_bancaria} />
         <Linha rotulo="Observações" valor={parte.ds_documentos_obs} />
       </div>
+
+      {consultas && temChecklist && (
+        <ConsultasParte
+          cdProcesso={cdProcesso}
+          cdParte={parte.cd_parte}
+          pessoaJuridica={empresa}
+          documentoValido={Boolean(parte.ds_cpf && documentoFiscalValido(parte.ds_cpf))}
+          consultas={consultas.filter((c) => c.cd_parte === parte.cd_parte)}
+        />
+      )}
 
       <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Documentos</p>
       <div className="flex flex-col">

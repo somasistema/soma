@@ -828,6 +828,20 @@ function ParteFields({
               value={parte.ds_cpf}
               placeholder="Se ficar em branco, o cliente preenche"
               onChange={(v) => onChange({ ds_cpf: v })}
+              rodape={
+                <BotaoConsultarCpf
+                  cpf={parte.ds_cpf}
+                  onDados={(d) =>
+                    // Só completa o que está vazio, olhando a pessoa como ela está quando a consulta volta.
+                    onChange((atual) => {
+                      const patch: Partial<ParteInput> = {};
+                      if (!atual.nm_parte.trim() && d.nome) patch.nm_parte = d.nome;
+                      if (!atual.dt_nascimento && d.nascimento) patch.dt_nascimento = d.nascimento;
+                      return patch;
+                    })
+                  }
+                />
+              }
             />
             <Campo label="Telefone (pra enviar no WhatsApp)">
               <Input

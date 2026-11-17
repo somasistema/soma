@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CONSULTAS_DO_IMOVEL } from "@/lib/consultas-pagas";
 import { createClient } from "@/lib/supabase/server";
 import { rotuloLadoParte, type TipoContrato } from "@/types/database";
+import { carregarConsultas } from "./consultas-carga";
 import { carregarDadosNegocio, ParteCard, PLURAL_LADO } from "./dados-negocio-comum";
 
 // A imobiliária do processo: o e-mail dela (cadastro em Configurações) é pra
@@ -56,6 +58,10 @@ export async function PartesSection({
 }) {
   const { linkBase, grupos, todasPartes, docsPorParte } = await carregarDadosNegocio(cdProcesso);
 
+  // Consultas pagas só para Master e Jurídico (o bloco some para os demais).
+  const { consultas: todas, semHistorico } = await carregarConsultas(cdProcesso);
+  const consultas = todas?.filter((c) => !CONSULTAS_DO_IMOVEL.includes(c.tp_consulta)) ?? null;
+
   return (
     <Card>
       <CardHeader>
@@ -90,10 +96,16 @@ export async function PartesSection({
                 }
                 docsPorParte={docsPorParte}
                 tpContrato={tpContrato}
+                consultas={consultas}
               />
             ))}
           </div>
         ))}
+        {semHistorico && (
+          <p className="text-xs text-muted-foreground">
+            Consultas de certidão e protesto desligadas: falta rodar a migration 082 no banco.
+          </p>
+        )}
         <ImobiliariaDoProcesso cdProcesso={cdProcesso} />
       </CardContent>
     </Card>

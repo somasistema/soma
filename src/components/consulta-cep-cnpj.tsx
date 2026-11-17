@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { consultarCep, consultarCnpj, consultarCpf } from "@/lib/consultas-externas";
@@ -21,11 +21,12 @@ export function BuscaCep({
   const [cep, setCep] = useState("");
   const [pendente, startConsulta] = useTransition();
   const [mensagem, setMensagem] = useState<{ ok: boolean; texto: string } | null>(null);
+  const ultimoCep = useRef("");
 
-  function buscar() {
+  function buscar(valor: string = cep) {
     setMensagem(null);
     startConsulta(async () => {
-      const r = await consultarCep(cep);
+      const r = await consultarCep(valor);
       if (!r.ok) {
         setMensagem({ ok: false, texto: r.erro });
         return;
@@ -45,25 +46,20 @@ export function BuscaCep({
           placeholder="CEP: 00000-000"
           className="h-8 w-36 text-xs"
           value={cep}
-          onChange={(e) => setCep(formatarCep(e.target.value))}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (soDigitos(cep).length === 8 && !pendente) buscar();
+          onChange={(e) => {
+            const novo = formatarCep(e.target.value);
+            setCep(novo);
+            // Consulta gratuita: busca sozinha ao completar os 8 dígitos (uma vez por CEP).
+            const d = soDigitos(novo);
+            if (d.length === 8 && d !== ultimoCep.current) {
+              ultimoCep.current = d;
+              buscar(novo);
+            } else if (d.length < 8) {
+              ultimoCep.current = "";
             }
           }}
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          disabled={pendente || soDigitos(cep).length !== 8}
-          onClick={buscar}
-        >
-          <Search className="h-3.5 w-3.5" />
-          {pendente ? "Buscando..." : "Buscar endereço pelo CEP"}
-        </Button>
+        {pendente && <span className="text-xs text-muted-foreground">Buscando endereço...</span>}
       </div>
       {mensagem && (
         <p role="status" className={`mt-1 text-xs ${mensagem.ok ? "text-status-aceito" : "text-status-reprovado"}`}>
@@ -88,6 +84,11 @@ export function BotaoConsultarCnpj({
   const [pendente, startConsulta] = useTransition();
   const [mensagem, setMensagem] = useState<{ tom: "ok" | "aviso" | "erro"; texto: string } | null>(null);
   const valido = soDigitos(cnpj).length === 14 && documentoFiscalValido(cnpj);
+  const ultimoCnpj = useRef("");
+  const aoReceber = useRef(onDados);
+  useEffect(() => {
+    aoReceber.current = onDados;
+  });
 
   function buscar() {
     setMensagem(null);
@@ -97,7 +98,7 @@ export function BotaoConsultarCnpj({
         setMensagem({ tom: "erro", texto: r.erro });
         return;
       }
-      onDados(r.dados);
+      aoReceber.current(r.dados);
       setMensagem(
         r.dados.ativa
           ? { tom: "ok", texto: "Dados da Receita Federal carregados nos campos vazios. Confira." }
@@ -109,22 +110,37 @@ export function BotaoConsultarCnpj({
     });
   }
 
+  // Consulta gratuita: busca sozinha quando o CNPJ fica válido (uma vez por número).
+  const digitos = soDigitos(cnpj);
+  useEffect(() => {
+    if (!valido) {
+      ultimoCnpj.current = "";
+      return;
+    }
+    if (ultimoCnpj.current === digitos) return;
+    ultimoCnpj.current = digitos;
+    buscar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valido, digitos]);
+
   const cor = mensagem?.tom === "ok" ? "text-status-aceito" : mensagem?.tom === "aviso" ? "text-status-pendente" : "text-status-reprovado";
 
   return (
     <div className={className}>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5 text-xs"
-        disabled={pendente || !valido}
-        onClick={buscar}
-        title={valido ? undefined : "Digite um CNPJ válido para buscar"}
-      >
-        <Search className="h-3.5 w-3.5" />
-        {pendente ? "Buscando..." : "Buscar dados do CNPJ"}
-      </Button>
+      {valido && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          disabled={pendente || !valido}
+          onClick={buscar}
+          title={valido ? "Buscar de novo" : "Buscar de novo"}
+        >
+          <Search className="h-3.5 w-3.5" />
+          {pendente ? "Buscando dados do CNPJ..." : "Buscar de novo"}
+        </Button>
+      )}
       {mensagem && (
         <p role="status" className={`mt-1 text-xs ${cor}`}>
           {mensagem.texto}

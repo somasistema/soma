@@ -4,6 +4,8 @@ import {
   CATEGORIA_DOC_INTAKE_LABEL,
   CATEGORIAS_DOC_IMOVEL,
 } from "@/types/database";
+import { carregarConsultas } from "./consultas-carga";
+import { ConsultasImovel } from "./consultas-parte";
 import { DocumentoAnexarButton } from "./documento-anexar-button";
 import {
   carregarDadosNegocio,
@@ -15,7 +17,8 @@ import {
 } from "./dados-negocio-comum";
 
 export async function ImovelSection({ cdProcesso }: { cdProcesso: string }) {
-  const { negocio, corretores, docsImovel, cartorio } = await carregarDadosNegocio(cdProcesso);
+  const { negocio, corretores, docsImovel, cartorio, todasPartes } = await carregarDadosNegocio(cdProcesso);
+  const { consultas, semHistorico } = await carregarConsultas(cdProcesso);
 
   return (
     <Card>
@@ -69,6 +72,19 @@ export async function ImovelSection({ cdProcesso }: { cdProcesso: string }) {
                 <Linha rotulo="Prazo p/ assinar o financiamento" valor={negocio.ds_prazo_financiamento} />
                 <Linha rotulo="O que fica no imóvel" valor={negocio.ds_itens_imovel} />
               </>
+            )}
+
+            {consultas && (
+              <ConsultasImovel
+                cdProcesso={cdProcesso}
+                vendedores={todasPartes.filter((p) => p.tp_lado === "vendedor")}
+                consultas={consultas}
+              />
+            )}
+            {semHistorico && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Consultas desligadas: falta rodar a migration 082 no banco.
+              </p>
             )}
 
             <p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">
