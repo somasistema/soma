@@ -64,7 +64,7 @@ export async function consultarParte(
     const { data: existente } = await service
       .schema("soma")
       .from("consultas_externas")
-      .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao")
+      .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao, detalhe:js_dados->>mensagem, comprovante:js_dados->>comprovante")
       .eq("cd_processo", cdProcesso)
       .eq("cd_parte", cdParte)
       .eq("tp_consulta", tipo)
@@ -100,7 +100,7 @@ export async function consultarParte(
       sn_homologacao: c.homologacao,
       cd_usuario: usuario.cd_usuario,
     })
-    .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao")
+    .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao, detalhe:js_dados->>mensagem, comprovante:js_dados->>comprovante")
     .single();
   if (error || !linha) {
     // A consulta já foi paga: registra o resumo no log para não se perder.

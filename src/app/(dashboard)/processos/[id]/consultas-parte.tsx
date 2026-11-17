@@ -114,6 +114,14 @@ export function LinhaConsulta({
             </span>
           </div>
           {ultima.ds_resumo && <p className="text-foreground">{ultima.ds_resumo}</p>}
+          {ultima.detalhe && !ultima.ds_resumo?.includes(ultima.detalhe) && (
+            <p className="max-h-32 overflow-y-auto whitespace-pre-line text-muted-foreground">{ultima.detalhe}</p>
+          )}
+          {ultima.comprovante?.startsWith("https://") && (
+            <a href={ultima.comprovante} target="_blank" rel="noopener noreferrer" className="w-fit text-primary underline">
+              Ver comprovante da consulta
+            </a>
+          )}
         </div>
       )}
 

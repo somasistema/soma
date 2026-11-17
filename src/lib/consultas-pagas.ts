@@ -17,6 +17,9 @@ export type ConsultaPaga = {
   vl_custo: number;
   sn_homologacao: boolean;
   ts_criacao: string;
+  // Detalhe devolvido pelo fornecedor (quando há): texto da prefeitura e link do comprovante.
+  detalhe?: string | null;
+  comprovante?: string | null;
 };
 
 export const UF_CERTIDAO_ESTADUAL = "BA";

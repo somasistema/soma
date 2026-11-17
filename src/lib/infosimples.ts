@@ -59,7 +59,7 @@ function normalizarCnd(d: Record<string, unknown>, custo: number | null): Consul
       numeroCertidao: texto(d.numero_certidao),
       codigoControle: texto(d.codigo_controle_certidao),
       inscricaoMunicipal: texto(d.inscricao_municipal),
-      mensagem: mensagem.slice(0, 500),
+      mensagem: mensagem.slice(0, 1500),
       comprovante: texto(d.site_receipt),
     },
     custo,

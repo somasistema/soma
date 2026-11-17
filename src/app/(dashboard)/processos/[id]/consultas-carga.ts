@@ -14,7 +14,7 @@ export async function carregarConsultas(
   const { data, error } = await supabase
     .schema("soma")
     .from("consultas_externas")
-    .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao")
+    .select("cd_consulta, cd_parte, tp_consulta, ds_documento, ds_uf, tp_resultado, ds_resumo, dt_validade, vl_custo, sn_homologacao, ts_criacao, detalhe:js_dados->>mensagem, comprovante:js_dados->>comprovante")
     .eq("cd_processo", cdProcesso)
     .order("ts_criacao", { ascending: false });
   if (error) return { consultas: null, semHistorico: true };
