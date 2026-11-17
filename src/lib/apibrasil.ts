@@ -71,29 +71,59 @@ function normalizarFederal(d: Record<string, unknown>): Omit<ConsultaNormalizada
   };
 }
 
+// Resumo da forma da resposta (chaves e valores curtos, sem nome nem documento) para diagnosticar
+// um resultado que o sistema não soube ler, sem guardar dado pessoal.
+function formatoDaResposta(v: unknown, profundidade = 0): unknown {
+  if (Array.isArray(v)) return v.length === 0 ? [] : [formatoDaResposta(v[0], profundidade + 1), `(${v.length} itens)`];
+  if (v && typeof v === "object") {
+    if (profundidade > 3) return "{...}";
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).map(([k, x]) => [
+        k,
+        /nome|cpf|cnpj|documento|endereco|logradouro|email|telefone/i.test(k)
+          ? typeof x
+          : typeof x === "string"
+            ? x.slice(0, 80)
+            : formatoDaResposta(x, profundidade + 1),
+      ])
+    );
+  }
+  return v;
+}
+
 function normalizarEstadual(d: Record<string, unknown>): Omit<ConsultaNormalizada, "custo" | "homologacao"> {
-  const r = (d.retorno && typeof d.retorno === "object" ? d.retorno : {}) as Record<string, unknown>;
+  // A resposta real pode vir em "retorno", "dados" ou direto em "data".
+  const pega = (x: unknown) => (x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : null);
+  const r = pega(d.retorno) ?? pega(d.dados) ?? d;
   const debitos = lista(r.debitos);
+  const possui = r.possuiDebito ?? r.possui_debito ?? r.possuiDebitos;
+  const status = texto(r.status) || texto(r.situacao);
+  const observacao = texto(r.observacao) || texto(r.mensagem) || texto(d.mensagem);
   let resultado: ResultadoConsultaPaga = "desconhecido";
-  let resumo = "Resultado não reconhecido: confira os dados.";
-  if (r.possuiDebito === false) {
+  let resumo = "";
+  if (possui === false || (possui == null && /negativa|nada consta|n[ãa]o constam/i.test(status))) {
     resultado = "negativa";
     resumo = "Certidão negativa de débitos estaduais.";
-  } else if (r.possuiDebito === true) {
+  } else if (possui === true || debitos.length > 0 || (possui == null && /positiva|constam d[ée]bitos|com d[ée]bitos/i.test(status))) {
     resultado = "positiva";
     resumo = debitos.length > 0 ? `Constam débitos estaduais (${debitos.length}).` : "Constam débitos estaduais.";
+  } else {
+    const motivo = [status, observacao].filter(Boolean).join(" — ").slice(0, 280);
+    resumo = motivo ? `Não foi possível concluir: ${motivo}` : "A Sefaz não devolveu um resultado conclusivo. Confira no site da Sefaz-BA.";
+    console.error("[apibrasil] estadual sem resultado reconhecido:", JSON.stringify(formatoDaResposta(d)).slice(0, 1500));
   }
   return {
     resultado,
     resumo,
-    validade: dataBrParaIso(r.dataValidade),
+    validade: dataBrParaIso(r.dataValidade ?? r.data_validade),
     dados: {
-      status: texto(r.status),
-      numeroCertidao: texto(r.numeroCertidao),
-      codigoValidacao: texto(r.codigoValidacao),
+      status,
+      numeroCertidao: texto(r.numeroCertidao) || texto(r.numero_certidao),
+      codigoValidacao: texto(r.codigoValidacao) || texto(r.codigo_validacao),
       efeitoNegativa: r.efeitoNegativa ?? null,
-      observacao: texto(r.observacao).slice(0, 300),
+      observacao: observacao.slice(0, 300),
       debitos: debitos.slice(0, 10),
+      ...(resultado === "desconhecido" ? { formato: formatoDaResposta(d) } : {}),
     },
   };
 }
@@ -195,6 +225,10 @@ export async function consultarApiBrasil(
 
   const data = bruta.data ?? {};
   const base = tipo === "certidao_federal" ? normalizarFederal(data) : tipo === "certidao_estadual" ? normalizarEstadual(data) : normalizarProtesto(data);
+  if (base.resultado === "desconhecido" && !("formato" in base.dados)) {
+    base.dados = { ...base.dados, formato: formatoDaResposta(data) };
+    console.error(`[apibrasil] ${tipo} sem resultado reconhecido:`, JSON.stringify(base.dados.formato).slice(0, 1500));
+  }
   return {
     ok: true,
     consulta: {

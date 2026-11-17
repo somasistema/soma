@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmarDialogo } from "@/components/ui/confirmar-dialogo";
 import {
   CONSULTA_PAGA_INFO,
   consultasDaPessoa,
@@ -60,13 +61,12 @@ export function LinhaConsulta({
     });
   }, [automatica, ultima, cdProcesso, cdParte, tipo]);
 
-  function consultar() {
-    const preco = formatarMoeda(info.custo);
-    const aviso =
-      ultima && aindaValida(ultima)
-        ? `Já existe esta consulta, feita em ${formatarData(ultima.ts_criacao)}${ultima.dt_validade ? ` e válida até ${formatarData(ultima.dt_validade)}` : ""}.\n\nConsultar de novo cobra ${preco} do saldo. Continuar?`
-        : `${info.rotulo}: esta consulta cobra ${preco} do saldo. Continuar?`;
-    if (!window.confirm(aviso)) return;
+  const [confirmando, setConfirmando] = useState(false);
+  const preco = formatarMoeda(info.custo);
+  const jaTem = Boolean(ultima && aindaValida(ultima));
+
+  function executar() {
+    setConfirmando(false);
     setErro(null);
     setAviso(null);
     startConsulta(async () => {
@@ -91,12 +91,32 @@ export function LinhaConsulta({
           size="sm"
           className="h-8 shrink-0 gap-1.5 text-xs"
           disabled={pendente}
-          onClick={consultar}
+          onClick={() => setConfirmando(true)}
         >
           <Search className="h-3.5 w-3.5" />
           {pendente ? "Consultando..." : ultima ? "Consultar de novo" : "Consultar"}
         </Button>
       </div>
+
+      <ConfirmarDialogo
+        aberto={confirmando}
+        titulo="Confirmar consulta"
+        confirmar={`Consultar por ${preco}`}
+        onConfirmar={executar}
+        onCancelar={() => setConfirmando(false)}
+      >
+        <p>
+          <strong className="text-foreground">{titulo ?? info.rotulo}</strong>
+          <br />
+          Esta consulta cobra <strong className="text-foreground">{preco}</strong> do saldo.
+        </p>
+        {jaTem && ultima && (
+          <p className="rounded-radius bg-status-pendente/15 px-2 py-1.5 text-status-pendente">
+            Já existe esta consulta, feita em {formatarData(ultima.ts_criacao)}
+            {ultima.dt_validade ? ` e válida até ${formatarData(ultima.dt_validade)}` : ""}. Consultar de novo cobra outra vez.
+          </p>
+        )}
+      </ConfirmarDialogo>
 
       {ultima && selo && (
         <div className="flex flex-col gap-1 rounded-radius bg-muted/40 px-2 py-1.5 text-xs">
