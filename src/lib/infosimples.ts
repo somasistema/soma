@@ -46,9 +46,17 @@ function normalizarCnd(d: Record<string, unknown>, custo: number | null): Consul
   } else if (/n[ãa]o est[áa] inscrit/i.test(mensagem)) {
     // Sem cadastro na prefeitura: não é débito, mas também não há certidão.
     resumo = "Não inscrito nos cadastros da Secretaria da Fazenda de Salvador (sem certidão emitida).";
+  } else if (/insuficientes? para emiss/i.test(mensagem)) {
+    // A prefeitura não emite pela internet: não quer dizer que há débito, a situação precisa ser vista no PAD.
+    resumo =
+      "A prefeitura não emitiu a certidão pela internet (informações insuficientes). Isso não confirma débito: consulte a situação no PAD (pad.salvador.ba.gov.br) ou na SEFAZ.";
   } else if (d.conseguiu_emitir_certidao_negativa === false) {
-    resultado = "positiva";
-    resumo = mensagem ? `Certidão não emitida: ${mensagem.slice(0, 280)}` : "Certidão negativa não emitida: constam débitos ou pendências.";
+    if (/d[ée]bito|pend[êe]ncia|d[ií]vida/i.test(mensagem)) {
+      resultado = "positiva";
+      resumo = `Certidão não emitida: ${mensagem.slice(0, 280)}`;
+    } else {
+      resumo = mensagem ? `Certidão não emitida: ${mensagem.slice(0, 280)}` : "Certidão não emitida pela prefeitura. Confira o comprovante.";
+    }
   }
 
   return {
